@@ -1,0 +1,19 @@
+name: Add enhancements to caf project
+
+on:
+  issues:
+    types:
+      - opened
+      - reopened
+
+jobs:
+  add-to-project:
+    name: Add issue to project
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/add-to-project@RELEASE_VERSION
+        with:
+          project-url: https://github.com/orgs/Transport-for-the-North/projects/31
+          github-token: ${{ secrets.TEM_PROJECTS }}
+          labeled: enhancement
+          label-operator: OR
