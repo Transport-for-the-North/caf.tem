@@ -1,20 +1,14 @@
 # -*- coding: utf-8 -*-
 """
-Created on: 29/05/2024
-Updated on:
-
-Original author: Ben Taylor
-Last update made by:
-Other updates made by:
-
-File purpose:
-
+Module containing input classes for trip-end models, mainly around imports and 
+exports.
 """
 # Built-Ins
 import enum
 import os
 import pathlib
 import collections
+
 # Third Party
 
 # Local Imports
@@ -23,6 +17,7 @@ import collections
 # pylint: enable=import-error,wrong-import-position
 
 # # # CONSTANTS # # #
+
 
 # # # CLASSES # # #
 @enum.unique
@@ -34,12 +29,13 @@ class Scenarios(enum.Enum):
     REGIONAL = "Regional"
     TECHNOLOGY = "Technology"
 
-class NoTEMModelPaths:
-    """Base Path Class for all NoTEM models.
 
-    This class forms the base path class that all NoTEM model path classes
+class TEMModelPaths:
+    """Base Path Class for all TEM models.
+
+    This class forms the base path class that all TEM model path classes
     are built off of. It defines a number of constants to ensure all
-    NoTEM models follow the same output structure and naming conventions
+    TEM models follow the same output structure and naming conventions
 
     Attributes
     ----------
@@ -54,14 +50,15 @@ class NoTEMModelPaths:
         The home directory of all reports. Is used as a basis for
         all report path building.
     """
+
     # Export fname params
     _trip_origin = None
-    _zoning_system = 'msoa'
+    _zoning_system = "msoa"
 
     # Segmentation names
-    _pure_demand = 'pure_demand'
-    _fully_segmented = 'fully_segmented'
-    _notem_segmented = 'notem_segmented'
+    _pure_demand = "pure_demand"
+    _fully_segmented = "fully_segmented"
+    _tem_segmented = "tem_segmented"
 
     # Report names
     _segment_totals_report_name = "segment_totals"
@@ -71,24 +68,25 @@ class NoTEMModelPaths:
 
     # Output Path Classes
     ExportPaths = collections.namedtuple(
-        typename='ExportPaths',
-        field_names='home, pure_demand, fully_segmented, notem_segmented',
+        typename="ExportPaths",
+        field_names="home, pure_demand, fully_segmented, tem_segmented",
     )
 
     ReportPaths = collections.namedtuple(
-        typename='ReportPaths',
-        field_names='segment_total, ca_sector, ie_sector, lad_report',
+        typename="ReportPaths",
+        field_names="segment_total, ca_sector, ie_sector, lad_report",
     )
 
     # Define output fnames
-    _base_output_fname = '%s_%s_%s_%d_dvec.h5'
-    _base_report_fname = '%s_%s_%d_%s.csv'
+    _base_output_fname = "%s_%s_%s_%d_dvec.h5"
+    _base_report_fname = "%s_%s_%d_%s.csv"
 
-    def __init__(self,
-                 path_years: list[int],
-                 export_home: os.PathLike,
-                 report_home: os.PathLike,
-                 ):
+    def __init__(
+        self,
+        path_years: list[int],
+        export_home: os.PathLike,
+        report_home: os.PathLike,
+    ):
         """Validates input attributes and builds class
 
         Parameters
@@ -113,11 +111,10 @@ class NoTEMModelPaths:
         if not self.report_home.is_dir():
             raise FileNotFoundError(f"{report_home} is not a valid dir.")
 
-
         # Make sure variables that need to be overwritten, are
         if self._trip_origin is None:
             raise ValueError(
-                "When inheriting NoTEMModelPaths the class variable "
+                "When inheriting TEMModelPaths the class variable "
                 "_trip_origin needs to be set. This is usually set to "
                 "'hb', or 'nhb' to reflect the type of model being run."
             )
@@ -132,7 +129,7 @@ class NoTEMModelPaths:
 
         pure_demand_paths = dict()
         fully_segmented_paths = dict()
-        notem_segmented_paths = dict()
+        tem_segmented_paths = dict()
 
         for year in self.path_years:
             # Pure demand path
@@ -143,16 +140,16 @@ class NoTEMModelPaths:
             fname = base_fname % (*fname_parts, self._fully_segmented, year)
             fully_segmented_paths[year] = self.export_home / fname
 
-            # NoTEM Segmented path
-            fname = base_fname % (*fname_parts, self._notem_segmented, year)
-            notem_segmented_paths[year] = self.export_home / fname
+            # TEM Segmented path
+            fname = base_fname % (*fname_parts, self._tem_segmented, year)
+            tem_segmented_paths[year] = self.export_home / fname
 
         # Create the export_paths class
         self.export_paths = self.ExportPaths(
             home=self.export_home,
             pure_demand=pure_demand_paths,
             fully_segmented=fully_segmented_paths,
-            notem_segmented=notem_segmented_paths,
+            tem_segmented=tem_segmented_paths,
         )
 
     def _create_report_paths(self) -> None:
@@ -163,12 +160,13 @@ class NoTEMModelPaths:
             home=self.report_home,
             pure_demand=self._generate_report_paths(self._pure_demand),
             fully_segmented=None,
-            notem_segmented=self._generate_report_paths(self._notem_segmented),
+            tem_segmented=self._generate_report_paths(self._tem_segmented),
         )
 
-    def _generate_report_paths(self,
-                               report_name: str,
-                               ) -> tuple[dict[int, str], dict[int, str], dict[int, str]]:
+    def _generate_report_paths(
+        self,
+        report_name: str,
+    ) -> tuple[dict[int, str], dict[int, str], dict[int, str]]:
         """
         Creates report file paths for each of years
 
@@ -226,79 +224,38 @@ class NoTEMModelPaths:
             lad_report=lad_paths,
         )
 
-class HBProductionModelPaths(NoTEMModelPaths):
-    """Path Class for the NoTEM HB Production Model.
+
+class HBProductionModelPaths(TEMModelPaths):
+    """Path Class for the TEM HB Production Model.
 
     This class defines and builds the export and reporting paths for
-    the NoTEMModelPaths. If the outputs of HBProductionModel are needed,
+    the TEMModelPaths. If the outputs of HBProductionModel are needed,
     create an instance of this class to generate all paths.
 
     Attributes
     ----------
     export_paths: os.PathLike
-        A namedtuple object (NoTEMModelPaths.ExportPaths) with the following
+        A namedtuple object (TEMModelPaths.ExportPaths) with the following
         attributes (dictionary keys are path_years):
         - home: The home directory of all exports
         - pure_demand: A dictionary of export paths for pure_demand DVectors
         - fully_segmented: A dictionary of export paths for fully_segmented DVectors
-        - notem_segmented: A dictionary of export paths for notem_segmented DVectors
+        - tem_segmented: A dictionary of export paths for tem_segmented DVectors
 
     report_paths: os.PathLike
-        A namedtuple object (NoTEMModelPaths.ExportPaths) with the following
+        A namedtuple object (TEMModelPaths.ExportPaths) with the following
         attributes (dictionary keys are path_years):
         - home: The home directory of all exports
-        - pure_demand: A NoTEMModelPaths.ReportPaths object
-        - fully_segmented: A NoTEMModelPaths.ReportPaths object
-        - notem_segmented: A NoTEMModelPaths.ReportPaths object
+        - pure_demand: A TEMModelPaths.ReportPaths object
+        - fully_segmented: A TEMModelPaths.ReportPaths object
+        - tem_segmented: A TEMModelPaths.ReportPaths object
 
-    See NoTEMModelPaths for documentation on:
+    See TEMModelPaths for documentation on:
     path_years, export_home, report_home
     """
+
     # Export fname params
-    _trip_origin = 'hb'
-
-    def __init__(self, *args, **kwargs):
-        """Generates the export and report paths
-
-        See super for more detail
-        """
-        # Set up superclass
-        super().__init__(*args, **kwargs)
-
-        # Generate the paths
-        self._create_export_paths()
-        self._create_report_paths()
-
-class HBAttractionModelPaths(NoTEMModelPaths):
-    """Path Class for the NoTEM HB Attraction Model.
-
-    This class defines and builds the export and reporting paths for
-    the NoTEMModelPaths. If the outputs of HBAttractionModel are needed,
-    create an instance of this class to generate all paths.
-
-    Attributes
-    ----------
-    export_paths: os.PathLike
-        A namedtuple object (NoTEMModelPaths.ExportPaths) with the following
-        attributes (dictionary keys are path_years):
-        - home: The home directory of all exports
-        - pure_demand: A dictionary of export paths for pure_demand DVectors
-        - fully_segmented: A dictionary of export paths for fully_segmented DVectors
-        - notem_segmented: A dictionary of export paths for notem_segmented DVectors
-
-    report_paths: os.PathLike
-        A namedtuple object (NoTEMModelPaths.ExportPaths) with the following
-        attributes (dictionary keys are path_years):
-        - home: The home directory of all exports
-        - pure_demand: A NoTEMModelPaths.ReportPaths object
-        - fully_segmented: A NoTEMModelPaths.ReportPaths object
-        - notem_segmented: A NoTEMModelPaths.ReportPaths object
-
-    See NoTEMModelPaths for documentation on:
-    path_years, export_home, report_home
-    """
-    # Export fname params
-    _trip_origin = 'hb'
+    _trip_origin = "hb"
 
     def __init__(self, *args, **kwargs):
         """Generates the export and report paths
@@ -313,36 +270,37 @@ class HBAttractionModelPaths(NoTEMModelPaths):
         self._create_report_paths()
 
 
-class NHBProductionModelPaths(NoTEMModelPaths):
-    """Path Class for the NoTEM NHB Production Model.
+class HBAttractionModelPaths(TEMModelPaths):
+    """Path Class for the TEM HB Attraction Model.
 
     This class defines and builds the export and reporting paths for
-    the NoTEMModelPaths. If the outputs of NHBProductionModel are needed,
+    the TEMModelPaths. If the outputs of HBAttractionModel are needed,
     create an instance of this class to generate all paths.
 
     Attributes
     ----------
     export_paths: os.PathLike
-        A namedtuple object (NoTEMModelPaths.ExportPaths) with the following
+        A namedtuple object (TEMModelPaths.ExportPaths) with the following
         attributes (dictionary keys are path_years):
         - home: The home directory of all exports
         - pure_demand: A dictionary of export paths for pure_demand DVectors
         - fully_segmented: A dictionary of export paths for fully_segmented DVectors
-        - notem_segmented: A dictionary of export paths for notem_segmented DVectors
+        - tem_segmented: A dictionary of export paths for tem_segmented DVectors
 
     report_paths: os.PathLike
-        A namedtuple object (NoTEMModelPaths.ExportPaths) with the following
+        A namedtuple object (TEMModelPaths.ExportPaths) with the following
         attributes (dictionary keys are path_years):
         - home: The home directory of all exports
-        - pure_demand: A NoTEMModelPaths.ReportPaths object
-        - fully_segmented: A NoTEMModelPaths.ReportPaths object
-        - notem_segmented: A NoTEMModelPaths.ReportPaths object
+        - pure_demand: A TEMModelPaths.ReportPaths object
+        - fully_segmented: A TEMModelPaths.ReportPaths object
+        - tem_segmented: A TEMModelPaths.ReportPaths object
 
-    See NoTEMModelPaths for documentation on:
+    See TEMModelPaths for documentation on:
     path_years, export_home, report_home
     """
+
     # Export fname params
-    _trip_origin = 'nhb'
+    _trip_origin = "hb"
 
     def __init__(self, *args, **kwargs):
         """Generates the export and report paths
@@ -357,36 +315,37 @@ class NHBProductionModelPaths(NoTEMModelPaths):
         self._create_report_paths()
 
 
-class NHBAttractionModelPaths(NoTEMModelPaths):
-    """Path Class for the NoTEM NHB Attraction Model.
+class NHBProductionModelPaths(TEMModelPaths):
+    """Path Class for the TEM HB Production Model.
 
     This class defines and builds the export and reporting paths for
-    the NoTEMModelPaths. If the outputs of NHBAttractionModel are needed,
+    the TEMModelPaths. If the outputs of NHBProductionModel are needed,
     create an instance of this class to generate all paths.
 
     Attributes
     ----------
     export_paths: os.PathLike
-        A namedtuple object (NoTEMModelPaths.ExportPaths) with the following
+        A namedtuple object (TEMModelPaths.ExportPaths) with the following
         attributes (dictionary keys are path_years):
         - home: The home directory of all exports
         - pure_demand: A dictionary of export paths for pure_demand DVectors
         - fully_segmented: A dictionary of export paths for fully_segmented DVectors
-        - notem_segmented: A dictionary of export paths for notem_segmented DVectors
+        - tem_segmented: A dictionary of export paths for tem_segmented DVectors
 
     report_paths: os.PathLike
-        A namedtuple object (NoTEMModelPaths.ExportPaths) with the following
+        A namedtuple object (TEMModelPaths.ExportPaths) with the following
         attributes (dictionary keys are path_years):
         - home: The home directory of all exports
-        - pure_demand: A NoTEMModelPaths.ReportPaths object
-        - fully_segmented: A NoTEMModelPaths.ReportPaths object
-        - notem_segmented: A NoTEMModelPaths.ReportPaths object
+        - pure_demand: A TEMModelPaths.ReportPaths object
+        - fully_segmented: A TEMModelPaths.ReportPaths object
+        - tem_segmented: A TEMModelPaths.ReportPaths object
 
-    See NoTEMModelPaths for documentation on:
+    See TEMModelPaths for documentation on:
     path_years, export_home, report_home
     """
+
     # Export fname params
-    _trip_origin = 'nhb'
+    _trip_origin = "nhb"
 
     def __init__(self, *args, **kwargs):
         """Generates the export and report paths
@@ -401,14 +360,59 @@ class NHBAttractionModelPaths(NoTEMModelPaths):
         self._create_report_paths()
 
 
-class NoTEMExportPaths:
-    """Path Class for the NoTEM Model.
+class NHBAttractionModelPaths(TEMModelPaths):
+    """Path Class for the TEM NHB Attraction Model.
 
     This class defines and builds the export and reporting paths for
-    all NoTEM sub-models. It creates and stores an instance of:
+    the TEMModelPaths. If the outputs of NHBAttractionModel are needed,
+    create an instance of this class to generate all paths.
+
+    Attributes
+    ----------
+    export_paths: os.PathLike
+        A namedtuple object (TEMModelPaths.ExportPaths) with the following
+        attributes (dictionary keys are path_years):
+        - home: The home directory of all exports
+        - pure_demand: A dictionary of export paths for pure_demand DVectors
+        - fully_segmented: A dictionary of export paths for fully_segmented DVectors
+        - tem_segmented: A dictionary of export paths for tem_segmented DVectors
+
+    report_paths: os.PathLike
+        A namedtuple object (TEMModelPaths.ExportPaths) with the following
+        attributes (dictionary keys are path_years):
+        - home: The home directory of all exports
+        - pure_demand: A TEMModelPaths.ReportPaths object
+        - fully_segmented: A TEMModelPaths.ReportPaths object
+        - tem_segmented: A TEMModelPaths.ReportPaths object
+
+    See TEMModelPaths for documentation on:
+    path_years, export_home, report_home
+    """
+
+    # Export fname params
+    _trip_origin = "nhb"
+
+    def __init__(self, *args, **kwargs):
+        """Generates the export and report paths
+
+        See super for more detail
+        """
+        # Set up superclass
+        super().__init__(*args, **kwargs)
+
+        # Generate the paths
+        self._create_export_paths()
+        self._create_report_paths()
+
+
+class TEMExportPaths:
+    """Path Class for the TEM Model.
+
+    This class defines and builds the export and reporting paths for
+    all TEM sub-models. It creates and stores an instance of:
     HBProductionModelPaths, NHBProductionModelPaths,
     HBAttractionModelPaths, NHBAttractionModelPaths.
-    If the outputs of NoTEM are needed, create an instance of this
+    If the outputs of TEM are needed, create an instance of this
     class to generate all paths.
 
     Attributes
@@ -421,7 +425,7 @@ class NoTEMExportPaths:
         The name of the scenario to run for. As passed in to the constructor.
 
     iteration_name:
-        The name of this iteration of the NoTEM models. Constructor argument
+        The name of this iteration of the TEM models. Constructor argument
         of the same name will have 'iter' prepended to create this name.
         e.g. if '3i' was passed in, this would become 'iter3i'.
 
@@ -447,21 +451,22 @@ class NoTEMExportPaths:
     """
 
     # Define the names of the export dirs
-    _hb_productions_dir = 'hb_productions'
-    _nhb_productions_dir = 'nhb_productions'
-    _hb_attractions_dir = 'hb_attractions'
-    _nhb_attractions_dir = 'nhb_attractions'
+    _hb_productions_dir = "hb_productions"
+    _nhb_productions_dir = "nhb_productions"
+    _hb_attractions_dir = "hb_attractions"
+    _nhb_attractions_dir = "nhb_attractions"
 
-    _reports_dir = 'reports'
+    _reports_dir = "reports"
 
-    def __init__(self,
-                 path_years: list[int],
-                 scenario: Scenarios,
-                 iteration_name: str,
-                 export_home: os.PathLike,
-                 ):
+    def __init__(
+        self,
+        path_years: list[int],
+        scenario: Scenarios,
+        iteration_name: str,
+        export_home: os.PathLike,
+    ):
         """
-        Builds the export paths for all the NoTEM sub-models
+        Builds the export paths for all the TEM sub-models
 
         Parameters
         ----------
@@ -472,20 +477,18 @@ class NoTEMExportPaths:
             The scenario to run for.
 
         iteration_name:
-            The name of this iteration of the NoTEM models. Will have 'iter'
+            The name of this iteration of the TEM models. Will have 'iter'
             prepended to create the folder name. e.g. if iteration_name was
             set to '3i' the iteration folder would be called 'iter3i'.
 
         export_home:
             The home directory of all the export paths. A sub-directory will
-            be made for each of the NoTEM sub models.
+            be made for each of the TEM sub models.
         """
         # Init
         export_home = pathlib.Path(export_home)
         if not export_home.is_dir():
             raise FileExistsError(f"{export_home} is not a valid directory.")
-
-
 
         self.path_years = path_years
         self.scenario = scenario
@@ -532,7 +535,7 @@ class NoTEMExportPaths:
         # nhb attractions
         nhb_a_export_home = self.export_home / self._nhb_attractions_dir
         nhb_a_report_home = nhb_a_export_home / self._reports_dir
-    
+
         nhb_a_report_home.mkdir(exist_ok=True, parents=True)
 
         self.nhb_attraction = NHBAttractionModelPaths(
@@ -540,5 +543,6 @@ class NoTEMExportPaths:
             export_home=nhb_a_export_home,
             report_home=nhb_a_report_home,
         )
+
 
 # # # FUNCTIONS # # #
