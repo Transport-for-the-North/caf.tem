@@ -16,9 +16,10 @@ import caf.core
 import caf.toolkit as ctk
 
 from inputs import ProductionModelPaths, TEMSegmentations
+from utils import check_file_exists
 
 
-class ProductionModel(ProductionModelPaths):
+class HBProductionModel(ProductionModelPaths):
     _log_fname = "HBProductionModel_log.log"
     """The Home-Based Production Model of NoTEM
 
@@ -83,7 +84,7 @@ class ProductionModel(ProductionModelPaths):
     }
 
     def __init__(self,
-                 trip_origin: Literal['hb', 'nhb'],
+                 trip_origin: Literal['hb','nhb'],
                  population_paths: Dict[int, os.PathLike],
                  trip_rates_path: os.PathLike,
                  mode_time_splits_path: os.PathLike,
@@ -91,7 +92,7 @@ class ProductionModel(ProductionModelPaths):
                  tem_segs: TEMSegmentations,
                  constraint_paths: Dict[int, os.PathLike] = None,
                  process_count: int = 1,
-                 trip_end_adjustments: Optional[List[TripEndAdjustmentFactors]] = None,
+                 trip_end_adjustments=None,
 
                  ) -> None:
         """
@@ -187,7 +188,7 @@ class ProductionModel(ProductionModelPaths):
 
         # Build the output paths
         super().__init__(
-            _trip_origin='hb',
+            _trip_origin=trip_origin,
             path_years=self.years,
             export_home=export_home,
             report_home=report_home,
@@ -343,7 +344,7 @@ class ProductionModel(ProductionModelPaths):
             # Print timing stats for the year
             year_end_time = ctk.timing.current_milli_time()
             time_taken = ctk.timing.time_taken(year_start_time, year_end_time)
-            self._logger.info("HB Productions in year %s took: %s\n" % (year, time_taken))
+            self._logger.info(f"{self.trip_origin.upper()} Productions in year %s took: %s\n" % (year, time_taken))
 
         # End timing
         end_time = ctk.timing.current_milli_time()
@@ -371,15 +372,15 @@ class ProductionModel(ProductionModelPaths):
         """
 
         # Define the zoning and segmentations we want to use
-        pure_hb_prod = caf.core.Segmentation(self.tem_segs.prod_pure)
+        pure_prod = caf.core.Segmentation(self.tem_segs.prod_pure)
 
         # Reading trip rates
         trip_rates = caf.core.DVector.load(self.trip_rates_path)
         # ## MULTIPLY TOGETHER ## #
         prod = population * trip_rates
 
-        if prod.segmentation != pure_hb_prod:
-            prod = prod.aggregate(pure_hb_prod)
+        if prod.segmentation != pure_prod:
+            prod = prod.aggregate(pure_prod)
 
         return prod
 
@@ -447,7 +448,7 @@ class ProductionModel(ProductionModelPaths):
         return trip_ends
 
 
-class NHBProductionModel(NHBProductionModelPaths):
+class NHBProductionModel(ProductionModelPaths):
     _log_fname = "NHBProductionModel_log.log"
     """The Non Home-Based Production Model of NoTEM
 
@@ -486,8 +487,7 @@ class NHBProductionModel(NHBProductionModelPaths):
             "path_years, export_home, report_home, export_paths, report_paths"
         """
     # Constants
-    __version__ = nd.__version__
-    _return_segmentation_name = 'notem_nhb_output'
+
 
     # Define wanted columns
     _target_col_dtypes = {
@@ -517,6 +517,7 @@ class NHBProductionModel(NHBProductionModelPaths):
     }
 
     def __init__(self,
+                 tem_segs: TEMSegmentations,
                  hb_attraction_paths: Dict[int, os.PathLike],
                  population_paths: Dict[int, os.PathLike],
                  trip_rates_path: str,
@@ -564,13 +565,13 @@ class NHBProductionModel(NHBProductionModelPaths):
             Defaults to consts.PROCESS_COUNT.
         """
         # Check that the paths we need exist!
-        [file_ops.check_file_exists(x) for x in hb_attraction_paths.values()]
-        [file_ops.check_file_exists(x, find_similar=True) for x in population_paths.values()]
-        file_ops.check_file_exists(trip_rates_path, find_similar=True)
-        file_ops.check_file_exists(time_splits_path, find_similar=True)
+        [check_file_exists(x) for x in hb_attraction_paths.values()]
+        [check_file_exists(x) for x in population_paths.values()]
+        check_file_exists(trip_rates_path)
+        check_file_exists(time_splits_path)
 
         if constraint_paths is not None:
-            [file_ops.check_file_exists(x, find_similar=True) for x in constraint_paths.values()]
+            [check_file_exists(x) for x in constraint_paths.values()]
 
         # Validate that we have data for all the years we're running for
         for year in hb_attraction_paths.keys():
@@ -590,6 +591,7 @@ class NHBProductionModel(NHBProductionModelPaths):
                     )
 
         # Assign
+        self.tem_segs = tem_segs
         self.hb_attraction_paths = hb_attraction_paths
         self.population_paths = population_paths
         self.trip_rates_path = trip_rates_path
@@ -599,8 +601,9 @@ class NHBProductionModel(NHBProductionModelPaths):
         self.years = list(self.hb_attraction_paths.keys())
 
         # Make sure the reports paths exists
-        report_home = os.path.join(export_home, "Reports")
-        file_ops.create_folder(report_home)
+        export_home = pathlib.Path(export_home)
+        report_home = export_home / "Reports"
+        report_home.mkdir(exist_ok=True, parents=True)
 
         # Build the output paths
         super().__init__(
@@ -677,12 +680,12 @@ class NHBProductionModel(NHBProductionModelPaths):
         """
         # Initialise timing
 
-        start_time = timing.current_milli_time()
+        start_time = ctk.timing.current_milli_time()
         self._logger.info("Starting NHB Production Model")
 
         # Generate the nhb productions for each year
         for year in self.years:
-            year_start_time = timing.current_milli_time()
+            year_start_time = ctk.timing.current_milli_time()
 
             # ## GENERATE PURE DEMAND ## #
             self._logger.info("Loading the HB attraction data")
@@ -697,7 +700,7 @@ class NHBProductionModel(NHBProductionModelPaths):
 
             if export_reports:
                 self._logger.info("Exporting NHB pure demand reports to disk")
-                report_seg = nd.get_segmentation_level('notem_nhb_productions_pure_report')
+                report_seg = caf.core.Segmentation(self.tem_segs.prod_pure_report)
                 pure_demand_paths = self.report_paths.pure_demand
                 pure_nhb_demand.aggregate(report_seg).write_sector_reports(
                     segment_totals_path=pure_demand_paths.segment_total[year],
@@ -751,7 +754,7 @@ class NHBProductionModel(NHBProductionModelPaths):
                     ca_sector_path=notem_segmented_paths.ca_sector[year],
                     ie_sector_path=notem_segmented_paths.ie_sector[year],
                     lad_report_path=notem_segmented_paths.lad_report[year],
-                    lad_report_seg=nd.get_segmentation_level('nhb_p_m_tp_week'),
+                    lad_report_seg=caf.core.Segmentation(self.tem_segs.lad_report_seg),
                 )
 
             # TODO: Bring in constraints (Validation)
@@ -763,13 +766,13 @@ class NHBProductionModel(NHBProductionModelPaths):
                 raise NotImplementedError(msg)
 
             # Print timing stats for the year
-            year_end_time = timing.current_milli_time()
-            time_taken = timing.time_taken(year_start_time, year_end_time)
+            year_end_time = ctk.timing.current_milli_time()
+            time_taken = ctk.timing.time_taken(year_start_time, year_end_time)
             self._logger.info("NHB Productions in year %s took: %s\n" % (year, time_taken))
 
         # End timing
-        end_time = timing.current_milli_time()
-        time_taken = timing.time_taken(start_time, end_time)
+        end_time = ctk.timing.current_milli_time()
+        time_taken = ctk.timing.time_taken(start_time, end_time)
         self._logger.info("NHB Production Model took:%s" % time_taken)
         self._logger.info("NHB Production Model Finished")
 
@@ -795,64 +798,19 @@ class NHBProductionModel(NHBProductionModelPaths):
             Returns the HB attraction Dvector with tfn_at.
         """
         # Define the zoning and segmentations we want to use
-        msoa_zoning = caf.core.Zoning.get_zoning('msoa')
-        notem_no_tp_seg = nd.get_segmentation_level('notem_hb_output_no_tp')
-
-        # ## READ IN AND VALIDATE THE LAND USE DATA ## #
-        # Reading the land use data
-        # Read the land use data corresponding to the year
-        pop = file_ops.read_df(
-            path=self.population_paths[year],
-            find_similar=True,
-        )
-        pop = pd_utils.reindex_cols(pop, self._target_col_dtypes['land_use'].keys())
-        for col, dtype in self._target_col_dtypes['land_use'].items():
-            pop[col] = pop[col].astype(dtype)
-
-        pop.columns = ['zone', 'tfn_at']
-        pop = pop.drop_duplicates()
-
-        # Set up for validations
-        pop_zones = set(pop['zone'].unique().tolist())
-        unique_zones = set(msoa_zoning.unique_zones)
-
-        # Check that we have all the zones we need
-        missing_zones = unique_zones - pop_zones
-        if len(missing_zones) > 0:
-            raise ValueError(
-                "The given land use data does not have tfn_at data for all "
-                "MSOAs!\n"
-                "Missing zones: %s"
-                % missing_zones
-            )
-
-        # Check that we don't have any extra zones
-        extra_zones = pop_zones - unique_zones
-        if len(extra_zones) > 0:
-            raise ValueError(
-                "The given land use data contains zones data for zones not in "
-                "the MSOA zoning system. Not sure how to proceed.\n"
-                "Extra zones: %s"
-                % extra_zones
-            )
-
-        # Convert area_types into a DVector
-        pop['value'] = 1
-        area_type = caf.core.DVector(
-            zoning_system=msoa_zoning,
-            segmentation=nd.get_segmentation_level('tfn_at'),
-            import_data=pop,
-            zone_col="zone",
-            val_col="value",
-        )
-
-        # ## CONVERT THE ATTRACTIONS INTO DESIRED FORMAT ## #
-        # Read the notem segmented compressed pickle
+        # TODO this function is probably unnecessary
+        tem_no_tp_seg = caf.core.Segmentation(self.tem_segs.output_no_tp)
+        tem_output_seg = caf.core.Segmentation(self.tem_segs.output)
         hb_attr_notem = caf.core.DVector.load(self.hb_attraction_paths[year])
-
-        # Remove time period and add in tfn_at
-        hb_attr = hb_attr_notem.aggregate(notem_no_tp_seg)
-        return hb_attr.expand_segmentation(area_type)
+        if hb_attr_notem.segmentation != tem_output_seg:
+            raise caf.core.segmentation.SegmentationError(
+                "Unexpected segmentation. This DVector should be "
+                f"{tem_output_seg.names}, but is actually {hb_attr_notem.segmentation.names}."
+            )
+        # Remove time period
+        hb_attr = hb_attr_notem.aggregate(tem_no_tp_seg)
+        return hb_attr.add_segment(caf.core.segments.SegmentsSuper('at').get_segment(),
+                                   split_method='duplicate')
 
     def _generate_nhb_productions(self,
                                   hb_attractions: caf.core.DVector,
@@ -873,26 +831,18 @@ class NHBProductionModel(NHBProductionModelPaths):
         """
 
         # Define the zoning and segmentations we want to use
-        nhb_trip_rate_seg = nd.get_segmentation_level('notem_nhb_trip_rate')
-        pure_seg = nd.get_segmentation_level('notem_nhb_productions_pure')
+        nhb_trip_rate_seg = caf.core.Segmentation(self.tem_segs.trip_rates)
+        pure_seg = caf.core.Segmentation(self.tem_segs.prod_pure)
 
         # Reading NHB trip rates
-        trip_rates = du.safe_read_csv(
-            file_path=self.trip_rates_path,
-            usecols=self._target_col_dtypes['nhb_trip_rate'].keys(),
-            dtype=self._target_col_dtypes['nhb_trip_rate'],
-        )
-
-        # Create the NHB Trip Rates DVec
-        trip_rates_dvec = caf.core.DVector(
-            zoning_system=None,
-            segmentation=nhb_trip_rate_seg,
-            import_data=trip_rates.rename(columns=self._seg_rename),
-            val_col="nhb_trip_rate",
-        )
+        trip_rates_dvec = caf.core.DVector.load(self.trip_rates_path)
+        if trip_rates_dvec.segmentation != nhb_trip_rate_seg:
+            raise caf.core.segmentation.SegmentationError(
+                "Unexpected segmentation in trip rates DVector."
+            )
 
         # Multiply
-        return hb_attractions.multiply_and_aggregate(trip_rates_dvec, pure_seg)
+        return (hb_attractions * trip_rates_dvec).aggregate(pure_seg)
 
     def _split_by_tp(self,
                      pure_nhb_demand: caf.core.DVector,
@@ -911,99 +861,15 @@ class NHBProductionModel(NHBProductionModelPaths):
             A DVector containing pure_demand split by time.
         """
         # Define the segmentation we want to use
-        nhb_time_splits_seg = nd.get_segmentation_level('notem_nhb_tfnat_p_m_tp')
-        full_seg = nd.get_segmentation_level('notem_nhb_productions_full')
+        # nhb_time_splits_seg = nd.get_segmentation_level('notem_nhb_tfnat_p_m_tp')
+        full_seg = caf.core.Segmentation(self.tem_segs.prod_full)
 
         # Read the time splits factor
-        time_splits = pd.read_csv(
-            self.time_splits_path,
-            usecols=self._target_col_dtypes['tp'].keys(),
-            dtype=self._target_col_dtypes['tp'],
-        )
-
-        # Instantiate
-        time_splits_dvec = caf.core.DVector(
-            zoning_system=None,
-            segmentation=nhb_time_splits_seg,
-            time_format='avg_week',
-            import_data=time_splits,
-            val_col="split",
-        )
+        time_splits_dvec = caf.core.DVector.load(self.time_splits_path)
 
         # Multiply together #
-        return pure_nhb_demand.multiply_and_aggregate(
-            other=time_splits_dvec,
-            out_segmentation=full_seg,
-        )
-
-    def _rename(self, full_segmentation: caf.core.DVector) -> caf.core.DVector:
-        """
-        Renames nhb_p and nhb_m as m and p respectively in full segmentation
-
-        Parameters
-        ----------
-        full_segmentation:
-            fully segmented NHB productions containing nhb_p and nhb_m as column names
-
-        Returns
-        -------
-        notem_segmented:
-            Returns the notem segmented NHB production DVector
-        """
-        nhb_prod_seg = nd.get_segmentation_level(self._return_segmentation_name)
-        return full_segmentation.aggregate(nhb_prod_seg)
+        return (pure_nhb_demand * time_splits_dvec).aggregate(full_seg)
 
 
-@dataclasses.dataclass
-class TripEndAdjustmentFactors:
-    """Stores (and reads) the trip end adjustment factors data.
 
-    Attributes
-    ----------
-    file : pathlib.Path
-        CSV file containing the adjustment factors, with
-        columns containing the zone IDs, segment data and
-        finally the factors.
-    segmentation : nd.SegmentationLevel
-        Segmentation level that the data in `file` is in.
-    zoning : nd.ZoningSystem
-        Zone system that the data in `file` is in.
-    time_format : nd.TimeFormat
-        Time format that the data in `file` is in.
-    dvector : caf.core.DVector
-    """
-    file: pathlib.Path
-    segmentation: nd.SegmentationLevel
-    zoning: nd.ZoningSystem
-    time_format: nd.TimeFormat
-
-    def __post_init__(self) -> None:
-        """Check given `file` exists.
-
-        Raises
-        ------
-        FileNotFoundError
-            If `self.file` isn't a path to an existing file.
-        """
-        self._dvector: Optional[caf.core.DVector] = None
-
-        self.file = pathlib.Path(self.file)
-        if not self.file.is_file():
-            raise FileNotFoundError(
-                f"adjustment factors file doesn't exist: {self.file}"
-            )
-
-    @property
-    def dvector(self) -> caf.core.DVector:
-        """Read data from file and return as a DVector."""
-        if self._dvector is None:
-            data = file_ops.read_df(self.file)
-            self._dvector = caf.core.DVector(
-                segmentation=self.segmentation,
-                import_data=data,
-                zoning_system=self.zoning,
-                time_format=self.time_format,
-                infill=1,
-            )
-        return self._dvector
 
