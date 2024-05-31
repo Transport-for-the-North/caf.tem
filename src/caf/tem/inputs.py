@@ -10,7 +10,8 @@ import pathlib
 import collections
 
 # Third Party
-
+import caf.toolkit as ctk
+import caf.core as cc
 # Local Imports
 # pylint: disable=import-error,wrong-import-position
 # Local imports here
@@ -28,6 +29,33 @@ class Scenarios(enum.Enum):
     LOW = "Low"
     REGIONAL = "Regional"
     TECHNOLOGY = "Technology"
+
+class TEMSegmentations(ctk.BaseConfig):
+
+    prod_pure: cc.SegmentationInput
+    prod_pure_report: cc.SegmentationInput
+    prod_full_tfnat: cc.SegmentationInput
+    prod_full: cc.SegmentationInput
+    prod_return_seg: cc.SegmentationInput
+    lad_report_seg: cc.SegmentationInput = cc.SegmentationInput(
+                    enum_segs=['p', 'm', 'tp'],
+                    naming_order=['p', 'm', 'tp'],
+                    subsets={'tp': [1, 2, 3, 4, 5, 6]}
+                )
+    output: cc.SegmentationInput
+    area_type: cc.SegmentationInput
+    trip_rates: cc.SegmentationInput
+
+    @property
+    def output_no_tp(self):
+        no_tp = self.output.copy()
+        no_tp.enum_segments.remove('tp')
+        return no_tp
+
+class TEMSegmentationWrapper(ctk.BaseConfig):
+
+    hb: TEMSegmentations
+    nhb: TEMSegmentations
 
 
 class TEMModelPaths:
@@ -225,7 +253,7 @@ class TEMModelPaths:
         )
 
 
-class HBProductionModelPaths(TEMModelPaths):
+class ProductionModelPaths(TEMModelPaths):
     """Path Class for the TEM HB Production Model.
 
     This class defines and builds the export and reporting paths for
@@ -254,10 +282,7 @@ class HBProductionModelPaths(TEMModelPaths):
     path_years, export_home, report_home
     """
 
-    # Export fname params
-    _trip_origin = "hb"
-
-    def __init__(self, *args, **kwargs):
+    def __init__(self, _trip_origin, *args, **kwargs):
         """Generates the export and report paths
 
         See super for more detail
@@ -270,97 +295,7 @@ class HBProductionModelPaths(TEMModelPaths):
         self._create_report_paths()
 
 
-class HBAttractionModelPaths(TEMModelPaths):
-    """Path Class for the TEM HB Attraction Model.
-
-    This class defines and builds the export and reporting paths for
-    the TEMModelPaths. If the outputs of HBAttractionModel are needed,
-    create an instance of this class to generate all paths.
-
-    Attributes
-    ----------
-    export_paths: os.PathLike
-        A namedtuple object (TEMModelPaths.ExportPaths) with the following
-        attributes (dictionary keys are path_years):
-        - home: The home directory of all exports
-        - pure_demand: A dictionary of export paths for pure_demand DVectors
-        - fully_segmented: A dictionary of export paths for fully_segmented DVectors
-        - tem_segmented: A dictionary of export paths for tem_segmented DVectors
-
-    report_paths: os.PathLike
-        A namedtuple object (TEMModelPaths.ExportPaths) with the following
-        attributes (dictionary keys are path_years):
-        - home: The home directory of all exports
-        - pure_demand: A TEMModelPaths.ReportPaths object
-        - fully_segmented: A TEMModelPaths.ReportPaths object
-        - tem_segmented: A TEMModelPaths.ReportPaths object
-
-    See TEMModelPaths for documentation on:
-    path_years, export_home, report_home
-    """
-
-    # Export fname params
-    _trip_origin = "hb"
-
-    def __init__(self, *args, **kwargs):
-        """Generates the export and report paths
-
-        See super for more detail
-        """
-        # Set up superclass
-        super().__init__(*args, **kwargs)
-
-        # Generate the paths
-        self._create_export_paths()
-        self._create_report_paths()
-
-
-class NHBProductionModelPaths(TEMModelPaths):
-    """Path Class for the TEM HB Production Model.
-
-    This class defines and builds the export and reporting paths for
-    the TEMModelPaths. If the outputs of NHBProductionModel are needed,
-    create an instance of this class to generate all paths.
-
-    Attributes
-    ----------
-    export_paths: os.PathLike
-        A namedtuple object (TEMModelPaths.ExportPaths) with the following
-        attributes (dictionary keys are path_years):
-        - home: The home directory of all exports
-        - pure_demand: A dictionary of export paths for pure_demand DVectors
-        - fully_segmented: A dictionary of export paths for fully_segmented DVectors
-        - tem_segmented: A dictionary of export paths for tem_segmented DVectors
-
-    report_paths: os.PathLike
-        A namedtuple object (TEMModelPaths.ExportPaths) with the following
-        attributes (dictionary keys are path_years):
-        - home: The home directory of all exports
-        - pure_demand: A TEMModelPaths.ReportPaths object
-        - fully_segmented: A TEMModelPaths.ReportPaths object
-        - tem_segmented: A TEMModelPaths.ReportPaths object
-
-    See TEMModelPaths for documentation on:
-    path_years, export_home, report_home
-    """
-
-    # Export fname params
-    _trip_origin = "nhb"
-
-    def __init__(self, *args, **kwargs):
-        """Generates the export and report paths
-
-        See super for more detail
-        """
-        # Set up superclass
-        super().__init__(*args, **kwargs)
-
-        # Generate the paths
-        self._create_export_paths()
-        self._create_report_paths()
-
-
-class NHBAttractionModelPaths(TEMModelPaths):
+class AttractionModelPaths(TEMModelPaths):
     """Path Class for the TEM NHB Attraction Model.
 
     This class defines and builds the export and reporting paths for
@@ -389,10 +324,7 @@ class NHBAttractionModelPaths(TEMModelPaths):
     path_years, export_home, report_home
     """
 
-    # Export fname params
-    _trip_origin = "nhb"
-
-    def __init__(self, *args, **kwargs):
+    def __init__(self, _trip_origin, *args, **kwargs):
         """Generates the export and report paths
 
         See super for more detail
