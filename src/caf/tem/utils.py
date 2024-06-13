@@ -12,7 +12,9 @@ File purpose:
 """
 # Built-Ins
 import os
+
 # Third Party
+import caf.core
 
 # Local Imports
 # pylint: disable=import-error,wrong-import-position
@@ -24,6 +26,7 @@ import os
 # # # CLASSES # # #
 
 # # # FUNCTIONS # # #
+
 
 def file_exists(file_path: os.PathLike) -> bool:
     """
@@ -49,6 +52,8 @@ def file_exists(file_path: os.PathLike) -> bool:
         )
 
     return True
+
+
 def check_file_exists(
     file_path: os.PathLike,
 ) -> None:
@@ -71,3 +76,45 @@ def check_file_exists(
     """
     if not file_exists(file_path):
         raise IOError("Cannot find a path to: %s" % str(file_path))
+
+
+def lu_to_tt(dvec: caf.core.DVector):
+    lu_seg = caf.core.SegmentationInput(
+        enum_segments=[
+            "ns_sec",
+            "g",
+            "adults",
+            "accom_h",
+            "pop_emp",
+            "soc",
+            "children",
+            "car_availability",
+            "pop_econ",
+            "age_9",
+        ],
+        naming_order=[
+            "age_9",
+            "g",
+            "pop_econ",
+            "soc",
+            "accom_h",
+            "ns_sec",
+            "pop_emp",
+            "adults",
+            "children",
+            "car_availability",
+        ],
+    )
+    lu_seg = caf.core.Segmentation(lu_seg)
+    if dvec.segmentation != lu_seg:
+        raise ValueError("Input segmentation is not as expected.")
+
+    out_dvec = dvec.aggregate(
+        ["age_9", "g", "ns_sec", "soc", "pop_emp", "adults", "car_availability"]
+    )
+    out_dvec = (
+        out_dvec.trans_seg_from_lookup("ag_g")
+        .trans_seg_from_lookup("apopemp_aws", drop_old=True)
+        .trans_seg_from_lookup("caradult_hhtype", drop_old=True)
+    )
+    return out_dvec
