@@ -8,10 +8,12 @@ import enum
 import os
 import pathlib
 import collections
+from dataclasses import dataclass
 
 # Third Party
 import caf.toolkit as ctk
 import caf.core as cc
+
 # Local Imports
 # pylint: disable=import-error,wrong-import-position
 # Local imports here
@@ -30,6 +32,7 @@ class Scenarios(enum.Enum):
     REGIONAL = "Regional"
     TECHNOLOGY = "Technology"
 
+
 class TEMSegmentations(ctk.BaseConfig):
 
     prod_pure: cc.SegmentationInput
@@ -38,24 +41,41 @@ class TEMSegmentations(ctk.BaseConfig):
     prod_full: cc.SegmentationInput
     prod_return_seg: cc.SegmentationInput
     lad_report_seg: cc.SegmentationInput = cc.SegmentationInput(
-                    enum_segs=['p', 'm', 'tp'],
-                    naming_order=['p', 'm', 'tp'],
-                    subsets={'tp': [1, 2, 3, 4, 5, 6]}
-                )
+        enum_segs=["p", "m", "tp"],
+        naming_order=["p", "m", "tp"],
+        subsets={"tp": [1, 2, 3, 4, 5, 6]},
+    )
     output: cc.SegmentationInput
     area_type: cc.SegmentationInput
     trip_rates: cc.SegmentationInput
+    trip_weights: cc.SegmentationInput
+    employment: cc.SegmentationInput
+    attr_pure: cc.SegmentationInput
 
     @property
     def output_no_tp(self):
         no_tp = self.output.copy()
-        no_tp.enum_segments.remove('tp')
+        no_tp.enum_segments.remove("tp")
         return no_tp
+
 
 class TEMSegmentationWrapper(ctk.BaseConfig):
 
     hb: TEMSegmentations
     nhb: TEMSegmentations
+
+
+@dataclass
+class AttractionTripRates:
+
+    Work: pathlib.Path
+    Employers_Business: pathlib.Path
+    Education: pathlib.Path
+    Shopping: pathlib.Path
+    Personal_Business: pathlib.Path
+    Recreation_Social: pathlib.Path
+    Visiting_friends_and_relatives: pathlib.Path
+    Holiday_Day_trip: pathlib.Path
 
 
 class TEMModelPaths:

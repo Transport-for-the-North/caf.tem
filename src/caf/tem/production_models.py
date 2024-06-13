@@ -55,46 +55,34 @@ class HBProductionModel(ProductionModelPaths):
     """
     # Define wanted columns
     _target_col_dtypes = {
-        'pop': {
-            'msoa_zone_id': str,
-            'area_type': int,
-            'tfn_traveller_type': int,
-            'people': float
+        "pop": {
+            "msoa_zone_id": str,
+            "area_type": int,
+            "tfn_traveller_type": int,
+            "people": float,
         },
-        'trip_rate': {
-            'tfn_tt': int,
-            'tfn_at': int,
-            'p': int,
-            'trip_rate': float
-        },
-        'm_tp': {
-            'p': int,
-            'tfn_tt': int,
-            'tfn_at': int,
-            'm': int,
-            'tp': int,
-            'split': float
-        },
+        "trip_rate": {"tfn_tt": int, "tfn_at": int, "p": int, "trip_rate": float},
+        "m_tp": {"p": int, "tfn_tt": int, "tfn_at": int, "m": int, "tp": int, "split": float},
     }
 
     # Define segment renames needed
     _seg_rename = {
-        'tfn_traveller_type': 'tfn_tt',
-        'area_type': 'tfn_at',
+        "tfn_traveller_type": "tfn_tt",
+        "area_type": "tfn_at",
     }
 
-    def __init__(self,
-                 trip_origin: Literal['hb','nhb'],
-                 population_paths: Dict[int, os.PathLike],
-                 trip_rates_path: os.PathLike,
-                 mode_time_splits_path: os.PathLike,
-                 export_home: os.PathLike,
-                 tem_segs: TEMSegmentations,
-                 constraint_paths: Dict[int, os.PathLike] = None,
-                 process_count: int = 1,
-                 trip_end_adjustments=None,
-
-                 ) -> None:
+    def __init__(
+        self,
+        trip_origin: Literal["hb", "nhb"],
+        population_paths: Dict[int, os.PathLike],
+        trip_rates_path: os.PathLike,
+        mode_time_splits_path: os.PathLike,
+        export_home: os.PathLike,
+        tem_segs: TEMSegmentations,
+        constraint_paths: Dict[int, os.PathLike] = None,
+        process_count: int = 1,
+        trip_end_adjustments=None,
+    ) -> None:
         """
         Sets up and validates arguments for the Production model.
 
@@ -142,8 +130,7 @@ class HBProductionModel(ProductionModelPaths):
                 if year not in constraint_paths.keys():
                     raise ValueError(
                         "Year %d found in land_use_paths\n"
-                        "But not found in constraint_paths"
-                        % year
+                        "But not found in constraint_paths" % year
                     )
 
         # Assign
@@ -178,8 +165,7 @@ class HBProductionModel(ProductionModelPaths):
                 if year not in constraint_paths.keys():
                     raise ValueError(
                         "Year %d found in land_use_paths\n"
-                        "But not found in constraint_paths"
-                        % year
+                        "But not found in constraint_paths" % year
                     )
 
         # Make sure the reports paths exists
@@ -194,16 +180,17 @@ class HBProductionModel(ProductionModelPaths):
             report_home=report_home,
         )
         # TODO sort loggers
-        logger_name = "%s.%s" % ('placeholder', self.__class__.__name__)
+        logger_name = "%s.%s" % ("placeholder", self.__class__.__name__)
         log_file_path = self.export_home / self._log_fname
         self._logger = logging.getLogger(logger_name)
 
-    def run(self,
-            export_pure_demand: bool = False,
-            export_fully_segmented: bool = False,
-            export_notem_segmentation: bool = True,
-            export_reports: bool = True,
-            ) -> None:
+    def run(
+        self,
+        export_pure_demand: bool = False,
+        export_fully_segmented: bool = False,
+        export_notem_segmentation: bool = True,
+        export_reports: bool = True,
+    ) -> None:
         """
         Runs the HB Production model.
 
@@ -291,8 +278,7 @@ class HBProductionModel(ProductionModelPaths):
                 msg = (
                     "The production totals before and after mode time split are not same.\n"
                     "Expected %f\n"
-                    "Got %f"
-                    % (pure_demand.sum(), fully_segmented.sum())
+                    "Got %f" % (pure_demand.sum(), fully_segmented.sum())
                 )
                 self._logger.warning(msg)
                 warnings.warn(msg)
@@ -314,7 +300,7 @@ class HBProductionModel(ProductionModelPaths):
                 productions.save(
                     path.with_name(path.stem + f"_pre-adjustment{''.join(path.suffixes)}")
                 )
-                #TODO check this
+                # TODO check this
                 productions = self._trip_end_adjustment(productions)
 
             if export_notem_segmentation:
@@ -344,7 +330,10 @@ class HBProductionModel(ProductionModelPaths):
             # Print timing stats for the year
             year_end_time = ctk.timing.current_milli_time()
             time_taken = ctk.timing.time_taken(year_start_time, year_end_time)
-            self._logger.info(f"{self.trip_origin.upper()} Productions in year %s took: %s\n" % (year, time_taken))
+            self._logger.info(
+                f"{self.trip_origin.upper()} Productions in year %s took: %s\n"
+                % (year, time_taken)
+            )
 
         # End timing
         end_time = ctk.timing.current_milli_time()
@@ -352,10 +341,10 @@ class HBProductionModel(ProductionModelPaths):
         self._logger.info("HB Production Model took:%s" % time_taken)
         self._logger.info("HB Production Model Finished")
 
-
-    def _generate_productions(self,
-                              population: caf.core.DVector,
-                              ) -> caf.core.DVector:
+    def _generate_productions(
+        self,
+        population: caf.core.DVector,
+    ) -> caf.core.DVector:
         """
         Applies trip rate split on the given HB productions
 
@@ -384,11 +373,10 @@ class HBProductionModel(ProductionModelPaths):
 
         return prod
 
-
-
-    def _split_by_tp_and_mode(self,
-                              pure_demand: caf.core.DVector,
-                              ) -> caf.core.DVector:
+    def _split_by_tp_and_mode(
+        self,
+        pure_demand: caf.core.DVector,
+    ) -> caf.core.DVector:
         """
         Applies time period and mode splits to the given pure demand.
 
@@ -488,44 +476,35 @@ class NHBProductionModel(ProductionModelPaths):
         """
     # Constants
 
-
     # Define wanted columns
     _target_col_dtypes = {
-        'land_use': {
-            'msoa_zone_id': str,
-            'area_type': int
+        "land_use": {"msoa_zone_id": str, "area_type": int},
+        "nhb_trip_rate": {
+            "nhb_p": int,
+            "nhb_m": int,
+            "p": int,
+            "m": int,
+            "nhb_trip_rate": float,
         },
-        'nhb_trip_rate': {
-            'nhb_p': int,
-            'nhb_m': int,
-            'p': int,
-            'm': int,
-            'nhb_trip_rate': float
-        },
-        'tp': {
-            'nhb_p': int,
-            'nhb_m': int,
-            'tfn_at': int,
-            'tp': int,
-            'split': float
-        },
+        "tp": {"nhb_p": int, "nhb_m": int, "tfn_at": int, "tp": int, "split": float},
     }
 
     # Define segment renames needed
     _seg_rename = {
-        'area_type': 'tfn_at',
+        "area_type": "tfn_at",
     }
 
-    def __init__(self,
-                 tem_segs: TEMSegmentations,
-                 hb_attraction_paths: Dict[int, os.PathLike],
-                 population_paths: Dict[int, os.PathLike],
-                 trip_rates_path: str,
-                 time_splits_path: str,
-                 export_home: str,
-                 constraint_paths: Dict[int, os.PathLike] = None,
-                 process_count: int = 1
-                 ) -> None:
+    def __init__(
+        self,
+        tem_segs: TEMSegmentations,
+        hb_attraction_paths: Dict[int, os.PathLike],
+        population_paths: Dict[int, os.PathLike],
+        trip_rates_path: str,
+        time_splits_path: str,
+        export_home: str,
+        constraint_paths: Dict[int, os.PathLike] = None,
+        process_count: int = 1,
+    ) -> None:
         """
         Sets up and validates arguments for the NHB Production model.
 
@@ -578,16 +557,14 @@ class NHBProductionModel(ProductionModelPaths):
             if year not in population_paths.keys():
                 raise ValueError(
                     "Year %d found given attractions: hb_attractions_paths\n"
-                    "But not found in land_use_paths"
-                    % year
+                    "But not found in land_use_paths" % year
                 )
 
             if constraint_paths is not None:
                 if year not in constraint_paths.keys():
                     raise ValueError(
                         "Year %d found in notem segmented hb_attractions_paths\n"
-                        "But not found in constraint_paths"
-                        % year
+                        "But not found in constraint_paths" % year
                     )
 
         # Assign
@@ -620,12 +597,13 @@ class NHBProductionModel(ProductionModelPaths):
             instantiate_msg="Initialised NHB Production Model",
         )
 
-    def run(self,
-            export_nhb_pure_demand: bool = False,
-            export_fully_segmented: bool = False,
-            export_notem_segmentation: bool = True,
-            export_reports: bool = True,
-            ) -> None:
+    def run(
+        self,
+        export_nhb_pure_demand: bool = False,
+        export_fully_segmented: bool = False,
+        export_notem_segmentation: bool = True,
+        export_reports: bool = True,
+    ) -> None:
         """
         Runs the NHB Production model.
 
@@ -717,8 +695,7 @@ class NHBProductionModel(ProductionModelPaths):
                 msg = (
                     "The NHB production totals before and after time split are not same.\n"
                     "Expected %f\n"
-                    "Got %f"
-                    % (pure_nhb_demand.sum(), fully_segmented.sum())
+                    "Got %f" % (pure_nhb_demand.sum(), fully_segmented.sum())
                 )
                 self._logger.warning(msg)
                 warnings.warn(msg)
@@ -736,8 +713,7 @@ class NHBProductionModel(ProductionModelPaths):
                     "The NHB production totals before and after rename to "
                     "output segmentation are not same.\n"
                     "Expected %f\n"
-                    "Got %f"
-                    % (pure_nhb_demand.sum(), fully_segmented.sum())
+                    "Got %f" % (pure_nhb_demand.sum(), fully_segmented.sum())
                 )
                 self._logger.warning(msg)
                 warnings.warn(msg)
@@ -776,9 +752,10 @@ class NHBProductionModel(ProductionModelPaths):
         self._logger.info("NHB Production Model took:%s" % time_taken)
         self._logger.info("NHB Production Model Finished")
 
-    def _transform_attractions(self,
-                               year: int,
-                               ) -> caf.core.DVector:
+    def _transform_attractions(
+        self,
+        year: int,
+    ) -> caf.core.DVector:
         """
         Removes time period and adds tfn_at to HB attraction DVector
 
@@ -809,12 +786,14 @@ class NHBProductionModel(ProductionModelPaths):
             )
         # Remove time period
         hb_attr = hb_attr_notem.aggregate(tem_no_tp_seg)
-        return hb_attr.add_segment(caf.core.segments.SegmentsSuper('at').get_segment(),
-                                   split_method='duplicate')
+        return hb_attr.add_segment(
+            caf.core.segments.SegmentsSuper("at").get_segment(), split_method="duplicate"
+        )
 
-    def _generate_nhb_productions(self,
-                                  hb_attractions: caf.core.DVector,
-                                  ) -> caf.core.DVector:
+    def _generate_nhb_productions(
+        self,
+        hb_attractions: caf.core.DVector,
+    ) -> caf.core.DVector:
         """
         Applies NHB trip rates to hb_attractions
 
@@ -844,9 +823,10 @@ class NHBProductionModel(ProductionModelPaths):
         # Multiply
         return (hb_attractions * trip_rates_dvec).aggregate(pure_seg)
 
-    def _split_by_tp(self,
-                     pure_nhb_demand: caf.core.DVector,
-                     ) -> caf.core.DVector:
+    def _split_by_tp(
+        self,
+        pure_nhb_demand: caf.core.DVector,
+    ) -> caf.core.DVector:
         """
         Applies time period splits to the given pure nhb demand.
 
@@ -869,7 +849,3 @@ class NHBProductionModel(ProductionModelPaths):
 
         # Multiply together #
         return (pure_nhb_demand * time_splits_dvec).aggregate(full_seg)
-
-
-
-

@@ -24,7 +24,7 @@ from inputs import Scenarios, TEMExportPaths
 
 class TEM(TEMExportPaths):
     EXPORT_PATHS_CLASS = TEMExportPaths
-    _running_report_fname = 'running_parameters.txt'
+    _running_report_fname = "running_parameters.txt"
     _log_fname = "NoTEM_log.log"
 
     def __init__(
