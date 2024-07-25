@@ -20,22 +20,8 @@ import caf.core as cc
 # pylint: enable=import-error,wrong-import-position
 
 # # # CONSTANTS # # #
-
-
-# # # CLASSES # # #
-@enum.unique
-class Scenarios(enum.Enum):
-
-    CORE = "Core"
-    HIGH = "High"
-    LOW = "Low"
-    REGIONAL = "Regional"
-    TECHNOLOGY = "Technology"
-
-
 class TEMSegmentations(ctk.BaseConfig):
 
-    prod_pure: cc.SegmentationInput
     prod_pure_report: cc.SegmentationInput
     prod_full_tfnat: cc.SegmentationInput
     prod_full: cc.SegmentationInput
@@ -57,6 +43,40 @@ class TEMSegmentations(ctk.BaseConfig):
         no_tp = self.output.copy()
         no_tp.enum_segments.remove("tp")
         return no_tp
+
+class HBProdInput(ctk.BaseConfig):
+    population_paths: dict[int, os.PathLike]
+    trip_rates_path: os.PathLike
+    mode_time_splits_path: os.PathLike
+    export_home: os.PathLike
+    tem_segs: TEMSegmentations
+    constraint_paths: dict[int, os.PathLike] = None
+    process_count: int = 1
+    trip_end_adjustments=None
+
+class NHBProdInput(ctk.BaseConfig):
+    tem_segs: TEMSegmentations
+    hb_attraction_paths: dict[int, os.PathLike]
+    population_paths: dict[int, os.PathLike]
+    trip_rates_path: str
+    time_splits_path: str
+    export_home: str
+    constraint_paths: dict[int, os.PathLike] = None
+    process_count: int = 1
+
+
+# # # CLASSES # # #
+@enum.unique
+class Scenarios(enum.Enum):
+
+    CORE = "Core"
+    HIGH = "High"
+    LOW = "Low"
+    REGIONAL = "Regional"
+    TECHNOLOGY = "Technology"
+
+
+
 
 
 class TEMSegmentationWrapper(ctk.BaseConfig):

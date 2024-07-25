@@ -73,8 +73,7 @@ class HBProductionModel(ProductionModelPaths):
 
     def __init__(
         self,
-        trip_origin: Literal["hb", "nhb"],
-        population_paths: Dict[int, os.PathLike],
+        population_paths: dict[int, os.PathLike],
         trip_rates_path: os.PathLike,
         mode_time_splits_path: os.PathLike,
         export_home: os.PathLike,
@@ -174,7 +173,7 @@ class HBProductionModel(ProductionModelPaths):
 
         # Build the output paths
         super().__init__(
-            _trip_origin=trip_origin,
+            _trip_origin='hb',
             path_years=self.years,
             export_home=export_home,
             report_home=report_home,
@@ -331,7 +330,7 @@ class HBProductionModel(ProductionModelPaths):
             year_end_time = ctk.timing.current_milli_time()
             time_taken = ctk.timing.time_taken(year_start_time, year_end_time)
             self._logger.info(
-                f"{self.trip_origin.upper()} Productions in year %s took: %s\n"
+                "HB Productions in year %s took: %s\n"
                 % (year, time_taken)
             )
 
@@ -359,18 +358,11 @@ class HBProductionModel(ProductionModelPaths):
             Returns the product of population and trip rate Dvector
             ie., pure demand
         """
-
-        # Define the zoning and segmentations we want to use
-        pure_prod = caf.core.Segmentation(self.tem_segs.prod_pure)
-
         # Reading trip rates
         trip_rates = caf.core.DVector.load(self.trip_rates_path)
         # ## MULTIPLY TOGETHER ## #
         prod = population * trip_rates
-
-        if prod.segmentation != pure_prod:
-            prod = prod.aggregate(pure_prod)
-
+        #TODO do we expect these to have the same segmentation, or one to be a subset of the other?
         return prod
 
     def _split_by_tp_and_mode(

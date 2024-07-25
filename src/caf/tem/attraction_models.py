@@ -70,7 +70,6 @@ class HBAttractionModel(AttractionModelPaths):
         attr_triprates: dict[str, os.PathLike],
         attr_landuse: dict[str, os.PathLike],
         tem_segments: TEMSegmentations,
-        employment_paths: Dict[int, os.PathLike],
         production_balance_paths: Dict[int, os.PathLike],
         trip_weights_path: str,
         non_resi_path: str,  # TODO Remove temp parameter replacement for land use
@@ -129,9 +128,6 @@ class HBAttractionModel(AttractionModelPaths):
             Defaults to consts.PROCESS_COUNT.
         """
         # Check that the paths we need exist!
-        for path in employment_paths.values():
-            check_file_exists(path)
-
         for path in production_balance_paths.values():
             check_file_exists(path)
 
@@ -142,7 +138,7 @@ class HBAttractionModel(AttractionModelPaths):
                 check_file_exists(path)
 
         # Validate that we have data for all the years we're running for
-        for year in employment_paths.keys():
+        for year in attr_landuse.keys():
             if year not in production_balance_paths.keys():
                 raise ValueError(
                     "Year %d found in land_use_paths\n"
@@ -159,7 +155,6 @@ class HBAttractionModel(AttractionModelPaths):
         self.attr_triprates = attr_triprates
         self.attr_landuse = attr_landuse
         self.tem_segments = tem_segments
-        self.employment_paths = employment_paths
         self.production_balance_paths = production_balance_paths
         self.trip_weights_path = trip_weights_path
         self.non_resi_path = (
@@ -168,7 +163,7 @@ class HBAttractionModel(AttractionModelPaths):
         self.balance_zoning = balance_zoning
         self.constraint_paths = constraint_paths
         self.process_count = process_count
-        self.years = list(self.employment_paths.keys())
+        self.years = list(self.attr_landuse.keys())
 
         # Make sure the reports paths exists
         export_home = pathlib.Path(export_home)
@@ -249,10 +244,9 @@ class HBAttractionModel(AttractionModelPaths):
 
             # ## GENERATE ATTRACTIONS BY MODE ## #
             self._logger.info("Loading the employment data")
-            emp_dvec = caf.core.DVector.load(self.employment_paths[year])
 
             self._logger.info("Applying trip rates")
-            pure_attractions = self._generate_attractions(emp_dvec)
+            pure_attractions = self._generate_attractions()
 
             if export_pure_attractions:
                 self._logger.info("Exporting pure attractions to disk")
@@ -286,7 +280,7 @@ class HBAttractionModel(AttractionModelPaths):
                     ca_sector_path=notem_segmented_paths.ca_sector[year],
                     ie_sector_path=notem_segmented_paths.ie_sector[year],
                     lad_report_path=notem_segmented_paths.lad_report[year],
-                    lad_report_seg=nd.get_segmentation_level("hb_p_m_tp_week"),
+                    lad_report_seg=self.tem_segments.lad_report_seg,
                 )
 
             # TODO: Bring in constraints (Validation)
@@ -308,7 +302,7 @@ class HBAttractionModel(AttractionModelPaths):
         self._logger.info("HB Attraction Model took: %s", time_taken)
         self._logger.info("HB Attraction Model Finished")
 
-    def _generate_attractions(self, emp_dvec: caf.core.DVector) -> caf.core.DVector:
+    def _generate_attractions(self) -> caf.core.DVector:
         """
         Applies trip rates to the given HB employment.
 
@@ -391,12 +385,11 @@ class NHBAttractionModel(AttractionModelPaths):
         See NHBAttractionModelPaths for documentation on:
             "path_years, export_home, report_home, export_paths, report_paths"
         """
-    # Constants
-    __version__ = nd.__version__
-
     def __init__(
         self,
-        hb_attraction_paths: Dict[int, os.PathLike],
+        tem_segs: TEMSegmentations,
+        attr_landuse: dict[int, os.PathLike],
+        nhb_attraction_triprates: Dict[int, os.PathLike],
         nhb_production_paths: Dict[int, os.PathLike],
         export_home: str,
         balance_zoning: caf.core.zoning.BalancingZones | bool = True,
@@ -442,14 +435,15 @@ class NHBAttractionModel(AttractionModelPaths):
             Defaults to consts.PROCESS_COUNT.
         """
         # Check that the paths we need exist!
-        _ = [check_file_exists(x) for x in hb_attraction_paths.values()]
-        _ = [check_file_exists(x) for x in nhb_production_paths.values()]
+        [check_file_exists(x) for x in nhb_attraction_triprates.values()]
+        [check_file_exists(x) for x in nhb_production_paths.values()]
+        [check_file_exists(x) for x in employment_paths.values()]
 
         if constraint_paths is not None:
-            _ = [check_file_exists(x) for x in constraint_paths.values()]
+            [check_file_exists(x) for x in constraint_paths.values()]
 
         # Validate that we have data for all the years we're running for
-        for year in hb_attraction_paths.keys():
+        for year in nhb_attraction_triprates.keys():
             if year not in nhb_production_paths.keys():
                 raise ValueError(
                     "Year %d found in notem segmented hb_attractions_paths\n"
@@ -464,12 +458,14 @@ class NHBAttractionModel(AttractionModelPaths):
                     )
 
         # Assign
-        self.hb_attraction_paths = hb_attraction_paths
+        self.tem_segs = tem_segs
+        self.attr_landuse = attr_landuse
+        self.nhb_attraction_triprates = nhb_attraction_triprates
         self.nhb_production_paths = nhb_production_paths
         self.balance_zoning = balance_zoning
         self.constraint_paths = constraint_paths
         self.process_count = process_count
-        self.years = list(self.hb_attraction_paths.keys())
+        self.years = list(self.nhb_attraction_triprates.keys())
 
         # Make sure the reports paths exists
         export_home = pathlib.Path(export_home)
@@ -483,13 +479,9 @@ class NHBAttractionModel(AttractionModelPaths):
             report_home=report_home,
         )
         # Create a logger
-        logger_name = "%s.%s" % (nd.get_package_logger_name(), self.__class__.__name__)
-        log_file_path = os.path.join(self.export_home, self._log_fname)
-        self._logger = nd.get_logger(
-            logger_name=logger_name,
-            log_file_path=log_file_path,
-            instantiate_msg="Initialised NHB Attraction Model",
-        )
+        logger_name = "%s.%s" % ("placeholder", self.__class__.__name__)
+        log_file_path = self.export_home / self._log_fname
+        self._logger = logging.getLogger(logger_name)
         # Save balancing zones to file
         if isinstance(self.balance_zoning, caf.core.zoning.BalancingZones):
             self.balance_zoning.save(os.path.join(self.export_home, "NHB_balancing_zones.ini"))
@@ -545,8 +537,8 @@ class NHBAttractionModel(AttractionModelPaths):
             year_start_time = ctk.timing.current_milli_time()
 
             # ## GENERATE PURE ATTRACTIONS ## #
-            self._logger.info("Loading the HB attraction data")
-            pure_nhb_attr = self._create_nhb_attraction_data(year)
+            self._logger.info("Loading the employment data")
+            pure_nhb_attr = self._generate_attractions()
 
             if export_nhb_pure_attractions:
                 self._logger.info("Exporting NHB pure attractions to disk")
@@ -579,7 +571,7 @@ class NHBAttractionModel(AttractionModelPaths):
                     ca_sector_path=notem_segmented_paths.ca_sector[year],
                     ie_sector_path=notem_segmented_paths.ie_sector[year],
                     lad_report_path=notem_segmented_paths.lad_report[year],
-                    lad_report_seg=nd.get_segmentation_level("nhb_p_m_tp_week"),
+                    lad_report_seg=self.tem_segs.lad_report_seg,
                 )
 
             # TODO: Bring in constraints (Validation)
@@ -601,50 +593,29 @@ class NHBAttractionModel(AttractionModelPaths):
         self._logger.info("NHB Attraction Model took: %s" % time_taken)
         self._logger.info("NHB Attraction Model Finished")
 
-    def _create_nhb_attraction_data(
-        self,
-        year: int,
-    ) -> caf.core.DVector:
+    def _generate_attractions(self) -> caf.core.DVector:
         """
-        Reads in HB attractions converts it into a NHB attractions Dvector.
-
-        - Reads the HB attractions compressed pickle.
-        - Removes p1 and p7 from the HB purposes.
-        - Adds 10 to the remaining purposes to create NHB purposes.
-        - Returns its DVector
+        Applies trip rates to the given HB employment.
 
         Parameters
         ----------
-        year:
-            The year to get HB attractions data for.
+        emp_dvec:
+            Dvector containing the employment.
 
         Returns
         -------
-        nhb_attr_dvec:
-            Returns NHB attractions as a Dvector
+        pure_attraction:
+            Returns the product of employment and attraction trip rate Dvector.
+            ie., pure attraction
         """
-        segmentation = nd.get_segmentation_level("notem_nhb_output")
+        # Define the zoning and segmentations we want to use
+        attr_dict = {}
+        for att, path in self.nhb_attraction_triprates.items():
+            trip_rate = caf.core.DVector.load(path)
+            landuse = caf.core.DVector.load[self.attr_landuse[att]]
+            attr_dict[att] = landuse * trip_rate
 
-        # Reading the notem segmented HB attractions compressed pickle
-        hb_attr_notem = caf.core.DVector.load(self.hb_attraction_paths[year])
-        df = hb_attr_notem.to_df()
-
-        # Removing p1 and p7
-        mask = df["p"] != 7
-        df = df[mask].reset_index(drop=True)
-
-        # Adding 10 to the remaining purposes
-        df["p"] += 10
-
-        # Instantiate
-        return caf.core.DVector(
-            zoning_system=hb_attr_notem.zoning_system,
-            segmentation=segmentation,
-            time_format=hb_attr_notem.time_format,
-            import_data=df,
-            zone_col=hb_attr_notem.zoning_system.col_name,
-            val_col=hb_attr_notem.val_col,
-        )
+        return attr_dict
 
     def _attractions_balance(
         self,
@@ -671,6 +642,9 @@ class NHBAttractionModel(AttractionModelPaths):
         # Read in the productions DVec from disk
         p_dvec = caf.core.DVector.load(p_dvec_path)
 
+        self._logger.info("Split attractions segmentations to match productions")
+        a_dvec = a_dvec.split_by_other(p_dvec)
+
         return _attraction_balancing(a_dvec, p_dvec, self.balance_zoning, self._logger)
 
 
@@ -680,10 +654,10 @@ def _attraction_balancing(
     balancing_zones: caf.core.zoning.BalancingZones | bool,
     logger: logging.Logger,
 ) -> caf.core.DVector:
-    if isinstance(balancing_zones, caf.core.zoning.BalancingZones) or balancing_zones:
+    if isinstance(balancing_zones, [caf.core.BalancingZones, caf.core.ZoningSystem]) or balancing_zones:
         logger.info("Balancing the attractions to the productions")
         if isinstance(
-            balancing_zones, [caf.core.zoning.BalancingZones, caf.core.ZoningSystem]
+            balancing_zones, [caf.core.BalancingZones, caf.core.ZoningSystem]
         ):
             balance_zoning = balancing_zones
         else:
