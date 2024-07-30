@@ -53,23 +53,6 @@ class HBProductionModel(ProductionModelPaths):
     See HBProductionModelPaths for documentation on:
         "path_years, export_home, report_home, export_paths, report_paths"
     """
-    # Define wanted columns
-    _target_col_dtypes = {
-        "pop": {
-            "msoa_zone_id": str,
-            "area_type": int,
-            "tfn_traveller_type": int,
-            "people": float,
-        },
-        "trip_rate": {"tfn_tt": int, "tfn_at": int, "p": int, "trip_rate": float},
-        "m_tp": {"p": int, "tfn_tt": int, "tfn_at": int, "m": int, "tp": int, "split": float},
-    }
-
-    # Define segment renames needed
-    _seg_rename = {
-        "tfn_traveller_type": "tfn_tt",
-        "area_type": "tfn_at",
-    }
 
     def __init__(
         self,
@@ -78,7 +61,6 @@ class HBProductionModel(ProductionModelPaths):
         mode_time_splits_path: os.PathLike,
         export_home: os.PathLike,
         tem_segs: TEMSegmentations,
-        constraint_paths: Dict[int, os.PathLike] = None,
         process_count: int = 1,
         trip_end_adjustments=None,
     ) -> None:
@@ -124,23 +106,12 @@ class HBProductionModel(ProductionModelPaths):
         # Check that the paths we need exist!
 
         # Validate that we have data for all the years we're running for
-        for year in population_paths.keys():
-            if constraint_paths is not None:
-                if year not in constraint_paths.keys():
-                    raise ValueError(
-                        "Year %d found in land_use_paths\n"
-                        "But not found in constraint_paths" % year
-                    )
 
         # Assign
         self.tem_segs = tem_segs
         self.population_paths = {i: pathlib.Path(j) for i, j in population_paths.items()}
         self.trip_rates_path = pathlib.Path(trip_rates_path)
         self.mode_time_splits_path = pathlib.Path(mode_time_splits_path)
-        if constraint_paths is not None:
-            self.constraint_paths = {i: pathlib.Path(j) for i, j in constraint_paths.items()}
-        else:
-            self.constraint_paths = constraint_paths
         self.process_count = process_count
         self.years = list(self.population_paths.keys())
         self.adjustment_factors = trip_end_adjustments
@@ -153,19 +124,6 @@ class HBProductionModel(ProductionModelPaths):
             raise FileNotFoundError(f"{trip_rates_path} not a valid file.")
         if not self.mode_time_splits_path.is_file():
             raise FileNotFoundError(f"{mode_time_splits_path} is not a valid file.")
-        if constraint_paths is not None:
-            for path in self.constraint_paths:
-                if not path.is_file():
-                    raise FileNotFoundError(f"{path} is not a valid file.")
-
-        # Validate that we have data for all the years we're running for
-        for year in population_paths.keys():
-            if constraint_paths is not None:
-                if year not in constraint_paths.keys():
-                    raise ValueError(
-                        "Year %d found in land_use_paths\n"
-                        "But not found in constraint_paths" % year
-                    )
 
         # Make sure the reports paths exists
         report_home = pathlib.Path(export_home) / "Reports"
@@ -173,7 +131,7 @@ class HBProductionModel(ProductionModelPaths):
 
         # Build the output paths
         super().__init__(
-            _trip_origin='hb',
+            _trip_origin="hb",
             path_years=self.years,
             export_home=export_home,
             report_home=report_home,
@@ -318,21 +276,10 @@ class HBProductionModel(ProductionModelPaths):
                     lad_report_seg=caf.core.Segmentation(self.tem_segs.lad_report_seg),
                 )
 
-            # TODO: Bring in constraints (Validation)
-            #  Output some audits of what demand was before and after control
-            #  By segment.
-            if self.constraint_paths is not None:
-                msg = "No code implemented to constrain productions"
-                self._logger.error(msg)
-                raise NotImplementedError(msg)
-
             # Print timing stats for the year
             year_end_time = ctk.timing.current_milli_time()
             time_taken = ctk.timing.time_taken(year_start_time, year_end_time)
-            self._logger.info(
-                "HB Productions in year %s took: %s\n"
-                % (year, time_taken)
-            )
+            self._logger.info("HB Productions in year %s took: %s\n" % (year, time_taken))
 
         # End timing
         end_time = ctk.timing.current_milli_time()
@@ -362,7 +309,7 @@ class HBProductionModel(ProductionModelPaths):
         trip_rates = caf.core.DVector.load(self.trip_rates_path)
         # ## MULTIPLY TOGETHER ## #
         prod = population * trip_rates
-        #TODO do we expect these to have the same segmentation, or one to be a subset of the other?
+        # TODO do we expect these to have the same segmentation, or one to be a subset of the other?
         return prod
 
     def _split_by_tp_and_mode(
@@ -466,31 +413,11 @@ class NHBProductionModel(ProductionModelPaths):
         See NHBProductionModelPaths for documentation on:
             "path_years, export_home, report_home, export_paths, report_paths"
         """
-    # Constants
-
-    # Define wanted columns
-    _target_col_dtypes = {
-        "land_use": {"msoa_zone_id": str, "area_type": int},
-        "nhb_trip_rate": {
-            "nhb_p": int,
-            "nhb_m": int,
-            "p": int,
-            "m": int,
-            "nhb_trip_rate": float,
-        },
-        "tp": {"nhb_p": int, "nhb_m": int, "tfn_at": int, "tp": int, "split": float},
-    }
-
-    # Define segment renames needed
-    _seg_rename = {
-        "area_type": "tfn_at",
-    }
 
     def __init__(
         self,
         tem_segs: TEMSegmentations,
         hb_attraction_paths: Dict[int, os.PathLike],
-        population_paths: Dict[int, os.PathLike],
         trip_rates_path: str,
         time_splits_path: str,
         export_home: str,
@@ -537,35 +464,17 @@ class NHBProductionModel(ProductionModelPaths):
         """
         # Check that the paths we need exist!
         [check_file_exists(x) for x in hb_attraction_paths.values()]
-        [check_file_exists(x) for x in population_paths.values()]
         check_file_exists(trip_rates_path)
         check_file_exists(time_splits_path)
 
         if constraint_paths is not None:
             [check_file_exists(x) for x in constraint_paths.values()]
 
-        # Validate that we have data for all the years we're running for
-        for year in hb_attraction_paths.keys():
-            if year not in population_paths.keys():
-                raise ValueError(
-                    "Year %d found given attractions: hb_attractions_paths\n"
-                    "But not found in land_use_paths" % year
-                )
-
-            if constraint_paths is not None:
-                if year not in constraint_paths.keys():
-                    raise ValueError(
-                        "Year %d found in notem segmented hb_attractions_paths\n"
-                        "But not found in constraint_paths" % year
-                    )
-
         # Assign
         self.tem_segs = tem_segs
         self.hb_attraction_paths = hb_attraction_paths
-        self.population_paths = population_paths
         self.trip_rates_path = trip_rates_path
         self.time_splits_path = time_splits_path
-        self.constraint_paths = constraint_paths
         self.process_count = process_count
         self.years = list(self.hb_attraction_paths.keys())
 
@@ -697,10 +606,12 @@ class NHBProductionModel(ProductionModelPaths):
                 fully_segmented.save(self.export_paths.fully_segmented[year])
 
             # Renaming
-            notem_segmented = self._rename(fully_segmented)
+            tem_segmented = fully_segmented.aggregate(
+                caf.core.Segmentation(self.tem_segs.nhb_prod)
+            )
 
             # ## PRODUCTIONS TOTAL CHECK ## #
-            if not fully_segmented.sum_is_close(notem_segmented):
+            if not fully_segmented.sum_is_close(tem_segmented):
                 msg = (
                     "The NHB production totals before and after rename to "
                     "output segmentation are not same.\n"
@@ -712,26 +623,18 @@ class NHBProductionModel(ProductionModelPaths):
 
             if export_notem_segmentation:
                 self._logger.info("Exporting notem segmented demand to disk")
-                notem_segmented.save(self.export_paths.notem_segmented[year])
+                tem_segmented.save(self.export_paths.notem_segmented[year])
 
             if export_reports:
                 self._logger.info("Exporting notem segmented reports to disk\n")
-                notem_segmented_paths = self.report_paths.notem_segmented
-                notem_segmented.write_sector_reports(
-                    segment_totals_path=notem_segmented_paths.segment_total[year],
-                    ca_sector_path=notem_segmented_paths.ca_sector[year],
-                    ie_sector_path=notem_segmented_paths.ie_sector[year],
-                    lad_report_path=notem_segmented_paths.lad_report[year],
+                tem_segmented_paths = self.report_paths.tem_segmented
+                tem_segmented.write_sector_reports(
+                    segment_totals_path=tem_segmented_paths.segment_total[year],
+                    ca_sector_path=tem_segmented_paths.ca_sector[year],
+                    ie_sector_path=tem_segmented_paths.ie_sector[year],
+                    lad_report_path=tem_segmented_paths.lad_report[year],
                     lad_report_seg=caf.core.Segmentation(self.tem_segs.lad_report_seg),
                 )
-
-            # TODO: Bring in constraints (Validation)
-            #  Output some audits of what demand was before and after control
-            #  By segment.
-            if self.constraint_paths is not None:
-                msg = "No code implemented to constrain productions"
-                self._logger.error(msg)
-                raise NotImplementedError(msg)
 
             # Print timing stats for the year
             year_end_time = ctk.timing.current_milli_time()

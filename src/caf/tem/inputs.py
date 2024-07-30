@@ -19,6 +19,7 @@ import caf.core as cc
 # Local imports here
 # pylint: enable=import-error,wrong-import-position
 
+
 # # # CONSTANTS # # #
 class TEMSegmentations(ctk.BaseConfig):
 
@@ -44,18 +45,18 @@ class TEMSegmentations(ctk.BaseConfig):
         no_tp.enum_segments.remove("tp")
         return no_tp
 
+
 class HBProdInput(ctk.BaseConfig):
     population_paths: dict[int, os.PathLike]
     trip_rates_path: os.PathLike
     mode_time_splits_path: os.PathLike
     export_home: os.PathLike
-    tem_segs: TEMSegmentations
     constraint_paths: dict[int, os.PathLike] = None
     process_count: int = 1
-    trip_end_adjustments=None
+    trip_end_adjustments = None
+
 
 class NHBProdInput(ctk.BaseConfig):
-    tem_segs: TEMSegmentations
     hb_attraction_paths: dict[int, os.PathLike]
     population_paths: dict[int, os.PathLike]
     trip_rates_path: str
@@ -63,6 +64,13 @@ class NHBProdInput(ctk.BaseConfig):
     export_home: str
     constraint_paths: dict[int, os.PathLike] = None
     process_count: int = 1
+
+
+class AttrInput(ctk.BaseConfig):
+    triprates: dict[str, os.PathLike]
+    landuse: dict[str, os.PathLike]
+    balance_paths: dict[str, os.PathLike]
+    balance_zoning: cc.BalancingZones
 
 
 # # # CLASSES # # #
@@ -74,9 +82,6 @@ class Scenarios(enum.Enum):
     LOW = "Low"
     REGIONAL = "Regional"
     TECHNOLOGY = "Technology"
-
-
-
 
 
 class TEMSegmentationWrapper(ctk.BaseConfig):

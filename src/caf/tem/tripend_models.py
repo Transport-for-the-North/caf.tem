@@ -3,19 +3,22 @@
 Module containing trip_end models.
 """
 # Built-Ins
-import enum
 import os
-
-# Third Party
-import caf.core
-import caf.toolkit as ctk
 
 # Local Imports
 # pylint: disable=import-error,wrong-import-position
 # Local imports here
-from inputs import Scenarios, TEMExportPaths, HBProdInput, NHBProdInput
+from inputs import (
+    Scenarios,
+    TEMExportPaths,
+    HBProdInput,
+    NHBProdInput,
+    AttrInput,
+    TEMSegmentations,
+)
 from production_models import HBProductionModel, NHBProductionModel
-from attraction_models import HBAttractionModel, NHBAttractionModel
+from attraction_models import AttractionModel
+
 # pylint: enable=import-error,wrong-import-position
 
 # # # CONSTANTS # # #
@@ -24,9 +27,6 @@ from attraction_models import HBAttractionModel, NHBAttractionModel
 
 
 class TEM(TEMExportPaths):
-    EXPORT_PATHS_CLASS = TEMExportPaths
-    _running_report_fname = "running_parameters.txt"
-    _log_fname = "NoTEM_log.log"
 
     def __init__(
         self,
@@ -34,20 +34,21 @@ class TEM(TEMExportPaths):
         scenario: Scenarios,
         iteration_name: str,
         export_home: os.PathLike,
+        tem_segs: TEMSegmentations,
         hbprodinput: HBProdInput = None,
         nhbprodinput: NHBProdInput = None,
-        hb_attraction_balance_zoning: caf.core.BalancingZones | bool = True,
-        nhb_attraction_balance_zoning: caf.core.BalancingZones | bool = True,
-        process_count: int = 1
-
+        hbattrinput: AttrInput = None,
+        nhbattrinput: AttrInput = None,
+        process_count: int = 1,
     ):
         # Assign
         self.years = years
-        self.hb_attraction_balance_zoning = hb_attraction_balance_zoning
-        self.nhb_attraction_balance_zoning = nhb_attraction_balance_zoning
         self.process_count = process_count
         self.hb_prod_input = hbprodinput
         self.nhb_prod_input = nhbprodinput
+        self.hb_attr_input = hbattrinput
+        self.nhb_attr_input = nhbattrinput
+        self.tem_segs = tem_segs
         pass
 
         super().__init__(
@@ -65,21 +66,65 @@ class TEM(TEMExportPaths):
             trip_rates_path=self.hb_prod_input.trip_rates_path,
             mode_time_splits_path=self.hb_prod_input.mode_time_splits_path,
             export_home=self.export_home,
-            tem_segs=self.hb_prod_input.tem_segs,
-            constraint_paths=self.hb_prod_input.constraint_paths,
-            process_count=self.process_count
+            tem_segs=self.tem_segs,
+            process_count=self.process_count,
         )
         hb_prod.run(True, True, True, True)
 
-    def run(self,
-            generate_all: bool = False,
-            generate_hb: bool = False,
-            generate_hb_production: bool = False,
-            generate_hb_attraction: bool = False,
-            generate_nhb: bool = False,
-            generate_nhb_production: bool = False,
-            generate_nhb_attraction: bool = False,
-            ) -> None:
+    def _generate_hb_attraction(self):
+        if self.hb_attr_input is None:
+            raise ValueError("hb_attr_input not provided.")
+
+        hb_attr = AttractionModel(
+            trip_rates_paths=self.hb_attr_input.triprates,
+            landuse_paths=self.hb_attr_input.landuse,
+            tem_segs=self.tem_segs,
+            production_balance_paths=self.hb_attr_input.balance_paths,
+            export_home=self.export_home,
+            balance_zoning=self.hb_attr_input.balance_zoning,
+            process_count=self.process_count,
+        )
+        hb_attr.run(True, True, True, True)
+
+    def _generate_nhb_production(self):
+        if self.nhb_prod_input is None:
+            raise ValueError("nhb_prod_input not provided.")
+
+        nhb_prod = NHBProductionModel(
+            tem_segs=self.tem_segs,
+            hb_attraction_paths=self.nhb_prod_input.hb_attraction_paths,
+            trip_rates_path=self.nhb_prod_input.trip_rates_path,
+            time_splits_path=self.nhb_prod_input.time_splits_path,
+            process_count=self.process_count,
+        )
+
+        nhb_prod.run(True, True, True, True)
+
+    def _generate_nhb_attraction(self):
+        if self.nhb_attr_input is None:
+            raise ValueError("nhb_attr_input not provided.")
+
+        nhb_attr = AttractionModel(
+            trip_rates_paths=self.nhb_attr_input.triprates,
+            landuse_paths=self.nhb_attr_input.landuse,
+            tem_segs=self.tem_segs,
+            production_balance_paths=self.nhb_attr_input.balance_paths,
+            export_home=self.export_home,
+            balance_zoning=self.nhb_attr_input.balance_zoning,
+            process_count=self.process_count,
+        )
+        nhb_attr.run()
+
+    def run(
+        self,
+        generate_all: bool = False,
+        generate_hb: bool = False,
+        generate_hb_production: bool = False,
+        generate_hb_attraction: bool = False,
+        generate_nhb: bool = False,
+        generate_nhb_production: bool = False,
+        generate_nhb_attraction: bool = False,
+    ) -> None:
 
         # Determine which models to run
         if generate_all:
@@ -105,5 +150,6 @@ class TEM(TEMExportPaths):
 
         if generate_nhb_attraction:
             self._generate_nhb_attraction()
+
 
 # # # FUNCTIONS # # #

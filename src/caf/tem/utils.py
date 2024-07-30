@@ -116,4 +116,4 @@ def lu_to_tt(dvec: caf.core.DVector):
     out_dvec = out_dvec.trans_seg_from_lookup("apopemp_aws", drop_old=True)
     out_dvec = out_dvec.trans_seg_from_lookup("nssec_adult", drop_old=True)
 
-    return out_dvec.aggregate(['gender_3', 'adult_nssec', 'soc', 'car_availability', 'aws'])
+    return out_dvec.aggregate(["gender_3", "adult_nssec", "soc", "car_availability", "aws"])
