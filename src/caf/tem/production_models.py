@@ -114,7 +114,6 @@ class HBProductionModel(ProductionModelPaths):
         self.mode_time_splits_path = pathlib.Path(mode_time_splits_path)
         self.process_count = process_count
         self.years = list(self.population_paths.keys())
-        self.adjustment_factors = trip_end_adjustments
 
         for key, pop_path in self.population_paths:
             if not pop_path.is_file():
@@ -251,14 +250,14 @@ class HBProductionModel(ProductionModelPaths):
                 return_seg,
             )
 
-            if self.adjustment_factors is not None:
-                self._logger.info("Exporting pre-adjustment notem segmented demand to disk")
-                path = pathlib.Path(self.export_paths.notem_segmented[year])
-                productions.save(
-                    path.with_name(path.stem + f"_pre-adjustment{''.join(path.suffixes)}")
-                )
-                # TODO check this
-                productions = self._trip_end_adjustment(productions)
+            # if self.adjustment_factors is not None:
+            #     self._logger.info("Exporting pre-adjustment notem segmented demand to disk")
+            #     path = pathlib.Path(self.export_paths.notem_segmented[year])
+            #     productions.save(
+            #         path.with_name(path.stem + f"_pre-adjustment{''.join(path.suffixes)}")
+            #     )
+            #     # TODO check this
+            #     productions = self._trip_end_adjustment(productions)
 
             if export_notem_segmentation:
                 self._logger.info("Exporting notem segmented demand to disk")

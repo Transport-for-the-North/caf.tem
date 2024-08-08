@@ -21,6 +21,8 @@ import caf.core as cc
 
 
 # # # CONSTANTS # # #
+TT = cc.SegmentationInput(enum_segments=["adult_nssec", "gender_3", "ns_sec", "soc", "car_availability", "aws", "hh_type"],
+                          naming_order=["adult_nssec", "gender_3", "ns_sec", "soc", "car_availability", "aws", "hh_type"])
 class TEMSegmentations(ctk.BaseConfig):
 
     prod_pure_report: cc.SegmentationInput
@@ -28,7 +30,7 @@ class TEMSegmentations(ctk.BaseConfig):
     prod_full: cc.SegmentationInput
     prod_return_seg: cc.SegmentationInput
     lad_report_seg: cc.SegmentationInput = cc.SegmentationInput(
-        enum_segs=["p", "m", "tp"],
+        enum_segments=["p", "m", "tp"],
         naming_order=["p", "m", "tp"],
         subsets={"tp": [1, 2, 3, 4, 5, 6]},
     )
@@ -51,9 +53,7 @@ class HBProdInput(ctk.BaseConfig):
     trip_rates_path: os.PathLike
     mode_time_splits_path: os.PathLike
     export_home: os.PathLike
-    constraint_paths: dict[int, os.PathLike] = None
     process_count: int = 1
-    trip_end_adjustments = None
 
 
 class NHBProdInput(ctk.BaseConfig):
@@ -71,6 +71,9 @@ class AttrInput(ctk.BaseConfig):
     landuse: dict[str, os.PathLike]
     balance_paths: dict[str, os.PathLike]
     balance_zoning: cc.BalancingZones
+
+    class Config:
+        arbitrary_types_allowed = True
 
 
 # # # CLASSES # # #

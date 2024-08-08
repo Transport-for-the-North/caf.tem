@@ -165,7 +165,6 @@ class AttractionModel(AttractionModelPaths):
         export_pure_attractions: bool = False,
         export_notem_segmentation: bool = True,
         export_reports: bool = True,
-        non_resi_path: bool = True,
     ) -> None:
         """
         Runs the HB Attraction model.

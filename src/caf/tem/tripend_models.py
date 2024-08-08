@@ -19,15 +19,9 @@ from inputs import (
 from production_models import HBProductionModel, NHBProductionModel
 from attraction_models import AttractionModel
 
+
 # pylint: enable=import-error,wrong-import-position
-
-# # # CONSTANTS # # #
-
-# # # CLASSES # # #
-
-
 class TEM(TEMExportPaths):
-
     def __init__(
         self,
         years: list[int],
@@ -153,3 +147,5 @@ class TEM(TEMExportPaths):
 
 
 # # # FUNCTIONS # # #
+
+

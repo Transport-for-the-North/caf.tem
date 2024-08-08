@@ -12,17 +12,22 @@ File purpose:
 """
 # Built-Ins
 import os
+import pathlib
 
 # Third Party
-import caf.core
+import caf.core as cc
+import pandas as pd
+
 
 # Local Imports
 # pylint: disable=import-error,wrong-import-position
 # Local imports here
+# from inputs import TT
 # pylint: enable=import-error,wrong-import-position
 
 # # # CONSTANTS # # #
-
+TT = cc.SegmentationInput(enum_segments=["adult_nssec", "gender_3", "ns_sec", "soc", "car_availability", "aws", "hh_type"],
+                          naming_order=["adult_nssec", "gender_3", "ns_sec", "soc", "car_availability", "aws", "hh_type"])
 # # # CLASSES # # #
 
 # # # FUNCTIONS # # #
@@ -78,42 +83,28 @@ def check_file_exists(
         raise IOError("Cannot find a path to: %s" % str(file_path))
 
 
-def lu_to_tt(dvec: caf.core.DVector):
-    lu_seg = caf.core.SegmentationInput(
-        enum_segments=[
-            "ns_sec",
-            "g",
-            "adults",
-            "accom_h",
-            "pop_emp",
-            "soc",
-            "children",
-            "car_availability",
-            "pop_econ",
-            "age_9",
-        ],
-        naming_order=[
-            "age_9",
-            "g",
-            "pop_econ",
-            "soc",
-            "accom_h",
-            "ns_sec",
-            "pop_emp",
-            "adults",
-            "children",
-            "car_availability",
-        ],
-    )
-    lu_seg = caf.core.Segmentation(lu_seg)
-    if dvec.segmentation != lu_seg:
-        raise ValueError("Input segmentation is not as expected.")
-
+def lu_to_tt(dvec: cc.DVector):
     out_dvec = dvec.aggregate(
-        ["age_9", "g", "ns_sec", "soc", "pop_emp", "adults", "car_availability"]
+        ["age_9", "g", "ns_sec", "soc", "pop_emp", "adults", "car_availability", "adult_nssec"]
     )
     out_dvec = out_dvec.trans_seg_from_lookup("ag_g")
     out_dvec = out_dvec.trans_seg_from_lookup("apopemp_aws", drop_old=True)
-    out_dvec = out_dvec.trans_seg_from_lookup("nssec_adult", drop_old=True)
 
-    return out_dvec.aggregate(["gender_3", "adult_nssec", "soc", "car_availability", "aws"])
+    return out_dvec.aggregate(["adult_nssec", "gender_3", "nssec", "soc", "car_availability", "aws", "hh_type"])
+
+def read_pop_lu(dir: pathlib.Path, file_name: str, geographies = ['EM', 'EoE', 'Lon', 'NE', 'NW', 'SE', 'SW', 'Wales', 'WM', 'YH']):
+    dvecs = []
+    for region in geographies:
+        dvec = cc.DVector.load(dir / file_name.format(region), cut_read=True)
+        dvec_tt = lu_to_tt(dvec)
+        dvecs.append(dvec_tt)
+    overall_data = pd.concat([d.data for d in dvecs], axis=1)
+    zoning = cc.ZoningSystem.get_zoning('lsoa')
+    return cc.DVector(import_data=overall_data,
+                            segmentation=cc.Segmentation(TT),
+                            zoning_system=zoning)
+
+if __name__ == "__main__":
+    pop = read_pop_lu(pathlib.Path(r"F:\Working\Land-Use\OUTPUTS_revised exclusions age status_seeded"),
+                "Output P8_{}.hdf")
+
