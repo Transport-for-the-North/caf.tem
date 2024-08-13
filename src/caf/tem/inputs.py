@@ -128,7 +128,6 @@ class TEMModelPaths:
     """
 
     # Export fname params
-    _trip_origin = None
     _zoning_system = "msoa"
 
     # Segmentation names
@@ -162,6 +161,7 @@ class TEMModelPaths:
         path_years: list[int],
         export_home: os.PathLike,
         report_home: os.PathLike,
+        _trip_origin
     ):
         """Validates input attributes and builds class
 
@@ -180,6 +180,7 @@ class TEMModelPaths:
         self.path_years = path_years
         self.export_home = pathlib.Path(export_home)
         self.report_home = pathlib.Path(report_home)
+        self._trip_origin = _trip_origin
 
         # Make sure paths exist
         if not self.export_home.is_dir():
@@ -213,7 +214,7 @@ class TEMModelPaths:
             pure_demand_paths[year] = self.export_home / fname
 
             # Fully Segmented path
-            fname = base_fname % (*fname_parts, self._fully_segmented, year)
+            fname = f"fully_segmented_by_at_{year}"
             fully_segmented_paths[year] = self.export_home / fname
 
             # TEM Segmented path
@@ -336,7 +337,7 @@ class ProductionModelPaths(TEMModelPaths):
         See super for more detail
         """
         # Set up superclass
-        super().__init__(*args, **kwargs)
+        super().__init__(_trip_origin=_trip_origin, *args, **kwargs)
 
         # Generate the paths
         self._create_export_paths()

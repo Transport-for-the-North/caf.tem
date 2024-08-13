@@ -90,7 +90,7 @@ def lu_to_tt(dvec: cc.DVector):
     out_dvec = out_dvec.trans_seg_from_lookup("ag_g")
     out_dvec = out_dvec.trans_seg_from_lookup("apopemp_aws", drop_old=True)
 
-    return out_dvec.aggregate(["adult_nssec", "gender_3", "ns_sec", "soc", "car_availability", "aws", "hh_type"])
+    return out_dvec.aggregate(["adult_nssec", "gender_3", "ns_sec", "soc", "car_availability", "aws"]).add_segments(['hh_type'])
 
 def read_pop_lu(dir: pathlib.Path, file_name: str, geographies = ['EM', 'EoE', 'Lon', 'NE', 'NW', 'SE', 'SW', 'Wales', 'WM', 'YH']):
     dvecs = []
@@ -99,7 +99,8 @@ def read_pop_lu(dir: pathlib.Path, file_name: str, geographies = ['EM', 'EoE', '
         dvec_tt = lu_to_tt(dvec)
         dvecs.append(dvec_tt)
     overall_data = pd.concat([d.data for d in dvecs], axis=1)
-    zoning = cc.ZoningSystem.get_zoning('lsoa')
+    zoning = cc.ZoningSystem.get_zoning('lsoa_2021')
+    overall_data.rename(columns=zoning.name_to_id, inplace=True)
     return cc.DVector(import_data=overall_data,
                             segmentation=cc.Segmentation(TT),
                             zoning_system=zoning)
@@ -107,4 +108,6 @@ def read_pop_lu(dir: pathlib.Path, file_name: str, geographies = ['EM', 'EoE', '
 if __name__ == "__main__":
     pop = read_pop_lu(pathlib.Path(r"F:\Working\Land-Use\OUTPUTS_revised exclusions age status_seeded"),
                 "Output P8_{}.hdf")
+    pop.save(r"F:\Working\Land-Use\OUTPUTS_revised exclusions age status_seeded\final_combined.hdf")
+    print('debugging')
 
