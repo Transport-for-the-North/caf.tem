@@ -26,8 +26,8 @@ import pandas as pd
 # pylint: enable=import-error,wrong-import-position
 
 # # # CONSTANTS # # #
-TT = cc.SegmentationInput(enum_segments=["adult_nssec", "gender_3", "ns_sec", "soc", "car_availability", "aws", "hh_type"],
-                          naming_order=["adult_nssec", "gender_3", "ns_sec", "soc", "car_availability", "aws", "hh_type"])
+TT = cc.SegmentationInput(enum_segments=["adult_nssec", "gender_3", "ns_sec", "soc", "aws", "hh_type"],
+                          naming_order=["adult_nssec", "gender_3", "ns_sec", "soc", "aws", "hh_type"])
 # # # CLASSES # # #
 
 # # # FUNCTIONS # # #
@@ -90,7 +90,7 @@ def lu_to_tt(dvec: cc.DVector):
     out_dvec = out_dvec.trans_seg_from_lookup("ag_g")
     out_dvec = out_dvec.trans_seg_from_lookup("apopemp_aws", drop_old=True)
 
-    return out_dvec.aggregate(["adult_nssec", "gender_3", "nssec", "soc", "car_availability", "aws", "hh_type"])
+    return out_dvec.aggregate(["adult_nssec", "gender_3", "ns_sec", "soc", "car_availability", "aws", "hh_type"])
 
 def read_pop_lu(dir: pathlib.Path, file_name: str, geographies = ['EM', 'EoE', 'Lon', 'NE', 'NW', 'SE', 'SW', 'Wales', 'WM', 'YH']):
     dvecs = []
