@@ -16,7 +16,7 @@ import caf.core
 import caf.toolkit as ctk
 
 from inputs import ProductionModelPaths, TEMSegmentations
-from utils import check_file_exists
+from utils import check_file_exists, read_pop_lu
 
 
 class HBProductionModel(ProductionModelPaths):
@@ -53,6 +53,7 @@ class HBProductionModel(ProductionModelPaths):
     See HBProductionModelPaths for documentation on:
         "path_years, export_home, report_home, export_paths, report_paths"
     """
+    # TRANS_PATH = pathlib.Path(r"E:\tem\lsoa_at_lookup.csv")
 
     def __init__(
         self,
@@ -60,7 +61,7 @@ class HBProductionModel(ProductionModelPaths):
         trip_rates_path: os.PathLike,
         mode_time_splits_path: os.PathLike,
         export_home: os.PathLike,
-        tem_segs: TEMSegmentations,
+        return_segmentation: caf.core.Segmentation,
         process_count: int = 1,
         trip_end_adjustments=None,
     ) -> None:
@@ -108,14 +109,15 @@ class HBProductionModel(ProductionModelPaths):
         # Validate that we have data for all the years we're running for
 
         # Assign
-        self.tem_segs = tem_segs
         self.population_paths = {i: pathlib.Path(j) for i, j in population_paths.items()}
         self.trip_rates_path = pathlib.Path(trip_rates_path)
         self.mode_time_splits_path = pathlib.Path(mode_time_splits_path)
         self.process_count = process_count
         self.years = list(self.population_paths.keys())
+        self.trans = None
+        self.return_segmentation = return_segmentation
 
-        for key, pop_path in self.population_paths:
+        for key, pop_path in self.population_paths.items():
             if not pop_path.is_file():
                 raise FileNotFoundError(f"{pop_path} is not a valid file.")
 
@@ -130,10 +132,10 @@ class HBProductionModel(ProductionModelPaths):
 
         # Build the output paths
         super().__init__(
-            _trip_origin="hb",
             path_years=self.years,
             export_home=export_home,
             report_home=report_home,
+            _trip_origin="hb"
         )
         # TODO sort loggers
         logger_name = "%s.%s" % ("placeholder", self.__class__.__name__)
@@ -143,8 +145,7 @@ class HBProductionModel(ProductionModelPaths):
     def run(
         self,
         export_pure_demand: bool = False,
-        export_fully_segmented: bool = False,
-        export_notem_segmentation: bool = True,
+        export_tem_segmentation: bool = True,
         export_reports: bool = True,
     ) -> None:
         """
@@ -180,11 +181,7 @@ class HBProductionModel(ProductionModelPaths):
             Whether to export the pure demand to disk or not.
             Will be written out to: self.export_paths.pure_demand[year]
 
-        export_fully_segmented:
-            Whether to export the fully segmented demand to disk or not.
-            Will be written out to: self.export_paths.fully_segmented[year]
-
-        export_notem_segmentation:
+        export_tem_segmentation:
             Whether to export the notem segmented demand to disk or not.
             Will be written out to: self.export_paths.notem_segmented[year]
 
@@ -206,7 +203,11 @@ class HBProductionModel(ProductionModelPaths):
             year_start_time = ctk.timing.current_milli_time()
             # ## GENERATE PURE DEMAND ## #
             self._logger.info("Loading the population data")
-            pop_dvec = caf.core.DVector.load(self.population_paths[year])
+            if os.path.isdir(self.population_paths[year]):
+                # TODO this file name shouldn't be hard coded
+                pop_dvec = read_pop_lu(self.population_paths[year], "Output P8_{}.hdf")
+            else:
+                pop_dvec = caf.core.DVector.load(self.population_paths[year])
 
             self._logger.info("Applying trip rates")
             pure_demand = self._generate_productions(pop_dvec)
@@ -217,9 +218,8 @@ class HBProductionModel(ProductionModelPaths):
 
             if export_reports:
                 self._logger.info("Exporting pure demand reports to disk")
-                report_seg = caf.core.Segmentation(self.tem_segs.prod_pure_report)
                 pure_demand_paths = self.report_paths.pure_demand
-                pure_demand.aggregate(report_seg).write_sector_reports(
+                pure_demand.write_sector_reports(
                     segment_totals_path=pure_demand_paths.segment_total[year],
                     ca_sector_path=pure_demand_paths.ca_sector[year],
                     ie_sector_path=pure_demand_paths.ie_sector[year],
@@ -227,39 +227,26 @@ class HBProductionModel(ProductionModelPaths):
 
             # ## SPLIT PURE DEMAND BY MODE AND TIME ## #
             self._logger.info("Splitting by mode and time")
-            fully_segmented = self._split_by_tp_and_mode(pure_demand)
+            fully_segmented, fully_segmented_sum = self._split_by_tp_and_mode(pure_demand, year)
 
             # ## PRODUCTIONS TOTAL CHECK ## #
-            if not pure_demand.sum_is_close(fully_segmented):
+            if not pure_demand.sum_is_close(fully_segmented_sum):
                 msg = (
                     "The production totals before and after mode time split are not same.\n"
                     "Expected %f\n"
-                    "Got %f" % (pure_demand.sum(), fully_segmented.sum())
+                    "Got %f" % (pure_demand.sum(), fully_segmented_sum)
                 )
                 self._logger.warning(msg)
                 warnings.warn(msg)
 
-            # Output productions before any aggregation
-            if export_fully_segmented:
-                self._logger.info("Exporting fully segmented productions to disk.")
-                fully_segmented.save(self.export_paths.fully_segmented[year])
-
             # ## AGGREGATE INTO RETURN SEGMENTATION ## #
-            return_seg = caf.core.Segmentation(self.tem_segs.prod_return_seg)
-            productions = fully_segmented.aggregate(
-                return_seg,
+            return_seg = self.return_segmentation
+            productions = caf.core.DVector.concat_from_dir(
+                dir=fully_segmented,
+                segmentation=return_seg
             )
 
-            # if self.adjustment_factors is not None:
-            #     self._logger.info("Exporting pre-adjustment notem segmented demand to disk")
-            #     path = pathlib.Path(self.export_paths.notem_segmented[year])
-            #     productions.save(
-            #         path.with_name(path.stem + f"_pre-adjustment{''.join(path.suffixes)}")
-            #     )
-            #     # TODO check this
-            #     productions = self._trip_end_adjustment(productions)
-
-            if export_notem_segmentation:
+            if export_tem_segmentation:
                 self._logger.info("Exporting notem segmented demand to disk")
                 productions.save(self.export_paths.notem_segmented[year])
 
@@ -307,13 +294,19 @@ class HBProductionModel(ProductionModelPaths):
         # Reading trip rates
         trip_rates = caf.core.DVector.load(self.trip_rates_path)
         # ## MULTIPLY TOGETHER ## #
-        prod = population * trip_rates
-        # TODO do we expect these to have the same segmentation, or one to be a subset of the other?
+        if trip_rates.zoning_system == population:
+            prod = population * trip_rates
+        else:
+            if self.trans is None:
+                self.trans = trip_rates.zoning_system.translate(population.zoning_system)
+            trip_rates_disag = trip_rates.translate_zoning(population.zoning_system, one_to_one=True, trans_vector=self.trans, check_totals=False)
+            prod = population * trip_rates_disag
         return prod
 
     def _split_by_tp_and_mode(
         self,
         pure_demand: caf.core.DVector,
+        year: int
     ) -> caf.core.DVector:
         """
         Applies time period and mode splits to the given pure demand.
@@ -328,22 +321,19 @@ class HBProductionModel(ProductionModelPaths):
         full_segmented_demand:
             A DVector containing pure_demand split by mode and time.
         """
-        # Define the segmentation we want to use
-        m_tp_splits_seg = caf.core.Segmentation(self.tem_segs.prod_full_tfnat)
-
-        full_seg = caf.core.Segmentation(self.tem_segs.prod_full)
-        # Create the mode-time splits DVector
         mode_time_splits = caf.core.DVector.load(self.mode_time_splits_path)
-
-        if mode_time_splits.segmentation != m_tp_splits_seg:
-            raise caf.core.segmentation.SegmentationError(
-                "The read DVector does not have the expected segmentation."
-                f"Expected: {m_tp_splits_seg.names},"
-                f"Read: {mode_time_splits.segmentation.names}"
-            )
-
-        return (pure_demand * mode_time_splits).aggregate(full_seg)
-
+        total = 0
+        # TODO probably needs to be more flexible
+        if mode_time_splits.zoning_system != pure_demand.zoning_system:
+            pure_demand = pure_demand.split_by_agg_zoning(mode_time_splits.zoning_system, trans=self.trans)
+            for zone, dvec in pure_demand.items():
+                mts = mode_time_splits.select_zone(zone)
+                dvec *= mts
+                out_path = self.export_paths.fully_segmented[year]
+                out_path.mkdir(exist_ok=True, parents=False)
+                dvec.save(out_path / f"at_{zone}.hdf")
+                total += dvec.sum()
+        return self.export_paths.fully_segmented, total
     def _trip_end_adjustment(self, trip_ends: caf.core.DVector) -> caf.core.DVector:
         """Multiply `trip_ends` by `adjustment_factors`.
 
@@ -743,3 +733,14 @@ class NHBProductionModel(ProductionModelPaths):
 
         # Multiply together #
         return (pure_nhb_demand * time_splits_dvec).aggregate(full_seg)
+
+if __name__ == "__main__":
+    return_seg = caf.core.SegmentationInput(enum_segments=['p','m','gender_3', 'soc', 'ns_sec', 'car_availability', 'tp'],
+                                            naming_order=['p','m','gender_3', 'soc', 'ns_sec', 'car_availability', 'tp'])
+
+    hb_prod = HBProductionModel(population_paths={2021: pathlib.Path(r"F:\Working\Land-Use\OUTPUTS_revised exclusions age status_seeded\final_combined.hdf")},
+                                export_home=pathlib.Path(r'E:\tem\outputs'),
+                                mode_time_splits_path=pathlib.Path(r"I:\NTS\outputs_is\productions\hb\mode_time_splits\mode_time_split_hb_production.h5"),
+                                trip_rates_path=pathlib.Path(r"I:\NTS\outputs_is\productions\hb\analysis\hb_trip_rates.h5"),
+                                return_segmentation=caf.core.Segmentation(return_seg))
+    hb_prod.run(False, True, False)

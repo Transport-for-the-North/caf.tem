@@ -63,7 +63,7 @@ class TEM(TEMExportPaths):
             tem_segs=self.tem_segs,
             process_count=self.process_count,
         )
-        hb_prod.run(True, True, True, True)
+        hb_prod.run(True, True, True)
 
     def _generate_hb_attraction(self):
         if self.hb_attr_input is None:
