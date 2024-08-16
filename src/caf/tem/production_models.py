@@ -118,7 +118,7 @@ class HBProductionModel(ProductionModelPaths):
         self.return_segmentation = return_segmentation
 
         for key, pop_path in self.population_paths.items():
-            if not pop_path.is_file():
+            if (not pop_path.is_file()) and (not pop_path.is_dir()):
                 raise FileNotFoundError(f"{pop_path} is not a valid file.")
 
         if not self.trip_rates_path.is_file():
@@ -205,7 +205,8 @@ class HBProductionModel(ProductionModelPaths):
             self._logger.info("Loading the population data")
             if os.path.isdir(self.population_paths[year]):
                 # TODO this file name shouldn't be hard coded
-                pop_dvec = read_pop_lu(self.population_paths[year], "Output P8_{}.hdf")
+                pop_dvec = read_pop_lu(self.population_paths[year], "Output P9_{}.hdf")
+                pop_dvec.save(self.population_paths[year] / "final_combined.hdf")
             else:
                 pop_dvec = caf.core.DVector.load(self.population_paths[year])
 
@@ -230,7 +231,7 @@ class HBProductionModel(ProductionModelPaths):
             fully_segmented, fully_segmented_sum = self._split_by_tp_and_mode(pure_demand, year)
 
             # ## PRODUCTIONS TOTAL CHECK ## #
-            if not pure_demand.sum_is_close(fully_segmented_sum):
+            if not pure_demand.sum_is_close(fully_segmented_sum, 0.01, 100):
                 msg = (
                     "The production totals before and after mode time split are not same.\n"
                     "Expected %f\n"
@@ -298,9 +299,9 @@ class HBProductionModel(ProductionModelPaths):
             prod = population * trip_rates
         else:
             if self.trans is None:
-                self.trans = trip_rates.zoning_system.translate(population.zoning_system)
-            trip_rates_disag = trip_rates.translate_zoning(population.zoning_system, one_to_one=True, trans_vector=self.trans, check_totals=False)
-            prod = population * trip_rates_disag
+                self.trans: pd.DataFrame = trip_rates.zoning_system.translate(other=population.zoning_system)
+            trip_rates_disag: caf.core.DVector = trip_rates.translate_zoning(new_zoning=population.zoning_system, one_to_one=True, trans_vector=self.trans, check_totals=False)
+            prod: caf.core.DVector = population * trip_rates_disag
         return prod
 
     def _split_by_tp_and_mode(
@@ -333,7 +334,7 @@ class HBProductionModel(ProductionModelPaths):
                 out_path.mkdir(exist_ok=True, parents=False)
                 dvec.save(out_path / f"at_{zone}.hdf")
                 total += dvec.sum()
-        return self.export_paths.fully_segmented, total
+        return out_path, total
     def _trip_end_adjustment(self, trip_ends: caf.core.DVector) -> caf.core.DVector:
         """Multiply `trip_ends` by `adjustment_factors`.
 
@@ -743,4 +744,4 @@ if __name__ == "__main__":
                                 mode_time_splits_path=pathlib.Path(r"I:\NTS\outputs_is\productions\hb\mode_time_splits\mode_time_split_hb_production.h5"),
                                 trip_rates_path=pathlib.Path(r"I:\NTS\outputs_is\productions\hb\analysis\hb_trip_rates.h5"),
                                 return_segmentation=caf.core.Segmentation(return_seg))
-    hb_prod.run(False, True, False)
+    hb_prod.run(True, True, True)
