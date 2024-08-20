@@ -99,7 +99,7 @@ def read_pop_lu(dir: pathlib.Path,
                 geographies=('EM', 'EoE', 'Lon', 'NE', 'NW', 'SE', 'SW', 'Wales', 'WM', 'YH', 'Scotland')):
     dvecs = []
     for region in geographies:
-        dvec = cc.DVector.load(dir / file_name.format(region), cut_read=True)
+        dvec = cc.DVector.load(dir / file_name.format(region))
         dvec_tt = lu_to_tt(dvec)
         dvecs.append(dvec_tt)
     overall_data = pd.concat([d.data for d in dvecs], axis=1)
