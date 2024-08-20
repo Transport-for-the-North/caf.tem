@@ -4,7 +4,7 @@ Module containing trip_end models.
 """
 # Built-Ins
 import os
-
+import caf.core as cc
 # Local Imports
 # pylint: disable=import-error,wrong-import-position
 # Local imports here
@@ -29,6 +29,7 @@ class TEM(TEMExportPaths):
         iteration_name: str,
         export_home: os.PathLike,
         tem_segs: TEMSegmentations,
+        model_zoning: cc.ZoningSystem,
         hbprodinput: HBProdInput = None,
         nhbprodinput: NHBProdInput = None,
         hbattrinput: AttrInput = None,
@@ -43,7 +44,7 @@ class TEM(TEMExportPaths):
         self.hb_attr_input = hbattrinput
         self.nhb_attr_input = nhbattrinput
         self.tem_segs = tem_segs
-        pass
+        self.model_zoning = model_zoning
 
         super().__init__(
             export_home=export_home,
@@ -60,7 +61,6 @@ class TEM(TEMExportPaths):
             trip_rates_path=self.hb_prod_input.trip_rates_path,
             mode_time_splits_path=self.hb_prod_input.mode_time_splits_path,
             export_home=self.export_home,
-            tem_segs=self.tem_segs,
             process_count=self.process_count,
         )
         hb_prod.run(True, True, True)

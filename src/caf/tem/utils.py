@@ -14,6 +14,7 @@ File purpose:
 import os
 import pathlib
 
+import caf.core
 # Third Party
 import caf.core as cc
 import pandas as pd
@@ -92,7 +93,10 @@ def lu_to_tt(dvec: cc.DVector):
 
     return out_dvec.aggregate(["adult_nssec", "gender_3", "ns_sec", "soc", "car_availability", "aws"]).add_segments(['hh_type'])
 
-def read_pop_lu(dir: pathlib.Path, file_name: str, geographies = ['EM', 'EoE', 'Lon', 'NE', 'NW', 'SE', 'SW', 'Wales', 'WM', 'YH']):
+def read_pop_lu(dir: pathlib.Path,
+                file_name: str,
+                out_zoning: caf.core.ZoningSystem | None = None,
+                geographies=('EM', 'EoE', 'Lon', 'NE', 'NW', 'SE', 'SW', 'Wales', 'WM', 'YH', 'Scotland')):
     dvecs = []
     for region in geographies:
         dvec = cc.DVector.load(dir / file_name.format(region), cut_read=True)
@@ -101,9 +105,17 @@ def read_pop_lu(dir: pathlib.Path, file_name: str, geographies = ['EM', 'EoE', '
     overall_data = pd.concat([d.data for d in dvecs], axis=1)
     zoning = cc.ZoningSystem.get_zoning('lsoa_2021')
     overall_data.rename(columns=zoning.name_to_id, inplace=True)
-    return cc.DVector(import_data=overall_data,
+    dvec = cc.DVector(import_data=overall_data,
                             segmentation=cc.Segmentation(TT),
                             zoning_system=zoning)
+    trans = None
+    if out_zoning is not None:
+        trans = dvec.zoning_system.translate(out_zoning)
+        return dvec.translate_zoning(
+            out_zoning,
+            trans_vector=trans
+        )
+    return dvec, trans
 
 if __name__ == "__main__":
     pop = read_pop_lu(pathlib.Path(r"F:\Working\Land-Use\OUTPUTS_revised exclusions age status_seeded"),
