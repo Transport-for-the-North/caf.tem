@@ -85,6 +85,12 @@ namespace_packages = true
 ignore_missing_imports = true
 allow_redefinition = true
 
+[[tool.mypy.overrides]]
+module = [
+  "caf.core._version",
+]
+ignore_errors = true
+
 [tool.pydocstyle]
 convention = "numpy"
 match = '(?!_test)(?!test_)(?!__init__).*\.py'
