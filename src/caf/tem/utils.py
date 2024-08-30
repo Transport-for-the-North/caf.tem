@@ -10,6 +10,7 @@ Other updates made by:
 File purpose:
 
 """
+from __future__ import annotations
 # Built-Ins
 import os
 import pathlib
