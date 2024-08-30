@@ -92,7 +92,7 @@ def lu_to_tt(dvec: cc.DVector):
 
     return out_dvec.aggregate(["adult_nssec", "gender_3", "ns_sec", "soc", "car_availability", "aws"]).add_segments(['hh_type'])
 
-def read_pop_lu(dir: pathlib.Path, file_name: str, geographies = ['EM', 'EoE', 'Lon', 'NE', 'NW', 'SE', 'SW', 'Wales', 'WM', 'YH']):
+def read_pop_lu(dir: pathlib.Path, file_name: str, geographies = ['EM', 'EoE', 'Lon', 'NE', 'NW', 'SE', 'SW', 'Wales', 'WM', 'YH', 'Scotland']):
     dvecs = []
     for region in geographies:
         dvec = cc.DVector.load(dir / file_name.format(region))
@@ -107,7 +107,9 @@ def read_pop_lu(dir: pathlib.Path, file_name: str, geographies = ['EM', 'EoE', '
 
 if __name__ == "__main__":
     pop = read_pop_lu(pathlib.Path(r"F:\Working\Land-Use\OUTPUTS_revised exclusions age status_seeded"),
-                "Output P8_{}.hdf")
+                "Output P9_{}.hdf")
+    pop_vector = pop.data.sum().T
+    pop_vector.to_csv(r"C:\Users\IsaacScott\projects\tem\pop_2021.csv")
     pop.save(r"F:\Working\Land-Use\OUTPUTS_revised exclusions age status_seeded\final_combined.hdf")
     print('debugging')
 
