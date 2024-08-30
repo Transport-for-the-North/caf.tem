@@ -126,10 +126,6 @@ class TEMModelPaths:
         The home directory of all reports. Is used as a basis for
         all report path building.
     """
-
-    # Export fname params
-    _zoning_system = "msoa"
-
     # Segmentation names
     _pure_demand = "pure_demand"
     _fully_segmented = "fully_segmented"
@@ -161,6 +157,7 @@ class TEMModelPaths:
         path_years: list[int],
         export_home: os.PathLike,
         report_home: os.PathLike,
+        zoning_system: str,
         _trip_origin
     ):
         """Validates input attributes and builds class
@@ -181,6 +178,7 @@ class TEMModelPaths:
         self.export_home = pathlib.Path(export_home)
         self.report_home = pathlib.Path(report_home)
         self._trip_origin = _trip_origin
+        self._zoning_system = zoning_system
 
         # Make sure paths exist
         if not self.export_home.is_dir():
@@ -483,7 +481,7 @@ class TEMExportPaths:
         # This creates the parents too so only needed for the lowest level
         hb_p_report_home.mkdir(exist_ok=True, parents=True)
 
-        self.hb_production = HBProductionModelPaths(
+        self.hb_production = ProductionModelPaths(
             path_years=path_years,
             export_home=hb_p_export_home,
             report_home=hb_p_report_home,
@@ -495,7 +493,7 @@ class TEMExportPaths:
 
         nhb_p_report_home.mkdir(exist_ok=True, parents=True)
 
-        self.nhb_production = NHBProductionModelPaths(
+        self.nhb_production = ProductionModelPaths(
             path_years=path_years,
             export_home=nhb_p_export_home,
             report_home=nhb_p_report_home,
@@ -507,7 +505,7 @@ class TEMExportPaths:
 
         hb_a_report_home.mkdir(exist_ok=True, parents=True)
 
-        self.hb_attraction = HBAttractionModelPaths(
+        self.hb_attraction = AttractionModelPaths(
             path_years=path_years,
             export_home=hb_a_export_home,
             report_home=hb_a_report_home,
@@ -519,7 +517,7 @@ class TEMExportPaths:
 
         nhb_a_report_home.mkdir(exist_ok=True, parents=True)
 
-        self.nhb_attraction = NHBAttractionModelPaths(
+        self.nhb_attraction = AttractionModelPaths(
             path_years=path_years,
             export_home=nhb_a_export_home,
             report_home=nhb_a_report_home,

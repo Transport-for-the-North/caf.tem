@@ -62,8 +62,8 @@ class HBProductionModel(ProductionModelPaths):
         mode_time_splits_path: os.PathLike,
         export_home: os.PathLike,
         return_segmentation: caf.core.Segmentation,
+        model_zoning: caf.core.ZoningSystem,
         process_count: int = 1,
-        trip_end_adjustments=None,
     ) -> None:
         """
         Sets up and validates arguments for the Production model.
@@ -116,6 +116,7 @@ class HBProductionModel(ProductionModelPaths):
         self.years = list(self.population_paths.keys())
         self.trans = None
         self.return_segmentation = return_segmentation
+        self.model_zoning = model_zoning
 
         for key, pop_path in self.population_paths.items():
             if (not pop_path.is_file()) and (not pop_path.is_dir()):
@@ -205,10 +206,14 @@ class HBProductionModel(ProductionModelPaths):
             self._logger.info("Loading the population data")
             if os.path.isdir(self.population_paths[year]):
                 # TODO this file name shouldn't be hard coded
-                pop_dvec = read_pop_lu(self.population_paths[year], "Output P9_{}.hdf")
-                pop_dvec.save(self.population_paths[year] / "final_combined.hdf")
+                pop_dvec, self.trans = read_pop_lu(self.population_paths[year], "Output P9_{}.hdf", out_zoning=self.model_zoning)
+                pop_dvec.save(self.export_paths.home / f"pop_{year}.h5")
+
             else:
                 pop_dvec = caf.core.DVector.load(self.population_paths[year])
+                if pop_dvec.zoning_system != self.model_zoning:
+                    self.trans = pop_dvec.zoning_system.translate(self.model_zoning)
+                    pop_dvec = pop_dvec.translate_zoning(self.model_zoning, trans_vector=self.trans)
 
             self._logger.info("Applying trip rates")
             pure_demand = self._generate_productions(pop_dvec)
@@ -248,8 +253,8 @@ class HBProductionModel(ProductionModelPaths):
             )
 
             if export_tem_segmentation:
-                self._logger.info("Exporting notem segmented demand to disk")
-                productions.save(self.export_paths.notem_segmented[year])
+                self._logger.info("Exporting tem segmented demand to disk")
+                productions.save(self.export_paths.tem_segmented[year])
 
             if export_reports:
                 # TODO possible save segmentations/subsets somewhere standard
@@ -295,7 +300,7 @@ class HBProductionModel(ProductionModelPaths):
         # Reading trip rates
         trip_rates = caf.core.DVector.load(self.trip_rates_path)
         # ## MULTIPLY TOGETHER ## #
-        if trip_rates.zoning_system == population:
+        if trip_rates.zoning_system == self.model_zoning:
             prod = population * trip_rates
         else:
             if self.trans is None:
@@ -737,9 +742,10 @@ class NHBProductionModel(ProductionModelPaths):
 
 if __name__ == "__main__":
     return_seg = caf.core.SegmentationInput(enum_segments=['p','m','gender_3', 'soc', 'ns_sec', 'car_availability', 'tp'],
-                                            naming_order=['p','m','gender_3', 'soc', 'ns_sec', 'car_availability', 'tp'])
+                                            naming_order=['p','m','gender_3', 'soc', 'ns_sec', 'car_availability', 'tp'],
+                                            subsets={'p': [1, 2, 3, 4, 5, 6, 7, 8]})
 
-    hb_prod = HBProductionModel(population_paths={2021: pathlib.Path(r"F:\Working\Land-Use\OUTPUTS_revised exclusions age status_seeded\final_combined.hdf")},
+    hb_prod = HBProductionModel(population_paths={2021: pathlib.Path(r"E:\tem\pop_2021.h5")},
                                 export_home=pathlib.Path(r'E:\tem\outputs'),
                                 mode_time_splits_path=pathlib.Path(r"I:\NTS\outputs_is\productions\hb\mode_time_splits\mode_time_split_hb_production.h5"),
                                 trip_rates_path=pathlib.Path(r"I:\NTS\outputs_is\productions\hb\analysis\hb_trip_rates.h5"),
