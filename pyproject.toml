@@ -80,7 +80,7 @@ max-attributes = 15
 max-statements = 100
 
 [tool.mypy]
-packages = ["caf.{package_name}"]
+packages = ["caf.tem"]
 namespace_packages = true
 ignore_missing_imports = true
 allow_redefinition = true

@@ -112,7 +112,7 @@ def read_pop_lu(dir: pathlib.Path,
     trans = None
     if out_zoning is not None:
         trans = dvec.zoning_system.translate(out_zoning)
-        return dvec.translate_zoning(
+        dvec = dvec.translate_zoning(
             out_zoning,
             trans_vector=trans
         )
