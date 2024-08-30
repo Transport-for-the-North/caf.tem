@@ -87,7 +87,7 @@ allow_redefinition = true
 
 [[tool.mypy.overrides]]
 module = [
-  "caf.core._version",
+  "caf.tem._version",
 ]
 ignore_errors = true
 
@@ -112,8 +112,8 @@ match = ["v*"]
 default-tag = "0.0.1"
 
 [tool.versioningit.onbuild]
-source-file = "src/caf/toolkit/_version.py"
-build-file = "caf/toolkit/_version.py"
+source-file = "src/caf/tem/_version.py"
+build-file = "caf/tem/_version.py"
 
 [tool.versioningit.format]
 distance = "{base_version}+{distance}.{vcs}{rev}"
