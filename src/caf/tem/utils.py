@@ -86,12 +86,12 @@ def check_file_exists(
 
 def lu_to_tt(dvec: cc.DVector):
     out_dvec = dvec.aggregate(
-        ["age_9", "g", "ns_sec", "soc", "pop_emp", "adults", "car_availability", "adult_nssec"]
+        ["age_9", "g", "ns_sec", "soc", "pop_emp", "adults", "adult_nssec"]
     )
     out_dvec = out_dvec.trans_seg_from_lookup("ag_g")
     out_dvec = out_dvec.trans_seg_from_lookup("apopemp_aws", drop_old=True)
 
-    return out_dvec.aggregate(["adult_nssec", "gender_3", "ns_sec", "soc", "car_availability", "aws"]).add_segments(['hh_type'])
+    return out_dvec.aggregate(["adult_nssec", "gender_3", "ns_sec", "soc", "aws"]).add_segments(['hh_type'])
 
 
 def read_pop_lu(dir: pathlib.Path,
@@ -119,8 +119,10 @@ def read_pop_lu(dir: pathlib.Path,
     return dvec, trans
 
 if __name__ == "__main__":
-    pop = read_pop_lu(pathlib.Path(r"F:\Working\Land-Use\OUTPUTS_revised exclusions age status_seeded"),
-                "Output P9_{}.hdf")
+    normits = cc.ZoningSystem.get_zoning('normits')
+    pop = read_pop_lu(pathlib.Path(r"F:\Working\Land-Use\OUTPUTS_full run_final"),
+                "Output P11_{}.hdf",
+                      out_zoning=normits)
     pop_vector = pop.data.sum().T
     pop_vector.to_csv(r"C:\Users\IsaacScott\projects\tem\pop_2021.csv")
     pop.save(r"F:\Working\Land-Use\OUTPUTS_revised exclusions age status_seeded\final_combined.hdf")
