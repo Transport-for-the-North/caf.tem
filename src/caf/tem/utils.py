@@ -87,12 +87,18 @@ def check_file_exists(
 
 def lu_to_tt(dvec: cc.DVector):
     out_dvec = dvec.aggregate(
-        ["age_9", "g", "ns_sec", "soc", "pop_emp", "adults", "adult_nssec"]
+        ["age_9", "g", "ns_sec", "soc", "pop_emp", "adults", "adult_nssec", "car_availability"]
     )
     out_dvec = out_dvec.trans_seg_from_lookup("ag_g")
     out_dvec = out_dvec.trans_seg_from_lookup("apopemp_aws", drop_old=True)
 
-    return out_dvec.aggregate(["adult_nssec", "gender_3", "ns_sec", "soc", "aws"]).add_segments(['hh_type'])
+    out_dvec = out_dvec.add_segments(['hh_type']).aggregate(["adult_nssec", "gender_3", "ns_sec", "soc", "aws", "hh_type"])
+
+    if not math.isclose(out_dvec.sum(), dvec.sum()):
+        warnings.warn(f"The total has changed during conversion. Sum before = {dvec.sum()}, "
+                      f"sum after = {out_dvec.sum()}.")
+
+    return out_dvec
 
 
 def read_pop_lu(dir: pathlib.Path,
