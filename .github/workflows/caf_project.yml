@@ -1,4 +1,4 @@
-name: Add enhancements to caf project
+name: Add All Issues to CAF Project
 
 on:
   issues:
@@ -13,7 +13,5 @@ jobs:
     steps:
       - uses: actions/add-to-project@v1.0.1
         with:
-          project-url: https://github.com/orgs/Transport-for-the-North/projects/31
+          project-url: https://github.com/orgs/Transport-for-the-North/projects/48
           github-token: ${{ secrets.TEM_PROJECTS }}
-          labeled: enhancement
-          label-operator: OR
