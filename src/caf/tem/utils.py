@@ -108,7 +108,7 @@ def lu_to_tt(dvec: cb.DVector):
     return out_dvec
 
 
-def read_pop_lu(dir: pathlib.Path,
+def read_lu_pop(dir: pathlib.Path,
                 file_name: str,
                 out_zoning: cb.ZoningSystem | None = None,
                 geographies=('EM', 'EoE', 'Lon', 'NE', 'NW', 'SE', 'SW', 'Wales', 'WM', 'YH', 'Scotland')):
