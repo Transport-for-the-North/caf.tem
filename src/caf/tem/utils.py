@@ -14,10 +14,10 @@ from __future__ import annotations
 # Built-Ins
 import os
 import pathlib
-
-import caf.core
+import math
+import warnings
 # Third Party
-import caf.core as cc
+import caf.base as cb
 import pandas as pd
 
 
@@ -28,8 +28,15 @@ import pandas as pd
 # pylint: enable=import-error,wrong-import-position
 
 # # # CONSTANTS # # #
-TT = cc.SegmentationInput(enum_segments=["adult_nssec", "gender_3", "ns_sec", "soc", "aws", "hh_type"],
+TT = cb.SegmentationInput(enum_segments=["adult_nssec", "gender_3", "ns_sec", "soc", "aws", "hh_type"],
                           naming_order=["adult_nssec", "gender_3", "ns_sec", "soc", "aws", "hh_type"])
+GOR = ('EM', 'EoE', 'Lon', 'NE', 'NW', 'SE', 'SW', 'Wales', 'WM', 'YH', 'Scotland')
+SEG_POP = ["gender_3", "aws", "hh_type", "soc", "ns_sec", "adult_nssec"]
+SEG_EMP = ["soc", "sic_1_digit", "sic_2_digit"]
+SEG_HH = ["car_availability"]
+TT_POP = cb.SegmentationInput(enum_segments=SEG_POP, naming_order=SEG_POP)
+TT_EMP = cb.SegmentationInput(enum_segments=SEG_EMP, naming_order=SEG_EMP)
+TT_HH = cb.SegmentationInput(enum_segments=SEG_HH, naming_order=SEG_HH)
 # # # CLASSES # # #
 
 # # # FUNCTIONS # # #
@@ -85,7 +92,7 @@ def check_file_exists(
         raise IOError("Cannot find a path to: %s" % str(file_path))
 
 
-def lu_to_tt(dvec: cc.DVector):
+def lu_to_tt(dvec: cb.DVector):
     out_dvec = dvec.aggregate(
         ["age_9", "g", "ns_sec", "soc", "pop_emp", "adults", "adult_nssec", "car_availability"]
     )
@@ -103,18 +110,69 @@ def lu_to_tt(dvec: cc.DVector):
 
 def read_pop_lu(dir: pathlib.Path,
                 file_name: str,
-                out_zoning: caf.core.ZoningSystem | None = None,
+                out_zoning: cb.ZoningSystem | None = None,
                 geographies=('EM', 'EoE', 'Lon', 'NE', 'NW', 'SE', 'SW', 'Wales', 'WM', 'YH', 'Scotland')):
     dvecs = []
     for region in geographies:
-        dvec = cc.DVector.load(dir / file_name.format(region))
+        dvec = cb.DVector.load(dir / file_name.format(region))
         dvec_tt = lu_to_tt(dvec)
         dvecs.append(dvec_tt)
     overall_data = pd.concat([d.data for d in dvecs], axis=1)
-    zoning = cc.ZoningSystem.get_zoning('lsoa_2021')
+    zoning = cb.ZoningSystem.get_zoning('lsoa_2021')
     overall_data.rename(columns=zoning.name_to_id, inplace=True)
-    dvec = cc.DVector(import_data=overall_data,
-                            segmentation=cc.Segmentation(TT),
+    dvec = cb.DVector(import_data=overall_data,
+                            segmentation=cb.Segmentation(TT),
+                            zoning_system=zoning)
+    trans = None
+    if out_zoning is not None:
+        trans = dvec.zoning_system.translate(out_zoning)
+        dvec = dvec.translate_zoning(
+            out_zoning,
+            trans_vector=trans
+        )
+    return dvec, trans
+
+def read_lu_hh(dir: pathlib.Path | str,
+                file_name: str,
+                out_zoning: cb.ZoningSystem | None = None,
+                geographies=GOR):
+    dvecs = []
+    for region in geographies:
+        dvec = cb.DVector.load(pathlib.Path(dir) / file_name.format(region))
+        dvec = dvec.aggregate(SEG_HH)
+        print(f'    {region:8}: lu {dvec.data.sum(axis=1).sum():.2f}')
+        dvecs.append(dvec)
+    overall_data = pd.concat([d.data for d in dvecs], axis=1)
+    zoning = cb.ZoningSystem.get_zoning('lsoa_2021')
+    overall_data.rename(columns=zoning.name_to_id, inplace=True)
+    dvec = cb.DVector(import_data=overall_data,
+                            segmentation=cb.Segmentation(TT_HH),
+                            zoning_system=zoning)
+    trans = None
+    if out_zoning is not None:
+        trans = dvec.zoning_system.translate(out_zoning)
+        dvec = dvec.translate_zoning(
+            out_zoning,
+            trans_vector=trans
+        )
+    return dvec, trans
+
+def read_lu_emp(dir: pathlib.Path | str,
+                file_name: str,
+                out_zoning: cb.ZoningSystem | None = None
+                ):
+
+    dvec = cb.DVector.load(pathlib.Path(dir) / file_name)
+    dvec = dvec.aggregate(SEG_EMP).data
+    out = pd.DataFrame(dvec.groupby(level='soc').sum().sum(axis=1)).rename(columns={0: 'emp'})
+    out['prop'] = out['emp'].div(out['emp'].sum()) * 100
+    print(f'    GB: lu {out["emp"].sum():.2f}')
+    print(out)
+
+    zoning = cb.ZoningSystem.get_zoning('lsoa_2021')
+    dvec.rename(columns=zoning.name_to_id, inplace=True)
+    dvec = cb.DVector(import_data=dvec,
+                            segmentation=cb.Segmentation(TT_EMP),
                             zoning_system=zoning)
     trans = None
     if out_zoning is not None:
@@ -126,7 +184,7 @@ def read_pop_lu(dir: pathlib.Path,
     return dvec, trans
 
 if __name__ == "__main__":
-    normits = cc.ZoningSystem.get_zoning('normits')
+    normits = cb.ZoningSystem.get_zoning('normits')
     pop = read_pop_lu(pathlib.Path(r"F:\Working\Land-Use\OUTPUTS_full run_final"),
                 "Output P11_{}.hdf",
                       out_zoning=normits)
