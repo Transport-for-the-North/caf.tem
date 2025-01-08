@@ -4,7 +4,7 @@ Module containing trip_end models.
 """
 # Built-Ins
 import os
-import caf.core as cc
+import caf.base as cc
 # Local Imports
 # pylint: disable=import-error,wrong-import-position
 # Local imports here
