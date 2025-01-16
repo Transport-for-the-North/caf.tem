@@ -19,6 +19,7 @@ import warnings
 # Third Party
 import caf.base as cb
 import pandas as pd
+from pathlib import Path
 
 
 # Local Imports
@@ -114,7 +115,7 @@ def read_lu_pop(dir: pathlib.Path,
                 geographies=('EM', 'EoE', 'Lon', 'NE', 'NW', 'SE', 'SW', 'Wales', 'WM', 'YH', 'Scotland')):
     dvecs = []
     for region in geographies:
-        dvec = cb.DVector.load(dir / file_name.format(region))
+        dvec = cb.DVector.load(Path(dir) / file_name.format(region))
         dvec_tt = lu_to_tt(dvec)
         dvecs.append(dvec_tt)
     overall_data = pd.concat([d.data for d in dvecs], axis=1)
@@ -185,7 +186,7 @@ def read_lu_emp(dir: pathlib.Path | str,
 
 if __name__ == "__main__":
     normits = cb.ZoningSystem.get_zoning('normits')
-    pop = read_pop_lu(pathlib.Path(r"F:\Working\Land-Use\OUTPUTS_full run_final"),
+    pop = read_lu_pop(pathlib.Path(r"F:\Working\Land-Use\OUTPUTS_full run_final"),
                 "Output P11_{}.hdf",
                       out_zoning=normits)
     pop_vector = pop.data.sum().T

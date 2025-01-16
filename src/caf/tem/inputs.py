@@ -12,7 +12,7 @@ from dataclasses import dataclass
 
 # Third Party
 import caf.toolkit as ctk
-import caf.core as cc
+import caf.base as cb
 
 # Local Imports
 # pylint: disable=import-error,wrong-import-position
@@ -21,25 +21,25 @@ import caf.core as cc
 
 
 # # # CONSTANTS # # #
-TT = cc.SegmentationInput(enum_segments=["adult_nssec", "gender_3", "ns_sec", "soc", "car_availability", "aws", "hh_type"],
+TT = cb.SegmentationInput(enum_segments=["adult_nssec", "gender_3", "ns_sec", "soc", "car_availability", "aws", "hh_type"],
                           naming_order=["adult_nssec", "gender_3", "ns_sec", "soc", "car_availability", "aws", "hh_type"])
 class TEMSegmentations(ctk.BaseConfig):
 
-    prod_pure_report: cc.SegmentationInput
-    prod_full_tfnat: cc.SegmentationInput
-    prod_full: cc.SegmentationInput
-    prod_return_seg: cc.SegmentationInput
-    lad_report_seg: cc.SegmentationInput = cc.SegmentationInput(
+    prod_pure_report: cb.SegmentationInput
+    prod_full_tfnat: cb.SegmentationInput
+    prod_full: cb.SegmentationInput
+    prod_return_seg: cb.SegmentationInput
+    lad_report_seg: cb.SegmentationInput = cb.SegmentationInput(
         enum_segments=["p", "m", "tp"],
         naming_order=["p", "m", "tp"],
         subsets={"tp": [1, 2, 3, 4, 5, 6]},
     )
-    output: cc.SegmentationInput
-    area_type: cc.SegmentationInput
-    trip_rates: cc.SegmentationInput
-    trip_weights: cc.SegmentationInput
-    employment: cc.SegmentationInput
-    attr_pure: cc.SegmentationInput
+    output: cb.SegmentationInput
+    area_type: cb.SegmentationInput
+    trip_rates: cb.SegmentationInput
+    trip_weights: cb.SegmentationInput
+    employment: cb.SegmentationInput
+    attr_pure: cb.SegmentationInput
 
     @property
     def output_no_tp(self):
@@ -70,7 +70,7 @@ class AttrInput(ctk.BaseConfig):
     triprates: dict[str, os.PathLike]
     landuse: dict[str, os.PathLike]
     balance_paths: dict[str, os.PathLike]
-    balance_zoning: cc.BalancingZones
+    balance_zoning: cb.BalancingZones
 
     class Config:
         arbitrary_types_allowed = True

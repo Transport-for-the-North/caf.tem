@@ -4,11 +4,11 @@ Module containing trip_end models.
 """
 # Built-Ins
 import os
-import caf.base as cc
+import caf.base as cb
 # Local Imports
 # pylint: disable=import-error,wrong-import-position
 # Local imports here
-from inputs import (
+from .inputs import (
     Scenarios,
     TEMExportPaths,
     HBProdInput,
@@ -16,8 +16,8 @@ from inputs import (
     AttrInput,
     TEMSegmentations,
 )
-from production_models import HBProductionModel, NHBProductionModel
-from attraction_models import AttractionModel
+from .production_models import HBProductionModel, NHBProductionModel
+from .attraction_models import AttractionModel
 
 
 # pylint: enable=import-error,wrong-import-position
@@ -29,7 +29,7 @@ class TEM(TEMExportPaths):
         iteration_name: str,
         export_home: os.PathLike,
         tem_segs: TEMSegmentations,
-        model_zoning: cc.ZoningSystem,
+        model_zoning: cb.ZoningSystem,
         hbprodinput: HBProdInput = None,
         nhbprodinput: NHBProdInput = None,
         hbattrinput: AttrInput = None,

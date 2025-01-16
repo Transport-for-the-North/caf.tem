@@ -12,11 +12,11 @@ from typing import Dict, List, Optional, Literal
 
 # Third party imports
 import pandas as pd
-import caf.core
+import caf.base as cb
 import caf.toolkit as ctk
 
-from inputs import ProductionModelPaths, TEMSegmentations
-from utils import check_file_exists, read_pop_lu
+from .inputs import ProductionModelPaths, TEMSegmentations
+from .utils import check_file_exists, read_lu_pop
 
 
 class HBProductionModel(ProductionModelPaths):
@@ -61,8 +61,8 @@ class HBProductionModel(ProductionModelPaths):
         trip_rates_path: os.PathLike,
         mode_time_splits_path: os.PathLike,
         export_home: os.PathLike,
-        return_segmentation: caf.core.Segmentation,
-        model_zoning: caf.core.ZoningSystem,
+        return_segmentation: cb.Segmentation,
+        model_zoning: cb.ZoningSystem,
         process_count: int = 1,
     ) -> None:
         """
@@ -206,11 +206,11 @@ class HBProductionModel(ProductionModelPaths):
             self._logger.info("Loading the population data")
             if os.path.isdir(self.population_paths[year]):
                 # TODO this file name shouldn't be hard coded
-                pop_dvec, self.trans = read_pop_lu(self.population_paths[year], "Output P9_{}.hdf", out_zoning=self.model_zoning)
+                pop_dvec, self.trans = read_lu_pop(self.population_paths[year], "Output P9_{}.hdf", out_zoning=self.model_zoning)
                 pop_dvec.save(self.export_paths.home / f"pop_{year}.h5")
 
             else:
-                pop_dvec = caf.core.DVector.load(self.population_paths[year])
+                pop_dvec = cb.DVector.load(self.population_paths[year])
                 if pop_dvec.zoning_system != self.model_zoning:
                     self.trans = pop_dvec.zoning_system.translate(self.model_zoning)
                     pop_dvec = pop_dvec.translate_zoning(self.model_zoning, trans_vector=self.trans)
@@ -247,7 +247,7 @@ class HBProductionModel(ProductionModelPaths):
 
             # ## AGGREGATE INTO RETURN SEGMENTATION ## #
             return_seg = self.return_segmentation
-            productions = caf.core.DVector.concat_from_dir(
+            productions = cb.DVector.concat_from_dir(
                 dir=fully_segmented,
                 segmentation=return_seg
             )
@@ -265,7 +265,7 @@ class HBProductionModel(ProductionModelPaths):
                     ca_sector_path=notem_segmented_paths.ca_sector[year],
                     ie_sector_path=notem_segmented_paths.ie_sector[year],
                     lad_report_path=notem_segmented_paths.lad_report[year],
-                    lad_report_seg=caf.core.Segmentation(self.tem_segs.lad_report_seg),
+                    lad_report_seg=cb.Segmentation(self.tem_segs.lad_report_seg),
                 )
 
             # Print timing stats for the year
@@ -281,8 +281,8 @@ class HBProductionModel(ProductionModelPaths):
 
     def _generate_productions(
         self,
-        population: caf.core.DVector,
-    ) -> caf.core.DVector:
+        population: cb.DVector,
+    ) -> cb.DVector:
         """
         Applies trip rate split on the given HB productions
 
@@ -298,22 +298,22 @@ class HBProductionModel(ProductionModelPaths):
             ie., pure demand
         """
         # Reading trip rates
-        trip_rates = caf.core.DVector.load(self.trip_rates_path)
+        trip_rates = cb.DVector.load(self.trip_rates_path)
         # ## MULTIPLY TOGETHER ## #
         if trip_rates.zoning_system == self.model_zoning:
             prod = population * trip_rates
         else:
             if self.trans is None:
                 self.trans: pd.DataFrame = trip_rates.zoning_system.translate(other=population.zoning_system)
-            trip_rates_disag: caf.core.DVector = trip_rates.translate_zoning(new_zoning=population.zoning_system, one_to_one=True, trans_vector=self.trans, check_totals=False)
-            prod: caf.core.DVector = population * trip_rates_disag
+            trip_rates_disag: cb.DVector = trip_rates.translate_zoning(new_zoning=population.zoning_system, one_to_one=True, trans_vector=self.trans, check_totals=False)
+            prod: cb.DVector = population * trip_rates_disag
         return prod
 
     def _split_by_tp_and_mode(
         self,
-        pure_demand: caf.core.DVector,
+        pure_demand: cb.DVector,
         year: int
-    ) -> caf.core.DVector:
+    ) -> cb.DVector:
         """
         Applies time period and mode splits to the given pure demand.
 
@@ -327,7 +327,7 @@ class HBProductionModel(ProductionModelPaths):
         full_segmented_demand:
             A DVector containing pure_demand split by mode and time.
         """
-        mode_time_splits = caf.core.DVector.load(self.mode_time_splits_path)
+        mode_time_splits = cb.DVector.load(self.mode_time_splits_path)
         total = 0
         # TODO probably needs to be more flexible
         if mode_time_splits.zoning_system != pure_demand.zoning_system:
@@ -340,7 +340,7 @@ class HBProductionModel(ProductionModelPaths):
                 dvec.save(out_path / f"at_{zone}.hdf")
                 total += dvec.sum()
         return out_path, total
-    def _trip_end_adjustment(self, trip_ends: caf.core.DVector) -> caf.core.DVector:
+    def _trip_end_adjustment(self, trip_ends: cb.DVector) -> cb.DVector:
         """Multiply `trip_ends` by `adjustment_factors`.
 
         Trip ends are multiplied by all adjustment factors in
@@ -348,12 +348,12 @@ class HBProductionModel(ProductionModelPaths):
 
         Parameters
         ----------
-        trip_ends : caf.core.DVector
+        trip_ends : cb.DVector
             Productions trip ends for adjustment.
 
         Returns
         -------
-        caf.core.DVector
+        cb.DVector
             Productions trip ends after applying all adjustments.
         """
         for adjustment in self.adjustment_factors:
@@ -574,7 +574,7 @@ class NHBProductionModel(ProductionModelPaths):
 
             if export_reports:
                 self._logger.info("Exporting NHB pure demand reports to disk")
-                report_seg = caf.core.Segmentation(self.tem_segs.prod_pure_report)
+                report_seg = cb.Segmentation(self.tem_segs.prod_pure_report)
                 pure_demand_paths = self.report_paths.pure_demand
                 pure_nhb_demand.aggregate(report_seg).write_sector_reports(
                     segment_totals_path=pure_demand_paths.segment_total[year],
@@ -602,7 +602,7 @@ class NHBProductionModel(ProductionModelPaths):
 
             # Renaming
             tem_segmented = fully_segmented.aggregate(
-                caf.core.Segmentation(self.tem_segs.nhb_prod)
+                cb.Segmentation(self.tem_segs.nhb_prod)
             )
 
             # ## PRODUCTIONS TOTAL CHECK ## #
@@ -628,7 +628,7 @@ class NHBProductionModel(ProductionModelPaths):
                     ca_sector_path=tem_segmented_paths.ca_sector[year],
                     ie_sector_path=tem_segmented_paths.ie_sector[year],
                     lad_report_path=tem_segmented_paths.lad_report[year],
-                    lad_report_seg=caf.core.Segmentation(self.tem_segs.lad_report_seg),
+                    lad_report_seg=cb.Segmentation(self.tem_segs.lad_report_seg),
                 )
 
             # Print timing stats for the year
@@ -645,7 +645,7 @@ class NHBProductionModel(ProductionModelPaths):
     def _transform_attractions(
         self,
         year: int,
-    ) -> caf.core.DVector:
+    ) -> cb.DVector:
         """
         Removes time period and adds tfn_at to HB attraction DVector
 
@@ -666,24 +666,24 @@ class NHBProductionModel(ProductionModelPaths):
         """
         # Define the zoning and segmentations we want to use
         # TODO this function is probably unnecessary
-        tem_no_tp_seg = caf.core.Segmentation(self.tem_segs.output_no_tp)
-        tem_output_seg = caf.core.Segmentation(self.tem_segs.output)
-        hb_attr_notem = caf.core.DVector.load(self.hb_attraction_paths[year])
+        tem_no_tp_seg = cb.Segmentation(self.tem_segs.output_no_tp)
+        tem_output_seg = cb.Segmentation(self.tem_segs.output)
+        hb_attr_notem = cb.DVector.load(self.hb_attraction_paths[year])
         if hb_attr_notem.segmentation != tem_output_seg:
-            raise caf.core.segmentation.SegmentationError(
+            raise cb.segmentation.SegmentationError(
                 "Unexpected segmentation. This DVector should be "
                 f"{tem_output_seg.names}, but is actually {hb_attr_notem.segmentation.names}."
             )
         # Remove time period
         hb_attr = hb_attr_notem.aggregate(tem_no_tp_seg)
         return hb_attr.add_segment(
-            caf.core.segments.SegmentsSuper("at").get_segment(), split_method="duplicate"
+            cb.segments.SegmentsSuper("at").get_segment(), split_method="duplicate"
         )
 
     def _generate_nhb_productions(
         self,
-        hb_attractions: caf.core.DVector,
-    ) -> caf.core.DVector:
+        hb_attractions: cb.DVector,
+    ) -> cb.DVector:
         """
         Applies NHB trip rates to hb_attractions
 
@@ -700,13 +700,13 @@ class NHBProductionModel(ProductionModelPaths):
         """
 
         # Define the zoning and segmentations we want to use
-        nhb_trip_rate_seg = caf.core.Segmentation(self.tem_segs.trip_rates)
-        pure_seg = caf.core.Segmentation(self.tem_segs.prod_pure)
+        nhb_trip_rate_seg = cb.Segmentation(self.tem_segs.trip_rates)
+        pure_seg = cb.Segmentation(self.tem_segs.prod_pure)
 
         # Reading NHB trip rates
-        trip_rates_dvec = caf.core.DVector.load(self.trip_rates_path)
+        trip_rates_dvec = cb.DVector.load(self.trip_rates_path)
         if trip_rates_dvec.segmentation != nhb_trip_rate_seg:
-            raise caf.core.segmentation.SegmentationError(
+            raise cb.segmentation.SegmentationError(
                 "Unexpected segmentation in trip rates DVector."
             )
 
@@ -715,8 +715,8 @@ class NHBProductionModel(ProductionModelPaths):
 
     def _split_by_tp(
         self,
-        pure_nhb_demand: caf.core.DVector,
-    ) -> caf.core.DVector:
+        pure_nhb_demand: cb.DVector,
+    ) -> cb.DVector:
         """
         Applies time period splits to the given pure nhb demand.
 
@@ -732,16 +732,16 @@ class NHBProductionModel(ProductionModelPaths):
         """
         # Define the segmentation we want to use
         # nhb_time_splits_seg = nd.get_segmentation_level('notem_nhb_tfnat_p_m_tp')
-        full_seg = caf.core.Segmentation(self.tem_segs.prod_full)
+        full_seg = cb.Segmentation(self.tem_segs.prod_full)
 
         # Read the time splits factor
-        time_splits_dvec = caf.core.DVector.load(self.time_splits_path)
+        time_splits_dvec = cb.DVector.load(self.time_splits_path)
 
         # Multiply together #
         return (pure_nhb_demand * time_splits_dvec).aggregate(full_seg)
 
 if __name__ == "__main__":
-    return_seg = caf.core.SegmentationInput(enum_segments=['p','m','gender_3', 'soc', 'ns_sec', 'car_availability', 'tp'],
+    return_seg = cb.SegmentationInput(enum_segments=['p','m','gender_3', 'soc', 'ns_sec', 'car_availability', 'tp'],
                                             naming_order=['p','m','gender_3', 'soc', 'ns_sec', 'car_availability', 'tp'],
                                             subsets={'p': [1, 2, 3, 4, 5, 6, 7, 8]})
 
@@ -749,5 +749,6 @@ if __name__ == "__main__":
                                 export_home=pathlib.Path(r'E:\tem\outputs'),
                                 mode_time_splits_path=pathlib.Path(r"I:\NTS\outputs_is\productions\hb\mode_time_splits\mode_time_split_hb_production.h5"),
                                 trip_rates_path=pathlib.Path(r"I:\NTS\outputs_is\productions\hb\analysis\hb_trip_rates.h5"),
-                                return_segmentation=caf.core.Segmentation(return_seg))
+                                return_segmentation=cb.Segmentation(return_seg))
     hb_prod.run(True, True, True)
+    
