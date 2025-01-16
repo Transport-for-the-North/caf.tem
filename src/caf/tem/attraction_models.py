@@ -10,6 +10,7 @@ import pathlib
 
 # Third party imports
 import pandas as pd
+
 import caf.base as cb
 import caf.toolkit as ctk
 from .inputs import AttractionModelPaths, TEMSegmentations, AttractionTripRates
