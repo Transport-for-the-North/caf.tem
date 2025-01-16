@@ -10,7 +10,8 @@ import pathlib
 
 # Third party imports
 import pandas as pd
-import caf.base
+
+import caf.base as cb
 import caf.toolkit as ctk
 from .inputs import AttractionModelPaths, TEMSegmentations, AttractionTripRates
 from .utils import check_file_exists
@@ -64,7 +65,7 @@ class AttractionModel(AttractionModelPaths):
         tem_segs: TEMSegmentations,
         production_balance_paths: dict[int, os.PathLike],
         export_home: str,
-        balance_zoning: caf.core.zoning.BalancingZones | bool = True,
+        balance_zoning: cb.zoning.BalancingZones | bool = True,
         process_count: int = 2,
     ) -> None:
         """
@@ -157,7 +158,7 @@ class AttractionModel(AttractionModelPaths):
             instantiate_msg="Initialised HB Attraction Model",
         )
         # Save balancing zones to file
-        if isinstance(self.balance_zoning, caf.core.zoning.BalancingZones):
+        if isinstance(self.balance_zoning, cb.zoning.BalancingZones):
             self.balance_zoning.save(self.export_home / "HB_balancing_zones.ini")
 
     def run(
@@ -265,7 +266,7 @@ class AttractionModel(AttractionModelPaths):
         self._logger.info("HB Attraction Model took: %s", time_taken)
         self._logger.info("HB Attraction Model Finished")
 
-    def _generate_attractions(self) -> caf.core.DVector:
+    def _generate_attractions(self) -> cb.DVector:
         """
         Applies trip rates to the given HB employment.
 
@@ -286,8 +287,8 @@ class AttractionModel(AttractionModelPaths):
         longest = []
         # Different purposes have different segmentations
         for purpose, path in self.trip_rates_paths.items():
-            trip_rate = caf.core.DVector.load(path)
-            landuse = caf.core.DVector.load[self.landuse_paths[purpose]]
+            trip_rate = cb.DVector.load(path)
+            landuse = cb.DVector.load[self.landuse_paths[purpose]]
             attr = landuse * trip_rate
             for seg in attr.segmentation.names:
                 if seg not in segs:
@@ -299,19 +300,19 @@ class AttractionModel(AttractionModelPaths):
             if dvec == longest:
                 continue
             attr_dict[purpose] = dvec.expand_to_other(longest, match_props=True)
-        purp_seg = caf.core.segments.SegmentsSuper("p").get_segment(
+        purp_seg = cb.segments.SegmentsSuper("p").get_segment(
             subset=list(attr_dict.keys())
         )
         zone_system = longest.zone_system
-        attr_dvec = caf.core.DVector.combine_from_dic(attr_dict, purp_seg, zone_system)
+        attr_dvec = cb.DVector.combine_from_dic(attr_dict, purp_seg, zone_system)
 
         return attr_dvec
 
     def _attractions_balance(
         self,
-        a_dvec: caf.core.DVector,
+        a_dvec: cb.DVector,
         p_dvec_path: str,
-    ) -> caf.core.DVector:
+    ) -> cb.DVector:
         """
         Balances attractions to production segmentation
 
@@ -330,7 +331,7 @@ class AttractionModel(AttractionModelPaths):
             a_dvec controlled to p_dvec
         """
         # Read in the productions DVec from disk
-        p_dvec = caf.core.DVector.load(p_dvec_path)
+        p_dvec = cb.DVector.load(p_dvec_path)
 
         # Split a_dvec into p_dvec segments and balance
         self._logger.info("Split attractions segmentations to match productions")
@@ -373,7 +374,7 @@ class AttractionModel(AttractionModelPaths):
 #         nhb_attraction_triprates: dict[int, os.PathLike],
 #         nhb_production_paths: dict[int, os.PathLike],
 #         export_home: str,
-#         balance_zoning: caf.core.zoning.BalancingZones | bool = True,
+#         balance_zoning: cb.zoning.BalancingZones | bool = True,
 #         process_count: int = 2,
 #     ) -> None:
 #         """
@@ -452,7 +453,7 @@ class AttractionModel(AttractionModelPaths):
 #         log_file_path = self.export_home / self._log_fname
 #         self._logger = logging.getLogger(logger_name)
 #         # Save balancing zones to file
-#         if isinstance(self.balance_zoning, caf.core.zoning.BalancingZones):
+#         if isinstance(self.balance_zoning, cb.zoning.BalancingZones):
 #             self.balance_zoning.save(os.path.join(self.export_home, "NHB_balancing_zones.ini"))
 #
 #     def run(
@@ -562,7 +563,7 @@ class AttractionModel(AttractionModelPaths):
 #         self._logger.info("NHB Attraction Model took: %s" % time_taken)
 #         self._logger.info("NHB Attraction Model Finished")
 #
-#     def _generate_attractions(self) -> caf.core.DVector:
+#     def _generate_attractions(self) -> cb.DVector:
 #         """
 #         Applies trip rates to the given HB employment.
 #
@@ -580,17 +581,17 @@ class AttractionModel(AttractionModelPaths):
 #         # Define the zoning and segmentations we want to use
 #         attr_dict = {}
 #         for att, path in self.nhb_attraction_triprates.items():
-#             trip_rate = caf.core.DVector.load(path)
-#             landuse = caf.core.DVector.load[self.attr_landuse[att]]
+#             trip_rate = cb.DVector.load(path)
+#             landuse = cb.DVector.load[self.attr_landuse[att]]
 #             attr_dict[att] = landuse * trip_rate
 #
 #         return attr_dict
 #
 #     def _attractions_balance(
 #         self,
-#         a_dvec: caf.core.DVector,
+#         a_dvec: cb.DVector,
 #         p_dvec_path: str,
-#     ) -> caf.core.DVector:
+#     ) -> cb.DVector:
 #         """
 #         Balances attractions to production segmentation
 #
@@ -609,7 +610,7 @@ class AttractionModel(AttractionModelPaths):
 #             a_dvec controlled to p_dvec
 #         """
 #         # Read in the productions DVec from disk
-#         p_dvec = caf.core.DVector.load(p_dvec_path)
+#         p_dvec = cb.DVector.load(p_dvec_path)
 #
 #         self._logger.info("Split attractions segmentations to match productions")
 #         a_dvec = a_dvec.split_by_other(p_dvec)
@@ -618,17 +619,17 @@ class AttractionModel(AttractionModelPaths):
 
 
 def _attraction_balancing(
-    a_dvec: caf.core.DVector,
-    p_dvec: caf.core.DVector,
-    balancing_zones: caf.core.zoning.BalancingZones | bool,
+    a_dvec: cb.DVector,
+    p_dvec: cb.DVector,
+    balancing_zones: cb.zoning.BalancingZones | bool,
     logger: logging.Logger,
-) -> caf.core.DVector:
+) -> cb.DVector:
     if (
-        isinstance(balancing_zones, [caf.core.BalancingZones, caf.core.ZoningSystem])
+        isinstance(balancing_zones, [cb.BalancingZones, cb.ZoningSystem])
         or balancing_zones
     ):
         logger.info("Balancing the attractions to the productions")
-        if isinstance(balancing_zones, [caf.core.BalancingZones, caf.core.ZoningSystem]):
+        if isinstance(balancing_zones, [cb.BalancingZones, cb.ZoningSystem]):
             balance_zoning = balancing_zones
         else:
             balance_zoning = None

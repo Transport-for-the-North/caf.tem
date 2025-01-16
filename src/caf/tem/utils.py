@@ -15,9 +15,8 @@ from __future__ import annotations
 import os
 import pathlib
 
-import caf.core
 # Third Party
-import caf.core as cc
+import caf.base as cb
 import pandas as pd
 
 
@@ -28,7 +27,7 @@ import pandas as pd
 # pylint: enable=import-error,wrong-import-position
 
 # # # CONSTANTS # # #
-TT = cc.SegmentationInput(enum_segments=["adult_nssec", "gender_3", "ns_sec", "soc", "aws", "hh_type"],
+TT = cb.SegmentationInput(enum_segments=["adult_nssec", "gender_3", "ns_sec", "soc", "aws", "hh_type"],
                           naming_order=["adult_nssec", "gender_3", "ns_sec", "soc", "aws", "hh_type"])
 # # # CLASSES # # #
 
@@ -85,7 +84,7 @@ def check_file_exists(
         raise IOError("Cannot find a path to: %s" % str(file_path))
 
 
-def lu_to_tt(dvec: cc.DVector):
+def lu_to_tt(dvec: cb.DVector):
     out_dvec = dvec.aggregate(
         ["age_9", "g", "ns_sec", "soc", "pop_emp", "adults", "adult_nssec", "car_availability"]
     )
@@ -103,18 +102,18 @@ def lu_to_tt(dvec: cc.DVector):
 
 def read_pop_lu(dir: pathlib.Path,
                 file_name: str,
-                out_zoning: caf.core.ZoningSystem | None = None,
+                out_zoning: cb.ZoningSystem | None = None,
                 geographies=('EM', 'EoE', 'Lon', 'NE', 'NW', 'SE', 'SW', 'Wales', 'WM', 'YH', 'Scotland')):
     dvecs = []
     for region in geographies:
-        dvec = cc.DVector.load(dir / file_name.format(region))
+        dvec = cb.DVector.load(dir / file_name.format(region))
         dvec_tt = lu_to_tt(dvec)
         dvecs.append(dvec_tt)
     overall_data = pd.concat([d.data for d in dvecs], axis=1)
-    zoning = cc.ZoningSystem.get_zoning('lsoa_2021')
+    zoning = cb.ZoningSystem.get_zoning('lsoa_2021')
     overall_data.rename(columns=zoning.name_to_id, inplace=True)
-    dvec = cc.DVector(import_data=overall_data,
-                            segmentation=cc.Segmentation(TT),
+    dvec = cb.DVector(import_data=overall_data,
+                            segmentation=cb.Segmentation(TT),
                             zoning_system=zoning)
     trans = None
     if out_zoning is not None:
@@ -126,7 +125,7 @@ def read_pop_lu(dir: pathlib.Path,
     return dvec, trans
 
 if __name__ == "__main__":
-    normits = cc.ZoningSystem.get_zoning('normits')
+    normits = cb.ZoningSystem.get_zoning('normits')
     pop = read_pop_lu(pathlib.Path(r"F:\Working\Land-Use\OUTPUTS_full run_final"),
                 "Output P11_{}.hdf",
                       out_zoning=normits)
