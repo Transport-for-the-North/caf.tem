@@ -10,10 +10,10 @@ import pathlib
 
 # Third party imports
 import pandas as pd
-import caf.core
+import caf.base
 import caf.toolkit as ctk
-from inputs import AttractionModelPaths, TEMSegmentations, AttractionTripRates
-from utils import check_file_exists
+from .inputs import AttractionModelPaths, TEMSegmentations, AttractionTripRates
+from .utils import check_file_exists
 
 # local imports
 
