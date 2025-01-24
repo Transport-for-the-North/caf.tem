@@ -15,8 +15,8 @@ import pandas as pd
 import caf.base as cb
 import caf.toolkit as ctk
 
-from .inputs import ProductionModelPaths, TEMSegmentations
-from .utils import check_file_exists, read_pop_lu
+from caf.tem.inputs import ProductionModelPaths, TEMSegmentations
+from caf.tem.utils import check_file_exists, read_pop_lu
 
 
 class HBProductionModel(ProductionModelPaths):
@@ -136,6 +136,7 @@ class HBProductionModel(ProductionModelPaths):
             path_years=self.years,
             export_home=export_home,
             report_home=report_home,
+            zoning_system=self.model_zoning.name,
             _trip_origin="hb"
         )
         # TODO sort loggers
@@ -206,8 +207,8 @@ class HBProductionModel(ProductionModelPaths):
             self._logger.info("Loading the population data")
             if os.path.isdir(self.population_paths[year]):
                 # TODO this file name shouldn't be hard coded
-                pop_dvec, self.trans = read_pop_lu(self.population_paths[year], "Output P9_{}.hdf", out_zoning=self.model_zoning)
-                pop_dvec.save(self.export_paths.home / f"pop_{year}.h5")
+                pop_dvec, self.trans = read_pop_lu(self.population_paths[year], "Output P11_{}.hdf", out_zoning=self.model_zoning)
+                pop_dvec.save(self.export_paths.home / f"pop_{year}.dvec")
 
             else:
                 pop_dvec = cb.DVector.load(self.population_paths[year])
@@ -305,7 +306,7 @@ class HBProductionModel(ProductionModelPaths):
         else:
             if self.trans is None:
                 self.trans: pd.DataFrame = trip_rates.zoning_system.translate(other=population.zoning_system)
-            trip_rates_disag: cb.DVector = trip_rates.translate_zoning(new_zoning=population.zoning_system, one_to_one=True, trans_vector=self.trans, check_totals=False)
+            trip_rates_disag: cb.DVector = trip_rates.translate_zoning(new_zoning=population.zoning_system, trans_vector=self.trans, check_totals=False, no_factors=True)
             prod: cb.DVector = population * trip_rates_disag
         return prod
 
@@ -745,9 +746,14 @@ if __name__ == "__main__":
                                             naming_order=['p','m','gender_3', 'soc', 'ns_sec', 'car_availability', 'tp'],
                                             subsets={'p': [1, 2, 3, 4, 5, 6, 7, 8]})
 
-    hb_prod = HBProductionModel(population_paths={2021: pathlib.Path(r"E:\tem\pop_2021.h5")},
+    normits = cb.ZoningSystem.get_zoning('normits')
+
+    hb_prod = HBProductionModel(population_paths={2023: pathlib.Path(r"E:\tem\outputs\pop_2021.dvec")},
                                 export_home=pathlib.Path(r'E:\tem\outputs'),
-                                mode_time_splits_path=pathlib.Path(r"I:\NTS\outputs_is\productions\hb\mode_time_splits\mode_time_split_hb_production.h5"),
-                                trip_rates_path=pathlib.Path(r"I:\NTS\outputs_is\productions\hb\analysis\hb_trip_rates.h5"),
-                                return_segmentation=cb.Segmentation(return_seg))
+                                mode_time_splits_path=pathlib.Path(r"E:\NTS\outputs_is\productions\hb\mode_time_splits\hb_mode_time_split_production_hb_fr.dvec"),
+                                trip_rates_path=pathlib.Path(r"E:\NTS\outputs\productions\hb\trip_rates\hb_trip_rates_production_dvector.dvec"),
+                                return_segmentation=cb.Segmentation(return_seg),
+                                model_zoning=normits)
     hb_prod.run(True, True, True)
+
+    print('debugging')
