@@ -249,7 +249,7 @@ class HBProductionModel(ProductionModelPaths):
             # ## AGGREGATE INTO RETURN SEGMENTATION ## #
             return_seg = self.return_segmentation
             productions = cb.DVector.concat_from_dir(
-                dir=fully_segmented,
+                folder=fully_segmented,
                 segmentation=return_seg
             )
 
@@ -260,12 +260,12 @@ class HBProductionModel(ProductionModelPaths):
             if export_reports:
                 # TODO possible save segmentations/subsets somewhere standard
                 self._logger.info("Exporting notem segmented reports to disk")
-                notem_segmented_paths = self.report_paths.notem_segmented
+                tem_segmented_paths = self.report_paths.tem_segmented
                 productions.write_sector_reports(
-                    segment_totals_path=notem_segmented_paths.segment_total[year],
-                    ca_sector_path=notem_segmented_paths.ca_sector[year],
-                    ie_sector_path=notem_segmented_paths.ie_sector[year],
-                    lad_report_path=notem_segmented_paths.lad_report[year],
+                    segment_totals_path=tem_segmented_paths.segment_total[year],
+                    ca_sector_path=tem_segmented_paths.ca_sector[year],
+                    ie_sector_path=tem_segmented_paths.ie_sector[year],
+                    lad_report_path=tem_segmented_paths.lad_report[year],
                     lad_report_seg=cb.Segmentation(self.tem_segs.lad_report_seg),
                 )
 
@@ -742,8 +742,8 @@ class NHBProductionModel(ProductionModelPaths):
         return (pure_nhb_demand * time_splits_dvec).aggregate(full_seg)
 
 if __name__ == "__main__":
-    return_seg = cb.SegmentationInput(enum_segments=['p','m','gender_3', 'soc', 'ns_sec', 'car_availability', 'tp'],
-                                            naming_order=['p','m','gender_3', 'soc', 'ns_sec', 'car_availability', 'tp'],
+    return_seg = cb.SegmentationInput(enum_segments=['p','m','gender_3', 'soc', 'ns_sec', 'tp'],
+                                            naming_order=['p','m','gender_3', 'soc', 'ns_sec', 'tp'],
                                             subsets={'p': [1, 2, 3, 4, 5, 6, 7, 8]})
 
     normits = cb.ZoningSystem.get_zoning('normits')
