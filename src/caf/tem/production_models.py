@@ -333,13 +333,13 @@ class HBProductionModel(ProductionModelPaths):
         # TODO probably needs to be more flexible
         if mode_time_splits.zoning_system != pure_demand.zoning_system:
             pure_demand = pure_demand.split_by_agg_zoning(mode_time_splits.zoning_system, trans=self.trans)
-            for zone, dvec in pure_demand.items():
-                mts = mode_time_splits.select_zone(zone)
-                dvec *= mts
-                out_path = self.export_paths.fully_segmented[year]
-                out_path.mkdir(exist_ok=True, parents=False)
-                dvec.save(out_path / f"at_{zone}.hdf")
-                total += dvec.sum()
+        for zone, dvec in pure_demand.items():
+            mts = mode_time_splits.select_zone(zone)
+            dvec *= mts
+            out_path = self.export_paths.fully_segmented[year]
+            out_path.mkdir(exist_ok=True, parents=False)
+            dvec.save(out_path / f"at_{zone}.hdf")
+            total += dvec.sum()
         return out_path, total
     def _trip_end_adjustment(self, trip_ends: cb.DVector) -> cb.DVector:
         """Multiply `trip_ends` by `adjustment_factors`.
