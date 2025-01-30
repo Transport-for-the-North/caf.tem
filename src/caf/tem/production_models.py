@@ -265,8 +265,6 @@ class HBProductionModel(ProductionModelPaths):
                     segment_totals_path=tem_segmented_paths.segment_total[year],
                     ca_sector_path=tem_segmented_paths.ca_sector[year],
                     ie_sector_path=tem_segmented_paths.ie_sector[year],
-                    lad_report_path=tem_segmented_paths.lad_report[year],
-                    lad_report_seg=cb.Segmentation(self.tem_segs.lad_report_seg),
                 )
 
             # Print timing stats for the year
