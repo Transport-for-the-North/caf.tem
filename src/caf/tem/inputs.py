@@ -43,7 +43,7 @@ class TEMSegmentations(ctk.BaseConfig):
 
     @property
     def output_no_tp(self):
-        no_tp = self.output.copy()
+        no_tp = self.output.model_copy()
         no_tp.enum_segments.remove("tp")
         return no_tp
 
