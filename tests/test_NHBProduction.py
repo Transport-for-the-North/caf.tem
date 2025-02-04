@@ -28,19 +28,19 @@ dvec4 = cb.DVector.load(dvec_fldr / "hb_mode_time_split_production_hb_fr.dvec")
 
 
 # # # TESTS # # #
-class TestHBProductionModel(ct.HBProductionModel):
+class TestNHBProductionModel(ct.NHBProductionModel):
     def test_run(self):
-        a.run(True,True,True)  
+        a.run(True,True,True)
 
 if __name__ == "__main__":
     #TestProductionModels.test_HBProduction(None)
-    a = TestHBProductionModel(
-            population_paths={2023: dvec_fldr / "pop_2023.dvec"},
-            trip_rates_path=dvec_fldr / "hb_trip_rates_production_dvector.dvec",
-            mode_time_splits_path=dvec_fldr / "hb_mode_time_split_production_hb_to.dvec",
-            export_home=dvec_fldr / "HBProductionTest2",
-            return_segmentation=dvec1.segmentation,
-            model_zoning=dvec2.zoning_system,
-            process_count=1
+    a = TestNHBProductionModel(
+            tem_segs=ct.inputs.TEMSegmentations,
+            hb_attraction_paths={2023: r"C:\Users\Spiral\Documents\Thomas Prince\NTS Processing DVec\outputs_is\attractions\hb\mode_time_splits\hb_mode_time_split_attraction_hb_fr.dvec"}# Dict[int, os.PathLike],
+            trip_rates_path=str,
+            time_splits_path=str,
+            export_home=str,
+            constraint_paths=Dict[int, os.PathLike] = None,
+            process_count=int = 1,
         )
     a.test_run()

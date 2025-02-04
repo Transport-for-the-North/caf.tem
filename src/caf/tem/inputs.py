@@ -23,6 +23,7 @@ import caf.base as cb
 # # # CONSTANTS # # #
 TT = cb.SegmentationInput(enum_segments=["adult_nssec", "gender_3", "ns_sec", "soc", "car_availability", "aws", "hh_type"],
                           naming_order=["adult_nssec", "gender_3", "ns_sec", "soc", "car_availability", "aws", "hh_type"])
+
 class TEMSegmentations(ctk.BaseConfig):
 
     prod_pure_report: cb.SegmentationInput
@@ -67,10 +68,10 @@ class NHBProdInput(ctk.BaseConfig):
 
 
 class AttrInput(ctk.BaseConfig):
-    triprates: dict[str, os.PathLike]
-    landuse: dict[str, os.PathLike]
-    balance_paths: dict[str, os.PathLike]
-    balance_zoning: cb.BalancingZones
+    triprates: dict[str, os.PathLike] # purpose: path, goes to directory, reads in purpose for each one.
+    landuse: dict[str, os.PathLike] # year: directory, within dir have emp, household, etc., download lu and same folder.
+    balance_paths: dict[str, os.PathLike] # might be obsolete - attractions balanced to prods.
+    balance_zoning: cb.BalancingZones # 
 
     class Config:
         arbitrary_types_allowed = True

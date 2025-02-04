@@ -6,7 +6,7 @@ import caf.base as cb
 import caf.tem as ct
 import pandas as pd
 import numpy as np
-from . import mdlconfig, mdlfunction as fun, mdllookup
+from . import mdlconfig, mdlfunction as fun, mdllookup as luk
 
 class NoTEM:
     """ produce trip-end from TfN LU pop and emp data
@@ -135,7 +135,7 @@ class NoTEM:
             # trip-rates (.csv: gor, pa, purpose, direction, ave, byr)
             self.adj_rate = fun.csv_to_dfr(fr"{csv_fldr}\trip_rate_adjustments.csv")
             # mts (.csv: gor, pa, direction, purpose, mode, period, ave, byr)
-            self.adj_mtss = fun.csv_to_dfr(fr"{csv_fldr}\mode_time_split_adjustments.csv")
+            self.adj_mtss = fun.csv_to_dfr(fr"{csv_fldr}\mode_time_split_adjustments.csv") # can't be done in nts-processing 
         else:
             dfr = {"gor": [], "pa": [], "purpose": [], "direction": [], "ave": [], "byr": []}
             self.adj_rate = pd.DataFrame(dfr)

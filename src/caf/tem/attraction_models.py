@@ -63,7 +63,7 @@ class AttractionModel(AttractionModelPaths):
         trip_rates_paths: dict[str, os.PathLike],
         landuse_paths: dict[str, os.PathLike],
         tem_segs: TEMSegmentations,
-        production_balance_paths: dict[int, os.PathLike],
+        production_balance_paths: dict[int, os.PathLike], # this is the HB Production - by the HBProduction Model
         export_home: str,
         balance_zoning: cb.zoning.BalancingZones | bool = True,
         process_count: int = 2,
@@ -168,7 +168,7 @@ class AttractionModel(AttractionModelPaths):
         export_reports: bool = True,
     ) -> None:
         """
-        Runs the HB Attraction model.
+        Runs the HB/NHB attraction model.
 
         Completes the following steps for each year:
             - Reads in the land use employment data given in the constructor.

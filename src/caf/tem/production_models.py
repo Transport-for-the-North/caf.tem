@@ -15,6 +15,7 @@ import pandas as pd
 import caf.base as cb
 import caf.toolkit as ctk
 
+from pathlib import Path
 from caf.tem.inputs import ProductionModelPaths, TEMSegmentations
 from caf.tem.utils import check_file_exists, read_pop_lu
 
@@ -456,7 +457,7 @@ class NHBProductionModel(ProductionModelPaths):
             should not exceed the number of cores available.
             Defaults to consts.PROCESS_COUNT.
         """
-        # Check that the paths we need exist!
+        # Check that the paths we need exist! --> turn into some function e.g. validate input.
         [check_file_exists(x) for x in hb_attraction_paths.values()]
         check_file_exists(trip_rates_path)
         check_file_exists(time_splits_path)
@@ -464,7 +465,7 @@ class NHBProductionModel(ProductionModelPaths):
         if constraint_paths is not None:
             [check_file_exists(x) for x in constraint_paths.values()]
 
-        # Assign
+        ## Assign
         self.tem_segs = tem_segs
         self.hb_attraction_paths = hb_attraction_paths
         self.trip_rates_path = trip_rates_path
@@ -473,7 +474,7 @@ class NHBProductionModel(ProductionModelPaths):
         self.years = list(self.hb_attraction_paths.keys())
 
         # Make sure the reports paths exists
-        export_home = pathlib.Path(export_home)
+        export_home = Path(export_home)
         report_home = export_home / "Reports"
         report_home.mkdir(exist_ok=True, parents=True)
 
@@ -491,6 +492,45 @@ class NHBProductionModel(ProductionModelPaths):
             log_file_path=log_file_path,
             instantiate_msg="Initialised NHB Production Model",
         )
+
+
+    """def _production_nhb(self, hbf_attr: Dict) -> Dict:
+        fun.log_stderr('\nProduction trip-end (NHB)')
+        # not yet possible to implement multiprocessing
+        nhb_fldr = self.nts_fldr / self.fld_prod / self.fld_nhbase
+        nhb_rate = fun.csv_to_dfr(nhb_fldr / self.fld_rates / 'nhb_trip_rates_production.csv')
+        nhb_rate.drop(columns=['trips', 'trips.hb'], inplace=True)
+        col_grby = [col for col in self.seg_spec if col != 'period']
+        nhb_prod = {pp: pd.DataFrame() for pp in hbf_attr}
+        for pp in hbf_attr:
+            out = hbf_attr[pp].groupby(col_grby)[['trips']].sum().reset_index()
+            out = out.rename(columns={col: f'{col}.hb' for col in ['mode', 'purpose']})
+            fac = nhb_rate.loc[nhb_rate['purpose.hb'] == pp]
+            out = out.merge(fac, how='left', on=['tfn_at', 'mode.hb', 'purpose.hb'])
+            out['trips'] = out['trips'].mul(out['gamma'])
+            out = out.groupby(col_grby)[['trips']].sum().reset_index()
+            # add trips to nhb_prod[px]
+            for px in out['purpose'].unique():
+                _list = [nhb_prod[px], out.loc[out['purpose'] == px]]
+                nhb_prod[px] = (pd.concat(_list, axis=0).groupby(col_grby)[['trips']]
+                                .sum().reset_index())
+
+        # apply nhb time split: mts[at, p, m](t)
+        fun.log_stderr(' .. apply mode-time split')
+        mts_grby = [col for col in self.mts_incl if col not in ["period", "rho"]]
+        mts_fact = fun.csv_to_dfr(nhb_fldr / self.fld_split /
+                                  f"mode_time_split_production_nhb{self.rho_type}.csv",
+                                  self.mts_incl)
+
+        pool = mp.Pool(self.num_cpus)
+        nhb_prod = {pp: pool.apply_async(self._fn_prod_nhb_mts,
+                                         [pp, itm, col_grby, mts_fact, mts_grby])
+                    for pp, itm in nhb_prod.items()}
+        pool.close()
+        pool.join()
+        nhb_prod = {pp: itm.get() for pp, itm in nhb_prod.items()}
+
+        return nhb_prod"""
 
     def run(
         self,
