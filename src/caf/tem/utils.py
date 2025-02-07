@@ -162,3 +162,53 @@ if __name__ == "__main__":
     pop.save(r"F:\Working\Land-Use\OUTPUTS_revised exclusions age status_seeded\final_combined.hdf")
     print('debugging')
 
+def read_lu_hh(dir: pathlib.Path | str,
+                file_name: str,
+                out_zoning: cb.ZoningSystem | None = None,
+                geographies=GOR):
+    dvecs = []
+    for region in geographies:
+        dvec = cb.DVector.load(pathlib.Path(dir) / file_name.format(region))
+        dvec = dvec.aggregate(SEG_HH)
+        print(f'    {region:8}: lu {dvec.data.sum(axis=1).sum():.2f}')
+        dvecs.append(dvec)
+    overall_data = pd.concat([d.data for d in dvecs], axis=1)
+    zoning = cb.ZoningSystem.get_zoning('lsoa_2021')
+    overall_data.rename(columns=zoning.name_to_id, inplace=True)
+    dvec = cb.DVector(import_data=overall_data,
+                            segmentation=cb.Segmentation(TT_HH),
+                            zoning_system=zoning)
+    trans = None
+    if out_zoning is not None:
+        trans = dvec.zoning_system.translate(out_zoning)
+        dvec = dvec.translate_zoning(
+            out_zoning,
+            trans_vector=trans
+        )
+    return dvec, trans
+
+def read_lu_emp(dir: pathlib.Path | str,
+                file_name: str,
+                out_zoning: cb.ZoningSystem | None = None
+                ):
+
+    dvec = cb.DVector.load(pathlib.Path(dir) / file_name)
+    dvec = dvec.aggregate(SEG_EMP).data
+    out = pd.DataFrame(dvec.groupby(level='soc').sum().sum(axis=1)).rename(columns={0: 'emp'})
+    out['prop'] = out['emp'].div(out['emp'].sum()) * 100
+    print(f'    GB: lu {out["emp"].sum():.2f}')
+    print(out)
+
+    zoning = cb.ZoningSystem.get_zoning('lsoa_2021')
+    dvec.rename(columns=zoning.name_to_id, inplace=True)
+    dvec = cb.DVector(import_data=dvec,
+                            segmentation=cb.Segmentation(TT_EMP),
+                            zoning_system=zoning)
+    trans = None
+    if out_zoning is not None:
+        trans = dvec.zoning_system.translate(out_zoning)
+        dvec = dvec.translate_zoning(
+            out_zoning,
+            trans_vector=trans
+        )
+    return dvec, trans
