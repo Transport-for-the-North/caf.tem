@@ -112,7 +112,7 @@ class TEMModelPaths:
 
     This class forms the base path class that all TEM model path classes
     are built off of. It defines a number of constants to ensure all
-    TEM models follow the same output structure and naming conventions
+    TEM models follow the same output structure and naming conventions.
 
     Attributes
     ----------
@@ -372,7 +372,7 @@ class AttractionModelPaths(TEMModelPaths):
     path_years, export_home, report_home
     """
 
-    def __init__(self, _trip_origin, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         """Generates the export and report paths
 
         See super for more detail
@@ -486,6 +486,8 @@ class TEMExportPaths:
             path_years=path_years,
             export_home=hb_p_export_home,
             report_home=hb_p_report_home,
+            _trip_origin="hb",
+            zoning_system="normits"
         )
 
         # nhb productions
@@ -498,6 +500,8 @@ class TEMExportPaths:
             path_years=path_years,
             export_home=nhb_p_export_home,
             report_home=nhb_p_report_home,
+            _trip_origin="nhb",
+            zoning_system="normits"
         )
 
         # hb attractions
@@ -510,6 +514,8 @@ class TEMExportPaths:
             path_years=path_years,
             export_home=hb_a_export_home,
             report_home=hb_a_report_home,
+            _trip_origin="hb",
+            zoning_system="normits"
         )
 
         # nhb attractions
@@ -522,7 +528,19 @@ class TEMExportPaths:
             path_years=path_years,
             export_home=nhb_a_export_home,
             report_home=nhb_a_report_home,
+            _trip_origin="nhb",
+            zoning_system="normits"
         )
+
+        
+#    def HBAttraction(self, 
+#        trip_rates_paths: dict[int, os.PathLike],
+#        emp_landuse_path: os.PathLike,
+#        hh_landuse_dir: os.PathLike,
+#        hh_landuse_prefix: str
+#    ):
+#        
+#        return AttractionModel_TP(trip_rates_paths, emp_landuse_path, hh_landuse_dir, hh_landuse_prefix)
 
 
 # # # FUNCTIONS # # #

@@ -31,6 +31,31 @@ import math
 # # # CONSTANTS # # #
 TT = cb.SegmentationInput(enum_segments=["adult_nssec", "gender_3", "ns_sec", "soc", "aws", "hh_type"],
                           naming_order=["adult_nssec", "gender_3", "ns_sec", "soc", "aws", "hh_type"])
+
+
+landuse_by_purpose = {
+    1: "emp",
+    2: "emp",
+    3: "emp",
+    4: "emp",
+    5: "emp",
+    6: "emp",
+    7: "hh",
+    8: "emp"
+}
+
+sic_to_ecode = {
+            1: [],  # commuting
+            2: [],  # e.bussiness
+            3: [85],  # education
+            4: [46, 47],  # Shopping: retail
+            5: [86, 64, 65, 66, 68, 69, 75, 77, 79, 80, 95, 96, 56],
+            6: [90, 91, 92, 93, 94],  # Social
+            7: [],  # visit friend
+            8: [55, 2, 3]
+        }
+
+
 # # # CLASSES # # #
 
 # # # FUNCTIONS # # #
@@ -100,6 +125,7 @@ def lu_to_tt(dvec: cb.DVector):
                       f"sum after = {out_dvec.sum()}.")
 
     return out_dvec
+
 
 
 def read_pop_lu(dir: pathlib.Path,

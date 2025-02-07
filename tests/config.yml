@@ -1,0 +1,16 @@
+prod_pure_report: "sdf"
+  enum_segments: cb.SegmentationInput
+prod_full_tfnat: cb.SegmentationInput
+prod_full: cb.SegmentationInput
+prod_return_seg: cb.SegmentationInput
+lad_report_seg: 'cb.SegmentationInput = cb.SegmentationInput(
+    enum_segments=["p", "m", "tp"],
+    naming_order=["p", "m", "tp"],
+    subsets={"tp": [1, 2, 3, 4, 5, 6]}
+)'
+output: cb.SegmentationInput
+area_type: cb.SegmentationInput
+trip_rates: cb.SegmentationInput
+trip_weights: cb.SegmentationInput
+employment: cb.SegmentationInput
+attr_pure: cb.SegmentationInput
