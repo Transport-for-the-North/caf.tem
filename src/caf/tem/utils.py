@@ -31,7 +31,15 @@ import math
 # # # CONSTANTS # # #
 TT = cb.SegmentationInput(enum_segments=["adult_nssec", "gender_3", "ns_sec", "soc", "aws", "hh_type"],
                           naming_order=["adult_nssec", "gender_3", "ns_sec", "soc", "aws", "hh_type"])
-
+TT = cb.SegmentationInput(enum_segments=["adult_nssec", "gender_3", "ns_sec", "soc", "aws", "hh_type"],
+                          naming_order=["adult_nssec", "gender_3", "ns_sec", "soc", "aws", "hh_type"])
+GOR = ('EM', 'EoE', 'Lon', 'NE', 'NW', 'SE', 'SW', 'Wales', 'WM', 'YH', 'Scotland')
+SEG_POP = ["gender_3", "aws", "hh_type", "soc", "ns_sec", "adult_nssec"]
+SEG_EMP = ["soc", "sic_1_digit", "sic_2_digit"]
+SEG_HH = ["car_availability"]
+TT_POP = cb.SegmentationInput(enum_segments=SEG_POP, naming_order=SEG_POP)
+TT_EMP = cb.SegmentationInput(enum_segments=SEG_EMP, naming_order=SEG_EMP)
+TT_HH = cb.SegmentationInput(enum_segments=SEG_HH, naming_order=SEG_HH)
 
 landuse_by_purpose = {
     1: "emp",
@@ -53,7 +61,8 @@ sic_to_ecode = {
             6: [90, 91, 92, 93, 94],  # Social
             7: [],  # visit friend
             8: [55, 2, 3]
-        }
+}
+
 
 
 # # # CLASSES # # #
@@ -134,7 +143,7 @@ def read_pop_lu(dir: pathlib.Path,
                 geographies=('EM', 'EoE', 'Lon', 'NE', 'NW', 'SE', 'SW', 'Wales', 'WM', 'YH', 'Scotland')):
     dvecs = []
     for region in geographies:
-        dvec = cb.DVector.load(dir / file_name.format(region))
+        dvec = cb.DVector.load(pathlib.Path(dir) / file_name.format(region))
         dvec_tt = lu_to_tt(dvec)
         dvecs.append(dvec_tt)
     overall_data = pd.concat([d.data for d in dvecs], axis=1)
