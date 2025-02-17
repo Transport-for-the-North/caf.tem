@@ -21,8 +21,27 @@ import caf.base as cb
 
 
 # # # CONSTANTS # # #
-TT = cb.SegmentationInput(enum_segments=["adult_nssec", "gender_3", "ns_sec", "soc", "car_availability", "aws", "hh_type"],
-                          naming_order=["adult_nssec", "gender_3", "ns_sec", "soc", "car_availability", "aws", "hh_type"])
+TT = cb.SegmentationInput(
+    enum_segments=[
+        "adult_nssec",
+        "gender_3",
+        "ns_sec",
+        "soc",
+        "car_availability",
+        "aws",
+        "hh_type",
+    ],
+    naming_order=[
+        "adult_nssec",
+        "gender_3",
+        "ns_sec",
+        "soc",
+        "car_availability",
+        "aws",
+        "hh_type",
+    ],
+)
+
 
 class TEMSegmentations(ctk.BaseConfig):
 
@@ -68,10 +87,14 @@ class NHBProdInput(ctk.BaseConfig):
 
 
 class AttrInput(ctk.BaseConfig):
-    triprates: dict[str, os.PathLike] # purpose: path, goes to directory, reads in purpose for each one.
-    landuse: dict[str, os.PathLike] # year: directory, within dir have emp, household, etc., download lu and same folder.
-    balance_paths: dict[str, os.PathLike] # might be obsolete - attractions balanced to prods.
-    balance_zoning: cb.BalancingZones # 
+    triprates: dict[
+        str, os.PathLike
+    ]  # purpose: path, goes to directory, reads in purpose for each one.
+    landuse: dict[
+        str, os.PathLike
+    ]  # year: directory, within dir have emp, household, etc., download lu and same folder.
+    balance_paths: dict[str, os.PathLike]  # might be obsolete - attractions balanced to prods.
+    balance_zoning: cb.BalancingZones  #
 
     class Config:
         arbitrary_types_allowed = True
@@ -127,6 +150,7 @@ class TEMModelPaths:
         The home directory of all reports. Is used as a basis for
         all report path building.
     """
+
     # Segmentation names
     _pure_demand = "pure_demand"
     _fully_segmented = "fully_segmented"
@@ -159,7 +183,7 @@ class TEMModelPaths:
         export_home: os.PathLike,
         report_home: os.PathLike,
         zoning_system: str,
-        _trip_origin
+        _trip_origin,
     ):
         """Validates input attributes and builds class
 
@@ -487,7 +511,7 @@ class TEMExportPaths:
             export_home=hb_p_export_home,
             report_home=hb_p_report_home,
             _trip_origin="hb",
-            zoning_system="normits"
+            zoning_system="normits",
         )
 
         # nhb productions
@@ -501,7 +525,7 @@ class TEMExportPaths:
             export_home=nhb_p_export_home,
             report_home=nhb_p_report_home,
             _trip_origin="nhb",
-            zoning_system="normits"
+            zoning_system="normits",
         )
 
         # hb attractions
@@ -515,7 +539,7 @@ class TEMExportPaths:
             export_home=hb_a_export_home,
             report_home=hb_a_report_home,
             _trip_origin="hb",
-            zoning_system="normits"
+            zoning_system="normits",
         )
 
         # nhb attractions
@@ -529,17 +553,17 @@ class TEMExportPaths:
             export_home=nhb_a_export_home,
             report_home=nhb_a_report_home,
             _trip_origin="nhb",
-            zoning_system="normits"
+            zoning_system="normits",
         )
 
-        
-#    def HBAttraction(self, 
+
+#    def HBAttraction(self,
 #        trip_rates_paths: dict[int, os.PathLike],
 #        emp_landuse_path: os.PathLike,
 #        hh_landuse_dir: os.PathLike,
 #        hh_landuse_prefix: str
 #    ):
-#        
+#
 #        return AttractionModel_TP(trip_rates_paths, emp_landuse_path, hh_landuse_dir, hh_landuse_prefix)
 
 

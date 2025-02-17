@@ -4,6 +4,7 @@
 
 from ._version import __version__
 from caf.tem.production_models import HBProductionModel, NHBProductionModel
-#from caf.tem.attraction_models import AttractionModel
-from caf.tem.inputs import * #TEMModelPaths, TEMExportPaths, HBProdInput, NHBProdInput, AttrInput
+
+# from caf.tem.attraction_models import AttractionModel
+from caf.tem.inputs import *  # TEMModelPaths, TEMExportPaths, HBProdInput, NHBProdInput, AttrInput
 from caf.tem.TEM import TEMModel

@@ -5,6 +5,7 @@ Module containing trip_end models.
 # Built-Ins
 import os
 import caf.base as cb
+
 # Local Imports
 # pylint: disable=import-error,wrong-import-position
 # Local imports here
@@ -147,5 +148,3 @@ class TEM(TEMExportPaths):
 
 
 # # # FUNCTIONS # # #
-
-

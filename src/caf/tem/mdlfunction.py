@@ -10,23 +10,35 @@ import os
 
 
 # drop duplicates
-def dfr_duplicates(dfr: pd.DataFrame, col_sort: Union[List, str],
-                   col_drop: Union[List, str], keep_by: str = 'min') -> pd.DataFrame:
+def dfr_duplicates(
+    dfr: pd.DataFrame,
+    col_sort: Union[List, str],
+    col_drop: Union[List, str],
+    keep_by: str = "min",
+) -> pd.DataFrame:
     # keep_by = min/first - keep the smallest value, max/last - keep the largest value
     col_sort, col_drop = val_to_list(col_sort), val_to_list(col_drop)
     col_sort = col_drop + [col for col in col_sort if col not in col_drop]
-    dfr = dfr.sort_values(col_sort, ascending=True)  # sort data by col_drop+col_sort in ascending order
-    dfr = dfr.drop_duplicates(col_drop, keep=('first' if keep_by.lower() == 'min' else 'last'), ignore_index=True)
+    dfr = dfr.sort_values(
+        col_sort, ascending=True
+    )  # sort data by col_drop+col_sort in ascending order
+    dfr = dfr.drop_duplicates(
+        col_drop, keep=("first" if keep_by.lower() == "min" else "last"), ignore_index=True
+    )
     return dfr
 
 
 # compress multi-level columns to single-level
 def dfr_columns(dfr: pd.DataFrame, col_name: Union[List, str]) -> pd.Index:
     col_name = val_to_list(col_name)
-    return dfr.columns.map(lambda x: ".".join([f"{cx}{cv}" for cv, cx in zip(x, [''] + col_name)]))
+    return dfr.columns.map(
+        lambda x: ".".join([f"{cx}{cv}" for cv, cx in zip(x, [""] + col_name)])
+    )
 
 
-def dfr_default(dfr: pd.DataFrame, col_used: Union[List, str], def_vals: Union[str, int, float]) -> pd.DataFrame:
+def dfr_default(
+    dfr: pd.DataFrame, col_used: Union[List, str], def_vals: Union[str, int, float]
+) -> pd.DataFrame:
     col_used = [col_used] if isinstance(col_used, str) else col_used
     for col in col_used:
         dfr.loc[dfr[col].isin([0, "0", -8, -9, -10]), col] = def_vals
@@ -36,31 +48,34 @@ def dfr_default(dfr: pd.DataFrame, col_used: Union[List, str], def_vals: Union[s
 # filter zero from dataframe
 def dfr_filter_zero(dfr: pd.DataFrame, col_used: Union[List, str]) -> pd.DataFrame:
     col_used = [col_used] if isinstance(col_used, str) else col_used
-    return dfr.loc[(~dfr[col_used].isin([0, "0", -8, -9, -10])).all(axis=1)].reset_index(drop=True)
+    return dfr.loc[(~dfr[col_used].isin([0, "0", -8, -9, -10])).all(axis=1)].reset_index(
+        drop=True
+    )
 
 
 # filter mode values
-def dfr_filter_mode(
-        dfr: pd.DataFrame, inc_list: List, col_mode: str = "mode"
-) -> pd.DataFrame:
+def dfr_filter_mode(dfr: pd.DataFrame, inc_list: List, col_mode: str = "mode") -> pd.DataFrame:
     return dfr.loc[dfr[col_mode].isin(inc_list)].reset_index(drop=True)
 
 
 # create a complete set of index values
 def dfr_complete(
-        dfr: pd.DataFrame, col_index: Union[List, str, None], col_unstk: Union[List, str]
+    dfr: pd.DataFrame, col_index: Union[List, str, None], col_unstk: Union[List, str]
 ) -> pd.DataFrame:
     col_index = [] if col_index is None else val_to_list(col_index)
     col_unstk = val_to_list(col_unstk)
     dfr = dfr.set_index(col_index) if len(col_index) > 0 else dfr
     for col in col_unstk:
-        dfr = dfr.unstack(level=col, fill_value=0).stack(future_stack=True)  # future_stack implemented in pandas 2.1
+        dfr = dfr.unstack(level=col, fill_value=0).stack(
+            future_stack=True
+        )  # future_stack implemented in pandas 2.1
     return dfr
 
 
 # import csv to dataframe
-def csv_to_dfr(csv_file: Union[str, Path], col_incl: Union[List, str] = None,
-               nts_dtype: type = object) -> Union[pd.DataFrame, bool]:
+def csv_to_dfr(
+    csv_file: Union[str, Path], col_incl: Union[List, str] = None, nts_dtype: type = object
+) -> Union[pd.DataFrame, bool]:
     log_stderr(f" .. read {txt_truncate(csv_file, 70)}")
     if isinstance(csv_file, str):
         _, _, _, csv_extn = split_file(csv_file)
@@ -115,19 +130,26 @@ def mkdir(sub_fldr: Union[Path, str]) -> Union[Path, str]:
 
 
 # apply expansion
-def nts_expanse(dfr: pd.DataFrame, exp_fact: pd.DataFrame, col_calc: Union[List, str] = None
-                ) -> pd.DataFrame:
-    dfr = pd.merge(dfr, exp_fact, how='left', on='individualid')
-    col_calc = ['w2', 'trips', 'w5'] if col_calc is None else val_to_list(col_calc)
+def nts_expanse(
+    dfr: pd.DataFrame, exp_fact: pd.DataFrame, col_calc: Union[List, str] = None
+) -> pd.DataFrame:
+    dfr = pd.merge(dfr, exp_fact, how="left", on="individualid")
+    col_calc = ["w2", "trips", "w5"] if col_calc is None else val_to_list(col_calc)
     for col in col_calc:
         if col in dfr.columns:
-            dfr[col] = dfr[col].mul(dfr['exp_fact'])
+            dfr[col] = dfr[col].mul(dfr["exp_fact"])
     return dfr
 
 
 # write dataframe to csv
-def dfr_to_csv(dfr: pd.DataFrame, csv_path: Union[Path, str], csv_name: str, index: bool = True,
-               header: bool = True, dec_4mat: Union[str, None] = None):
+def dfr_to_csv(
+    dfr: pd.DataFrame,
+    csv_path: Union[Path, str],
+    csv_name: str,
+    index: bool = True,
+    header: bool = True,
+    dec_4mat: Union[str, None] = None,
+):
     csv_path = Path(csv_path) if isinstance(csv_path, str) else csv_path
     csv_name = f"{csv_name}.csv" if ".csv" not in csv_name.lower() else csv_name
     log_stderr(f" .. write to {txt_truncate(csv_path / csv_name, 70)}")
@@ -144,7 +166,9 @@ def itm_to_key(dct: Dict, key_lower: bool = True) -> Dict:
 
 # convert string to list
 def val_to_list(str_text: Union[str, float, int, List, None]) -> List:
-    return [] if str_text is None else [str_text] if not isinstance(str_text, list) else str_text
+    return (
+        [] if str_text is None else [str_text] if not isinstance(str_text, list) else str_text
+    )
 
 
 # convert list to dictionary
@@ -164,7 +188,11 @@ def dfr_to_dict(dfr: pd.DataFrame, key: str, val: str) -> Dict:
 def dfr_to_tuple(dfr: pd.DataFrame, col_used: List) -> pd.Series:
     # create tuple from dfr columns
     col_2zip = zip(*[dfr[col] for col in col_used])
-    return dfr[col_used[0]] if len(col_used) == 1 else pd.Series([col for col in col_2zip], index=dfr.index)
+    return (
+        dfr[col_used[0]]
+        if len(col_used) == 1
+        else pd.Series([col for col in col_2zip], index=dfr.index)
+    )
 
 
 # convert str to lower()
@@ -183,8 +211,9 @@ def dfr_grby(dfr: pd.DataFrame, col_grby: Union[List, str], observed: bool = Tru
 
 
 # convert dfr to dcat
-def dfr_to_dcat(dfr: pd.DataFrame, col_dcat: Union[str, List], col_dnum: Union[List, str] = None
-                ) -> pd.DataFrame:
+def dfr_to_dcat(
+    dfr: pd.DataFrame, col_dcat: Union[str, List], col_dnum: Union[List, str] = None
+) -> pd.DataFrame:
     # similar to patsy.dmatrices
     col_dcat, col_dnum = val_to_list(col_dcat), val_to_list(col_dnum)
     dfr = dfr[col_dcat + col_dnum].reset_index(drop=True)
@@ -207,12 +236,22 @@ def form_to_list(reg_text: str) -> tuple:
 
 
 # scatter plots
-def plt_scatter(title, x_val: np.ndarray, y_val: np.ndarray, x_label: str, y_label: str, out_fldr: Path,
-                intercept: bool = True):
+def plt_scatter(
+    title,
+    x_val: np.ndarray,
+    y_val: np.ndarray,
+    x_label: str,
+    y_label: str,
+    out_fldr: Path,
+    intercept: bool = True,
+):
     plt.rc("font", size=8)
     plt.grid(True)
-    p_fit = (np.append(np.linalg.lstsq(x_val.reshape(-1, 1), y_val, rcond=None)[0], [0]) if not intercept
-             else np.polyfit(x_val, y_val, 1))
+    p_fit = (
+        np.append(np.linalg.lstsq(x_val.reshape(-1, 1), y_val, rcond=None)[0], [0])
+        if not intercept
+        else np.polyfit(x_val, y_val, 1)
+    )
     l_fit = np.poly1d(p_fit)
     y_fit = l_fit(x_val)
     r_sqr = rsq_calc(y_val, y_fit)
@@ -240,7 +279,12 @@ def plt_tld(title, xlm_axis, ylm_axis, x_label: str, y_label: str, out_fldr: Pat
     xlm_mean = (xlm_axis * ylm_axis).sum() / ylm_axis.sum()
     ylm_trip = ylm_axis.sum()
     ylm_axis = ylm_axis / ylm_trip * 100
-    plt.plot(xlm_axis, ylm_axis, 'r-*', label=f'obs. mean = {xlm_mean: .3f}km ({ylm_trip: .0f} trips)')
+    plt.plot(
+        xlm_axis,
+        ylm_axis,
+        "r-*",
+        label=f"obs. mean = {xlm_mean: .3f}km ({ylm_trip: .0f} trips)",
+    )
     plt.rc("font", size=8)
     plt.grid(True)
     plt.ylabel(f"{y_label}", size=8)
@@ -266,9 +310,7 @@ def log_stderr(*args):
 def cmd_single(cmd_list: Union[List, str]):
     cmd_list = cmd_list if type(cmd_list) is list else [cmd_list]
     for ts in cmd_list:
-        pr = subprocess.Popen(
-            ts, creationflags=subprocess.CREATE_NEW_CONSOLE, shell=True
-        )
+        pr = subprocess.Popen(ts, creationflags=subprocess.CREATE_NEW_CONSOLE, shell=True)
         pr.wait()
 
 
@@ -279,9 +321,7 @@ def cmd_multic(cmd_list: List, num_cpus: int = 999):
         min_bloc = min(bl * num_cpus, len(cmd_list))
         max_bloc = min(min_bloc + num_cpus, len(cmd_list))
         exe_list = [
-            subprocess.Popen(
-                pr, creationflags=subprocess.CREATE_NEW_CONSOLE, shell=True
-            )
+            subprocess.Popen(pr, creationflags=subprocess.CREATE_NEW_CONSOLE, shell=True)
             for pr in cmd_list[min_bloc:max_bloc]
         ]
         for pr in exe_list:
@@ -367,7 +407,7 @@ def add_path(cur_path: str, str_file: str) -> str:
 def dist_band(max_dist: Union[List, float], pow_incr: float = 2.2) -> np.ndarray:
     if isinstance(max_dist, float):
         max_dist = int(max_dist + 1)
-        num_band = int(max_dist ** 0.51)
+        num_band = int(max_dist**0.51)
         arr_dist = np.array(
             [
                 int(((0 if val == 0 else val + 1) / num_band) ** pow_incr * max_dist)
@@ -385,16 +425,16 @@ def product(*args) -> List:
 
 
 def agg_prop(dfr: pd.DataFrame, col_grby: Union[List, str], col_calc: str) -> pd.Series:
-    return dfr[col_calc].div(dfr.groupby(col_grby)[col_calc].transform('sum')).fillna(0)
+    return dfr[col_calc].div(dfr.groupby(col_grby)[col_calc].transform("sum")).fillna(0)
 
 
 # fill data from aggregate level
 def agg_fill(
-        dfr: pd.DataFrame,
-        col_grby: Union[List, str],
-        col_segm: Union[List, str],
-        col_calc: str,
-        val_vmin: float = 0,
+    dfr: pd.DataFrame,
+    col_grby: Union[List, str],
+    col_segm: Union[List, str],
+    col_calc: str,
+    val_vmin: float = 0,
 ) -> pd.Series:
     # col_grby: list of columns to aggregate, hierarchical level from right to left
     # e.g. col_grby = [at, hh, tt] -> calculate %split by [at, hh, tt] first,

@@ -164,8 +164,10 @@ class Lookup(BaseConfig):
                 1: fun.product(age_01id["child"], eco_01id["dna"]),  # child
                 2: fun.product(age_01id["adult"], eco_01id["fte"]),  # fte
                 3: fun.product(age_01id["adult"], eco_01id["pte"]),  # pte
-                4: fun.product(age_01id["adult"] + age_01id["elder"], eco_01id["stu"]),  # student
-                5: fun.product(age_01id["adult"], eco_01id["unm"] + eco_01id['dna']),  # neet
+                4: fun.product(
+                    age_01id["adult"] + age_01id["elder"], eco_01id["stu"]
+                ),  # student
+                5: fun.product(age_01id["adult"], eco_01id["unm"] + eco_01id["dna"]),  # neet
                 6: fun.product(age_01id["elder"], eco_over),  # over 75
             },
             "out": {
@@ -183,7 +185,8 @@ class Lookup(BaseConfig):
     def soc(self, soc_year: int = 2020) -> Dict:
         # soc
         soc_02id, age_01id, eco_01id = (
-            self.dct_to_specs(self.soc_02id), self.age_01id_pop,
+            self.dct_to_specs(self.soc_02id),
+            self.age_01id_pop,
             self.dct_to_specs(self.eco_01id),
         )
         all_xsoc = soc_02id["hig"] + soc_02id["med"] + soc_02id["low"] + soc_02id["dna"]
@@ -199,10 +202,12 @@ class Lookup(BaseConfig):
                 2: fun.product(soc_02id["med"], age_01id["adult"], emp_ecos),  # med skill
                 3: fun.product(soc_02id["low"], age_01id["adult"], emp_ecos),  # low skill
                 4: (
-                        fun.product(all_xsoc, all_ages, eco_01id["stu"])  # FT students
-                        + fun.product(all_xsoc, age_01id["adult"], eco_01id["unm"] + eco_01id["dna"])
-                        + fun.product(all_xsoc, age_01id["child"], all_ecos)  # children
-                        + fun.product(all_xsoc, age_01id["elder"], all_ecos)  # over 75
+                    fun.product(all_xsoc, all_ages, eco_01id["stu"])  # FT students
+                    + fun.product(
+                        all_xsoc, age_01id["adult"], eco_01id["unm"] + eco_01id["dna"]
+                    )
+                    + fun.product(all_xsoc, age_01id["child"], all_ecos)  # children
+                    + fun.product(all_xsoc, age_01id["elder"], all_ecos)  # over 75
                 ),
             },
             "out": {
@@ -327,8 +332,12 @@ class Lookup(BaseConfig):
             for g in gen[1:]:
                 # fte/pte: aws=2-3, (hh=1-2, soc=1-3, ns=1-3,5) & (hh=3-8, soc=1-3, ns=1-5)
                 for w in [2, 3]:
-                    par_dict = _dct_update(g, w, hh[:2], [1, 2], [1, 2, 3, 5])  # no unem for soc1-2
-                    par_dict = _dct_update(g, w, hh[:2], 3, [2, 3, 5])  # no unem & ns-sec 1 for soc 3
+                    par_dict = _dct_update(
+                        g, w, hh[:2], [1, 2], [1, 2, 3, 5]
+                    )  # no unem for soc1-2
+                    par_dict = _dct_update(
+                        g, w, hh[:2], 3, [2, 3, 5]
+                    )  # no unem & ns-sec 1 for soc 3
                     par_dict = _dct_update(g, w, hh[2:], [1, 2, 3], sec)
                 # student: aws=4, (hh=1-2, soc=4, ns=5) & (hh=3-8, soc=4, ns=1-5)
                 par_dict = _dct_update(g, 4, hh[:2], 4, 5)
@@ -345,9 +354,7 @@ class Lookup(BaseConfig):
 
     def tt_to_dfr(self, tfn_type: List, out_type: str = "tfn") -> pd.DataFrame:
         dfr = self.tt_tfn(tfn_type, out_type)
-        dfr = pd.DataFrame.from_dict(
-            {val: key for key, val in dfr.items()}, orient="index"
-        )
+        dfr = pd.DataFrame.from_dict({val: key for key, val in dfr.items()}, orient="index")
         dfr.rename(columns={key: val for key, val in enumerate(tfn_type)}, inplace=True)
         dfr = dfr.reset_index(drop=False).rename(columns={"index": "tt"})
         return dfr
@@ -384,7 +391,9 @@ class Lookup(BaseConfig):
 
         set_list = [val for key in set_01id for val in set_01id[key]]
         at2_list = [val for key in at2_01id for val in at2_01id[key]]
-        at2_xlon = [val for val in at2_list if val not in at2_01id[1]]  # outer london + rest GB
+        at2_xlon = [
+            val for val in at2_list if val not in at2_01id[1]
+        ]  # outer london + rest GB
         out_dict = {
             "col": [
                 f"{col_type}gor_b02id",
@@ -404,28 +413,24 @@ class Lookup(BaseConfig):
                 6: fun.product([1], cty_list, at2_list, set_01id["major"]),  # ne
                 7: fun.product([3], cty_list, at2_list, set_01id["major"]),  # yh
                 # minor
-                8: fun.product(
-                    [4, 3], cty_list, at2_list, set_01id["minor"]
-                ),  # em + yh
+                8: fun.product([4, 3], cty_list, at2_list, set_01id["minor"]),  # em + yh
                 # city
                 9: fun.product([6], cty_list, at2_list, set_01id["city"]),  # east
                 10: fun.product([8], cty_list, at2_list, set_01id["city"]),  # se
                 11: (
-                        fun.product([9], cty_list, at2_list, set_01id["city"])
-                        + fun.product([10], [62, 64, 66, 67], at2_list, set_01id["city"])
+                    fun.product([9], cty_list, at2_list, set_01id["city"])
+                    + fun.product([10], [62, 64, 66, 67], at2_list, set_01id["city"])
                 ),  # south wales
                 12: (
-                        fun.product([5], cty_list, at2_list, set_01id["city"])
-                        + fun.product([10], [61, 65], at2_list, set_01id["city"])  # wm
+                    fun.product([5], cty_list, at2_list, set_01id["city"])
+                    + fun.product([10], [61, 65], at2_list, set_01id["city"])  # wm
                 ),  # mid-wales
                 13: fun.product([4], cty_list, at2_list, set_01id["city"]),  # em
                 14: (
-                        fun.product([2], cty_list, at2_list, set_01id["city"])
-                        + fun.product([10], [60, 63, -8], at2_list, set_01id["city"])  # nw
+                    fun.product([2], cty_list, at2_list, set_01id["city"])
+                    + fun.product([10], [60, 63, -8], at2_list, set_01id["city"])  # nw
                 ),  # north wales
-                15: fun.product(
-                    [1, 3], cty_list, at2_list, set_01id["city"]
-                ),  # ne + yh
+                15: fun.product([1, 3], cty_list, at2_list, set_01id["city"]),  # ne + yh
                 # town
                 16: fun.product([6, 8], cty_list, at2_list, set_01id["town"]),
                 17: fun.product(gor_rest, cty_list, at2_list, set_01id["town"]),
@@ -463,7 +468,7 @@ class Lookup(BaseConfig):
         out_dict["val"] = fun.itm_to_key(out_dict["val"])
         return out_dict
 
-    def settlement(self, col_type: str = 'hhold') -> Dict:
+    def settlement(self, col_type: str = "hhold") -> Dict:
         # ruc 2011 to area type
         set_01id = self.dct_to_specs(self.set_01id)
         out_dict = {
@@ -499,20 +504,20 @@ class Lookup(BaseConfig):
             "log": f"occupancy ({col_mode})",
             "val": {
                 "driver": (
-                        mmd_11id["swak"]
-                        + mmd_11id["walk"]
-                        + mmd_11id["bike"]
-                        + mmd_11id["car_d"]
-                        + mmd_11id["van_d"]
-                        + mmd_11id["bus_d"]
+                    mmd_11id["swak"]
+                    + mmd_11id["walk"]
+                    + mmd_11id["bike"]
+                    + mmd_11id["car_d"]
+                    + mmd_11id["van_d"]
+                    + mmd_11id["bus_d"]
                 ),
                 "passenger": (
-                        mmd_11id["car_p"]
-                        + mmd_11id["van_p"]
-                        + mmd_11id["bus_p"]
-                        + mmd_11id["rail_s"]
-                        + mmd_11id["rail_l"]
-                        + mmd_11id["air"]
+                    mmd_11id["car_p"]
+                    + mmd_11id["van_p"]
+                    + mmd_11id["bus_p"]
+                    + mmd_11id["rail_s"]
+                    + mmd_11id["rail_l"]
+                    + mmd_11id["air"]
                 ),
             },
         }
@@ -561,47 +566,50 @@ class Lookup(BaseConfig):
         except KeyError:
             tpp_from = self.inc_purp + end_home
         all_mode = [val for key in mmd_11id for val in mmd_11id[key] if key != "na"]
-        wak_long = [val for key in mmd_11id for val in mmd_11id[key]
-                    if key not in ["na", "swak"]  # , "walk"]
-                    ]  # exclude walk less than 1 mile
+        wak_long = [
+            val
+            for key in mmd_11id
+            for val in mmd_11id[key]
+            if key not in ["na", "swak"]  # , "walk"]
+        ]  # exclude walk less than 1 mile
         out_dict = {
             "col": ["mainmode_b11id", "trippurpfrom_b01id", "trippurpto_b01id"],
             "typ": [self.nts_dtype, self.nts_dtype, self.nts_dtype],
             "log": "purpose",
             "val": {
                 1: (
-                        fun.product(all_mode, tpp_from, tpp_01id["com"])  # hb_fr + nhb
-                        + fun.product(all_mode, tpp_01id["com"], end_home)  # hb_to
+                    fun.product(all_mode, tpp_from, tpp_01id["com"])  # hb_fr + nhb
+                    + fun.product(all_mode, tpp_01id["com"], end_home)  # hb_to
                 ),
                 2: (
-                        fun.product(all_mode, tpp_from, tpp_01id["emb"])
-                        + fun.product(all_mode, tpp_01id["emb"], end_home)
+                    fun.product(all_mode, tpp_from, tpp_01id["emb"])
+                    + fun.product(all_mode, tpp_01id["emb"], end_home)
                 ),
                 3: (
-                        fun.product(all_mode, tpp_from, tpp_01id["edu"])
-                        + fun.product(all_mode, tpp_01id["edu"], end_home)
+                    fun.product(all_mode, tpp_from, tpp_01id["edu"])
+                    + fun.product(all_mode, tpp_01id["edu"], end_home)
                 ),
                 4: (
-                        fun.product(all_mode, tpp_from, tpp_01id["shp"])
-                        + fun.product(all_mode, tpp_01id["shp"], end_home)
+                    fun.product(all_mode, tpp_from, tpp_01id["shp"])
+                    + fun.product(all_mode, tpp_01id["shp"], end_home)
                 ),
                 5: (
-                        fun.product(all_mode, tpp_from, tpp_01id["peb"])
-                        + fun.product(all_mode, tpp_01id["peb"], end_home)
+                    fun.product(all_mode, tpp_from, tpp_01id["peb"])
+                    + fun.product(all_mode, tpp_01id["peb"], end_home)
                 ),
                 6: (
-                        fun.product(all_mode, tpp_from, tpp_01id["soc"])
-                        + fun.product(all_mode, tpp_01id["soc"], end_home)
+                    fun.product(all_mode, tpp_from, tpp_01id["soc"])
+                    + fun.product(all_mode, tpp_01id["soc"], end_home)
                 ),
                 7: (
-                        fun.product(all_mode, tpp_from, tpp_01id["vis"])
-                        + fun.product(all_mode, tpp_01id["vis"], end_home)
+                    fun.product(all_mode, tpp_from, tpp_01id["vis"])
+                    + fun.product(all_mode, tpp_01id["vis"], end_home)
                 ),
                 8: (
-                        fun.product(all_mode, tpp_from, tpp_01id["hol"])
-                        + fun.product(all_mode, tpp_01id["hol"], end_home)
-                        + fun.product(wak_long, tpp_from, tpp_01id["jwk"])
-                        + fun.product(wak_long, tpp_01id["jwk"], end_home)
+                    fun.product(all_mode, tpp_from, tpp_01id["hol"])
+                    + fun.product(all_mode, tpp_01id["hol"], end_home)
+                    + fun.product(wak_long, tpp_from, tpp_01id["jwk"])
+                    + fun.product(wak_long, tpp_01id["jwk"], end_home)
                 ),
             },
             "out": {
@@ -632,15 +640,15 @@ class Lookup(BaseConfig):
             "typ": [self.nts_dtype, self.nts_dtype],
             "log": "escort trip",
             "val": {
-                'esc': (
-                        fun.product(tpp_from, esc_trip["esc"])
-                        + fun.product(esc_trip["esc"], end_home)
+                "esc": (
+                    fun.product(tpp_from, esc_trip["esc"])
+                    + fun.product(esc_trip["esc"], end_home)
                 ),  # from home + return home
-                'main': [],
+                "main": [],
             },
             "out": {
-                'esc': "Escort",
-                'main': "Main purpose",
+                "esc": "Escort",
+                "main": "Main purpose",
             },
         }
         out_dict["val"] = fun.itm_to_key(out_dict["val"])
@@ -648,14 +656,12 @@ class Lookup(BaseConfig):
 
     def period(self, tse_type: str = "start") -> Dict:
         # trip start/end time
-        wkd_01id, ttp_01id = (self.dct_to_specs(self.wkd_01id),
-                              self.dct_to_specs(self.ttp_01id))
+        wkd_01id, ttp_01id = (
+            self.dct_to_specs(self.wkd_01id),
+            self.dct_to_specs(self.ttp_01id),
+        )
         all_24hr = (
-                ttp_01id["am"]
-                + ttp_01id["ip"]
-                + ttp_01id["pm"]
-                + ttp_01id["op"]
-                + ttp_01id["na"]
+            ttp_01id["am"] + ttp_01id["ip"] + ttp_01id["pm"] + ttp_01id["op"] + ttp_01id["na"]
         )
         out_dict = {
             "col": ["travelweekday_b01id", f"trip{tse_type}_b01id"],
@@ -708,8 +714,9 @@ class Lookup(BaseConfig):
 
     def fuel_type(self, col_name: str) -> Dict:
         # vehicle fuel type: vehproptype_b01id, vehproptypen_b01id
-        vpx_01id = self.dct_to_specs(self.vp1_01id if col_name == "vehproptype_b01id"
-                                     else self.vp2_01id)
+        vpx_01id = self.dct_to_specs(
+            self.vp1_01id if col_name == "vehproptype_b01id" else self.vp2_01id
+        )
         out_dict = {
             "col": col_name,
             "typ": self.nts_dtype,
@@ -733,49 +740,68 @@ class Lookup(BaseConfig):
     @staticmethod
     def sic_to_ecode():
         out_dict = {
-            1: {'E01': 'All', 'exc': ['HH', '0-15', '16+']},  # commuting
-            2: {'E01': 'All', 'exc': ['HH', '0-15', '16+']},  # e.business
-            3: {'E03/04/05': 'S85'},  # 'Child': '0-15', 'Adult': '16+'},  # education
-            4: {'E07': ['S46', 'S47']},  # shopping: retail
+            1: {"E01": "All", "exc": ["HH", "0-15", "16+"]},  # commuting
+            2: {"E01": "All", "exc": ["HH", "0-15", "16+"]},  # e.business
+            3: {"E03/04/05": "S85"},  # 'Child': '0-15', 'Adult': '16+'},  # education
+            4: {"E07": ["S46", "S47"]},  # shopping: retail
             # p.business: E08 (86/87) - health, E09 (64-69/75-81/95-96) - services, E11 (56) - food
             # 5: {'E08/09/11': ['S86', 'S87', 'S64', 'S65', 'S66', 'S68', 'S69', 'S75',
             #                   'S77', 'S79', 'S80', 'S81', 'S95', 'S96', 'S56']},
-            5: {'E08': ['S86'],  # health
-                'E09': ['S64', 'S65', 'S66', 'S68', 'S69', 'S75', 'S77', 'S79', 'S80', 'S95', 'S96'],
-                'E11': ['S56']},
-            6: {'E12': ['S90', 'S91', 'S92', 'S93', 'S94']},  # social
-            7: {'E02': 'HH'},  # visit friends
+            5: {
+                "E08": ["S86"],  # health
+                "E09": [
+                    "S64",
+                    "S65",
+                    "S66",
+                    "S68",
+                    "S69",
+                    "S75",
+                    "S77",
+                    "S79",
+                    "S80",
+                    "S95",
+                    "S96",
+                ],
+                "E11": ["S56"],
+            },
+            6: {"E12": ["S90", "S91", "S92", "S93", "S94"]},  # social
+            7: {"E02": "HH"},  # visit friends
             # holiday: E06 (55) - accommodation, E13 (S2-3) - fishing
-            8: {'E06/13': ['S55', 'S02', 'S03']},
+            8: {"E06/13": ["S55", "S02", "S03"]},
         }
         return out_dict
 
     @staticmethod
     def dct_to_specs(dct: Dict, out: type = int) -> Dict:
         # create lookup specs
-        return {
-            key: list(dct[key].keys() if out is int else dct[key].values())
-            for key in dct
-        }
+        return {key: list(dct[key].keys() if out is int else dct[key].values()) for key in dct}
 
     @staticmethod
     def lev_to_name(level: Union[List, str] = None) -> Dict:
         # get column names from level: tfn_at, ua, county, gor, ruc2011, areatype -> dict {h/o/d: []}
         if level is not None:
             level = [level] if isinstance(level, str) else level
-            out_dict = {key: [] for key in ['h', 'o', 'd']}
+            out_dict = {key: [] for key in ["h", "o", "d"]}
             for col in level:
                 if col.lower() in ["ua", "county", "gor", "ruc2011", "areatype"]:
-                    home = (f"hhold{col}_b02id" if col.lower() == "gor" else f"hhold{col}_b01id")
-                    orig = (f"triporig{col}_b02id" if col.lower() == "gor" else f"triporig{col}_b01id")
-                    dest = (f"tripdest{col}_b02id" if col.lower() == "gor" else f"tripdest{col}_b01id")
+                    home = f"hhold{col}_b02id" if col.lower() == "gor" else f"hhold{col}_b01id"
+                    orig = (
+                        f"triporig{col}_b02id"
+                        if col.lower() == "gor"
+                        else f"triporig{col}_b01id"
+                    )
+                    dest = (
+                        f"tripdest{col}_b02id"
+                        if col.lower() == "gor"
+                        else f"tripdest{col}_b01id"
+                    )
                 else:
                     home, orig, dest = col, f"{col}_o", f"{col}_d"
-                out_dict['h'].append(home)
-                out_dict['o'].append(orig)
-                out_dict['d'].append(dest)
+                out_dict["h"].append(home)
+                out_dict["o"].append(orig)
+                out_dict["d"].append(dest)
         else:
-            out_dict = {key: [] for key in ['h', 'o', 'd']}
+            out_dict = {key: [] for key in ["h", "o", "d"]}
         return out_dict
 
     @staticmethod
@@ -788,76 +814,73 @@ class Lookup(BaseConfig):
     @staticmethod
     def week_to_hour() -> Dict:
         # weekly to time period and hourly demand {ts: [week to day, period to hour]}
-        dct = {1: [5, 3],  # weekday AM
-               2: [5, 6],  # weekday IP
-               3: [5, 3],  # weekday PM
-               4: [5, 12],  # weekday OP
-               5: [1, 24],  # saturday
-               6: [1, 24],  # sunday
-               }
+        dct = {
+            1: [5, 3],  # weekday AM
+            2: [5, 6],  # weekday IP
+            3: [5, 3],  # weekday PM
+            4: [5, 12],  # weekday OP
+            5: [1, 24],  # saturday
+            6: [1, 24],  # sunday
+        }
         return dct
 
     @staticmethod
     def hh_to_ca() -> Dict:
         # household type to car availability
-        dct = {"col": "hh_type",
-               "val": {1: [1, 3, 6],  # nca with 1/2/3+ adults
-                       2: [2, 4, 5, 7, 8]},  # ca with 1/2/3+ adults
-               "out": {1: "nca", 2: "ca"}
-               }
+        dct = {
+            "col": "hh_type",
+            "val": {
+                1: [1, 3, 6],  # nca with 1/2/3+ adults
+                2: [2, 4, 5, 7, 8],
+            },  # ca with 1/2/3+ adults
+            "out": {1: "nca", 2: "ca"},
+        }
         dct["val"] = fun.itm_to_key(dct["val"])
         return dct
 
     @staticmethod
     def purpose_tag() -> Dict:
         # aggregate purposes to TAG
-        dct = {"Business": [1],
-               "Commuting": [2],
-               "Other": [3, 4, 5, 6, 7, 8]
-               }
+        dct = {"Business": [1], "Commuting": [2], "Other": [3, 4, 5, 6, 7, 8]}
         return fun.itm_to_key(dct, False)
 
     @staticmethod
     def purpose_to_luti() -> Dict:
         # aggregate purposes to LUTI
-        dct = {"val": {1: [2],  # business
-                       2: [1],  # commuting
-                       3: [3, 4, 5, 6, 7, 8]},  # other
-               "out": {1: "Business", 2: "Commuting", 3: "Other"}
-               }
+        dct = {
+            "val": {1: [2], 2: [1], 3: [3, 4, 5, 6, 7, 8]},  # business  # commuting  # other
+            "out": {1: "Business", 2: "Commuting", 3: "Other"},
+        }
         dct["val"] = fun.itm_to_key(dct["val"], False)
         return dct
 
     @staticmethod
     def purpose_to_normits() -> Dict:
         # aggregate purposes to normits
-        dct = {"val": {1: [2],  # business
-                       2: [1],  # commuting
-                       3: [3, 4, 5, 6, 7, 8]},  # other
-               "out": {1: "Business", 2: "Commuting", 3: "Other"}
-               }
+        dct = {
+            "val": {1: [2], 2: [1], 3: [3, 4, 5, 6, 7, 8]},  # business  # commuting  # other
+            "out": {1: "Business", 2: "Commuting", 3: "Other"},
+        }
         dct["val"] = fun.itm_to_key(dct["val"], False)
         return dct
 
     @staticmethod
     def purpose_to_noham() -> Dict:
         # aggregate purposes to NoHAM
-        dct = {"val": {1: [2],  # business
-                       2: [1],  # commuting
-                       3: [3, 4, 5, 6, 7, 8]},  # other
-               "out": {1: "Business", 2: "Commuting", 3: "Other"}
-               }
+        dct = {
+            "val": {1: [2], 2: [1], 3: [3, 4, 5, 6, 7, 8]},  # business  # commuting  # other
+            "out": {1: "Business", 2: "Commuting", 3: "Other"},
+        }
         dct["val"] = fun.itm_to_key(dct["val"], False)
         return dct
 
     @staticmethod
     def purpose_to_norms() -> Dict:
         # aggregate purposes to NoRMS
-        dct = {"val": {1: [2],  # business
-                       2: [1],  # commuting
-                       3: [3, 4, 5, 6, 7, 8]},  # other
-               "out": {1: "Business", 2: "Commuting", 3: "Other"}
-               }
+        dct = {
+            "val": {1: [2], 2: [1], 3: [3, 4, 5, 6, 7, 8]},  # business  # commuting  # other
+            "out": {1: "Business", 2: "Commuting", 3: "Other"},
+        }
         dct["val"] = fun.itm_to_key(dct["val"], False)
         return dct
 
@@ -934,13 +957,15 @@ if __name__ == "__main__":
         },
         # escort trips
         esc_trip={
-            "esc": {18: "escort work",
-                    19: "escort in course of work",
-                    20: "escort education",
-                    21: "escort shopping / personal business",
-                    16: "other non-escort",  # learning to drive, taking part in community service
-                    22: "other escort",  # escort social/visit friends/holiday
-                    17: "escort home"},
+            "esc": {
+                18: "escort work",
+                19: "escort in course of work",
+                20: "escort education",
+                21: "escort shopping / personal business",
+                16: "other non-escort",  # learning to drive, taking part in community service
+                22: "other escort",  # escort social/visit friends/holiday
+                17: "escort home",
+            },
             "non": {},
         },
         # weekday & weekend
@@ -1136,8 +1161,10 @@ if __name__ == "__main__":
             "C": {4: "D - Manufacturing"},
             "D/E": {5: "E - Electricity, gas and water supply"},
             "F": {6: "F - Construction"},
-            "G": {7: "G - Wholesale and retail trade; repair of motor vehicles, "
-                     "motorcycles and personal and household goods"},
+            "G": {
+                7: "G - Wholesale and retail trade; repair of motor vehicles, "
+                "motorcycles and personal and household goods"
+            },
             "I": {8: "H - Hotels and restaurants"},
             "H/J": {9: "I - Transport, storage and communication"},
             "K": {10: "J - Financial intermediation"},
@@ -1146,8 +1173,10 @@ if __name__ == "__main__":
             "P": {13: "M - Education"},
             "Q": {14: "N - Health and social work"},
             "R/S": {15: "O - Other community, social and personal service activities"},
-            "T/U": {16: "P - Private households with employed persons",
-                    17: "Q - Extra-territorial organisations and bodies", },
+            "T/U": {
+                16: "P - Private households with employed persons",
+                17: "Q - Extra-territorial organisations and bodies",
+            },
             "NAS": {-8: "na", 18: "Workplace outside UK (Pre 2002)"},
             "DNA": {-9: "dna"},
         },
@@ -1156,24 +1185,36 @@ if __name__ == "__main__":
             "A": {1: "A - Agriculture, forestry and fishing"},
             "B": {2: "B - Mining and quarrying"},
             "C": {3: "C - Manufacturing"},
-            "D/E": {4: "D - Electricity, gas, steam and air conditioning supply",
-                    5: "E - Water supply; sewerage, waste management and remediation activities"},
+            "D/E": {
+                4: "D - Electricity, gas, steam and air conditioning supply",
+                5: "E - Water supply; sewerage, waste management and remediation activities",
+            },
             "F": {6: "F - Construction"},
-            "G": {7: "G - Wholesale and retail trade; repair of motor vehicles and motorcycles"},
-            "H/J": {8: "H - Transportation and storage",
-                    10: "J - Information and communication"},
+            "G": {
+                7: "G - Wholesale and retail trade; repair of motor vehicles and motorcycles"
+            },
+            "H/J": {
+                8: "H - Transportation and storage",
+                10: "J - Information and communication",
+            },
             "I": {9: "I - Accommodation and food service activities"},
             "K": {11: "K - Financial and insurance activities"},
-            "L/M/N": {12: "L - Real estate activities",
-                      13: "M - Professional, scientific and technical activities",
-                      14: "N - Administrative and support service activities"},
+            "L/M/N": {
+                12: "L - Real estate activities",
+                13: "M - Professional, scientific and technical activities",
+                14: "N - Administrative and support service activities",
+            },
             "O": {15: "O - Public administration and defence; compulsory social security"},
             "P": {16: "P - Education"},
             "Q": {17: "Q - Human health and social work activities"},
-            "R/S": {18: "R - Arts, entertainment and recreation",
-                    19: "S - Other service activities"},
-            "T/U": {20: "T - Activities of households as employers",
-                    21: "U - Activities of extraterritorial organisations and bodies"},
+            "R/S": {
+                18: "R - Arts, entertainment and recreation",
+                19: "S - Other service activities",
+            },
+            "T/U": {
+                20: "T - Activities of households as employers",
+                21: "U - Activities of extraterritorial organisations and bodies",
+            },
             "NAS": {-8: "na"},
             "DNA": {-9: "dna"},
         },
@@ -1248,10 +1289,12 @@ if __name__ == "__main__":
             #     8: {'ruc': [4, 5], 'out': 4}  # SE: village to town
             #     }
             # urban and rural only for external
-            1: {1: {'ruc': [4, 5], 'out': 4},
-                7: {'ruc': [1, 2, 3, 4, 5], 'out': 1}} |  # NE: village to town
-               {key: {'ruc': [1, 2, 3], 'out': 3} for key in (4, 5, 6, 8, 9, 10, 11)},
-            2: {key: {'ruc': [4, 5], 'out': 4} for key in (4, 5, 6, 8, 9, 10, 11)},
+            1: {
+                1: {"ruc": [4, 5], "out": 4},
+                7: {"ruc": [1, 2, 3, 4, 5], "out": 1},
+            }  # NE: village to town
+            | {key: {"ruc": [1, 2, 3], "out": 3} for key in (4, 5, 6, 8, 9, 10, 11)},
+            2: {key: {"ruc": [4, 5], "out": 4} for key in (4, 5, 6, 8, 9, 10, 11)},
         },
         # gor: {hhold/triporig/tripdest}gor_b02id
         gor_02id={
