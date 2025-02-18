@@ -27,7 +27,7 @@ class TEMModel:
         self.scenario = scenario
         self.output_zoning = output_zoning
         self.iteration_name = iteration_name
-        self.export_paths = TEMExportPaths(model_years, scenario, iteration_name, export_home) # should this instead be called when either population or landuse paths are parsed in a dict with years as keys
+        self.export_paths = TEMExportPaths(model_years, scenario, iteration_name, export_home)
 
 
     def HBProductionModel(
@@ -38,7 +38,7 @@ class TEMModel:
         # return_segmentation: cb.Segmentations --> is this supposed to be a user input?
     ):
         self.hb_production_model = HBProductionModel_TP(
-            self.export_paths.hb_production,
+            self.export_paths.hb_production.export_paths.pure_demand,
             population_paths,
             trip_rates_path,
             mode_time_splits_path,
@@ -72,7 +72,7 @@ class TEMModel:
         
         self.hb_attraction_model = AttractionModel_TP(  # to rename AttractionModel
             self.export_paths.hb_production,
-            self.export_paths.hb_attraction,
+            self.hb_attraction_model,
             trip_rates_paths,
             balance_production,
             self.export_paths.hb_production.export_paths.tem_segmented,

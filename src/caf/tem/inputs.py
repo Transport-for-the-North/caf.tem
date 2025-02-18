@@ -227,9 +227,9 @@ class TEMModelPaths:
         base_fname = self._base_output_fname
         fname_parts = [self._trip_origin, self._zoning_system]
 
-        pure_demand_paths = dict()
-        fully_segmented_paths = dict()
-        tem_segmented_paths = dict()
+        pure_demand_paths: dict[int, os.PathLike] = dict()
+        fully_segmented_paths: dict[int, os.PathLike] = dict()
+        tem_segmented_paths: dict[int, os.PathLike] = dict()
 
         for year in self.path_years:
             # Pure demand path
@@ -555,16 +555,5 @@ class TEMExportPaths:
             _trip_origin="nhb",
             zoning_system="normits",
         )
-
-
-#    def HBAttraction(self,
-#        trip_rates_paths: dict[int, os.PathLike],
-#        emp_landuse_path: os.PathLike,
-#        hh_landuse_dir: os.PathLike,
-#        hh_landuse_prefix: str
-#    ):
-#
-#        return AttractionModel_TP(trip_rates_paths, emp_landuse_path, hh_landuse_dir, hh_landuse_prefix)
-
 
 # # # FUNCTIONS # # #
