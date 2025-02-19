@@ -65,7 +65,6 @@ class HBProductionModel_TP:
         export_home: os.PathLike,
         return_segmentation: cb.Segmentation,
         model_zoning: cb.ZoningSystem,
-        #process_count: int = 1,
     ):
         """
         Sets up and validates arguments for the Production model.

@@ -12,8 +12,7 @@ import pathlib
 import pandas as pd
 
 import caf.base as cb
-import caf.toolkit as ctk
-from .inputs import ProductionModelPaths, AttractionModelPaths, TEMSegmentations, AttractionTripRates, TEMExportPaths
+from .inputs import ProductionModelPaths, AttractionModelPaths
 from .utils import *
 
 # local imports
@@ -44,7 +43,49 @@ class AttractionModel_TP:
         self.mts_path = mts_path
 
     def run(self):
+        """
+        Runs the HB/NHB Attraction Model.
 
+        Completes the following steps for each year:
+            - Reads in the employment land use data given in the constructor.
+            - Reads in the household land use data given in the constructor.
+            - Reads in the trip rates data given in the constructor.
+            - Multiplies the purpose-specific landuse and trip rates, producing Attractions.
+            - Reduces the attraction segmentation to soc, or otherwise total if soc is not in the purpose-specific trip rate segmentation.
+            - Optionally writes out a pickled DVector of "pure attractions"
+                at self.export_paths.fully_segmented[year]. TBC this step.
+            - Reads in the mode time split data given in the constructor.
+            - Mutiplies the purpose-specific attraction with the mode time split, producing MTS Attraction.
+            - Balances purpose-spcific MTS Attraction to Pure Production, producing "Pure Demand".
+            - Balances "pure attractions" to production notem segmentation,
+                producing "notem segmented" attractions.
+            - Optionally writes out a pickled DVector of "notem segmented attractions"
+                at self.export_paths.tem_segmented[year].
+            - Optionally writes out a number of "notem segmented" reports, if
+                reports is True.
+
+        Parameters
+        ----------
+        export_pure_attractions:
+            Whether to export the pure attractions to disk or not.
+            Will be written out to: self.export_paths.pure_demand[year]
+
+        export_notem_segmentation:
+            Whether to export the notem segmented demand to disk or not.
+            Will be written out to: self.export_paths.tem_segmented[year]
+
+        export_reports:
+            Whether to output reports while running. All reports will be
+            written out to self.report_home.
+
+        non_resi_path : bool, default True
+            Whether to use the `non_resi_path` (True) or the
+            `employment_paths` for the employment file.
+
+        Returns
+        -------
+        None
+        """
         # Ensure production balance file already exists...
         self.production_model.export_paths.pure_demand[year]
 
@@ -97,6 +138,8 @@ class AttractionModel_TP:
                 balanced_demand_dict[p] = seg_demand_dict[p] * factors # check here that sums for productions and attractions do match.
                 balanced_demand_dict[p].save(pathlib.Path(self.model.export_home) / f"bal_demand{p}.hdf")
             
+            # ## TEM SEGMENTATION ## #
+            # Take the pure segmentation, and aggregate to the desired TEM segmentation
 
             
             #out.save(self.model.export_paths.pure_demand[year])
@@ -105,32 +148,6 @@ class AttractionModel_TP:
         try: del trip_rates
         except NameError: pass
 
-
-    # Returns a year-specific dictionary of pure demand, for each purpose as the key
-    def _attr_dict(self, landuses: dict[str, cb.DVector], trip_rates: dict[int, cb.DVector]) -> dict[int, cb.DVector]:
-        # Create an empty dict to store attraction by purpose
-        attr_dict: dict[int, cb.DVector] = {}
-        # For each purpose...
-        for p in trip_rates.keys():
-            # Access the purpose's trip rate dvec
-            trip_rate = trip_rates[p]
-            # Access the landuse dvec (employment or household) with respect to travel purpose
-            if p!=7:
-                landuse = landuses["emp"]
-            else:
-                landuse = landuses["hh"] # Purpose 7 is Visiting Friends / Relatives and uses household landuse as the attraction
-            # Create the attraction DVector for the given purpose
-            attr = landuse * trip_rate # NB. it is assumed that trip_rate segmentation is a subset of landuse segmentation
-            # Aggregate the attraction DVector to soc if soc is in the trip rate segmentation, total segmentation otherwise
-            if "soc" in trip_rate.segmentation.names: 
-                attr = attr.aggregate(["soc"])
-            else:
-                # Add the total segmentation to the attraction DVector and aggregate to total
-                attr = attr.add_segments([cb.segmentation.SegmentsSuper("total").get_segment()]).aggregate(["total"])
-            attr_dict[p] = attr
-
-        return attr_dict
-    
 
     def _read_emp_lu(self, year):
         # Read the employment landuse DVector for the given year
@@ -172,6 +189,32 @@ class AttractionModel_TP:
             no_factors=True,
         )
         return trip_rate
+
+
+    # Returns a year-specific dictionary of pure demand, for each purpose as the key
+    def _attr_dict(self, landuses: dict[str, cb.DVector], trip_rates: dict[int, cb.DVector]) -> dict[int, cb.DVector]:
+        # Create an empty dict to store attraction by purpose
+        attr_dict: dict[int, cb.DVector] = {}
+        # For each purpose...
+        for p in trip_rates.keys():
+            # Access the purpose's trip rate dvec
+            trip_rate = trip_rates[p]
+            # Access the landuse dvec (employment or household) with respect to travel purpose
+            if p!=7:
+                landuse = landuses["emp"]
+            else:
+                landuse = landuses["hh"] # Purpose 7 is Visiting Friends / Relatives and uses household landuse as the attraction
+            # Create the attraction DVector for the given purpose
+            attr = landuse * trip_rate # NB. it is assumed that trip_rate segmentation is a subset of landuse segmentation
+            # Aggregate the attraction DVector to soc if soc is in the trip rate segmentation, total segmentation otherwise
+            if "soc" in trip_rate.segmentation.names: 
+                attr = attr.aggregate(["soc"])
+            else:
+                # Add the total segmentation to the attraction DVector and aggregate to total
+                attr = attr.add_segments([cb.segmentation.SegmentsSuper("total").get_segment()]).aggregate(["total"])
+            attr_dict[p] = attr
+
+        return attr_dict
     
 
     def _read_mts(self):
