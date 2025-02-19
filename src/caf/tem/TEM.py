@@ -67,7 +67,8 @@ class TEMModel:
         emp_landuse_paths: dict[int, os.PathLike],  # path with respect to year
         hh_landuse_dirs: dict[int, os.PathLike],  # path with respect to year
         hh_landuse_prefix: str,
-        hb_mts_path: os.PathLike
+        hb_mts_path: os.PathLike,
+        balance_zoning: cb.zoning.BalancingZones | bool = True
     ):
         
         self.hb_attraction_model = AttractionModel_TP(  # to rename AttractionModel

@@ -95,8 +95,9 @@ class AttractionModel_TP:
             for p in seg_demand_dict.keys():
                 factors  = pure_production_gb / seg_demand_dict[p].remove_zoning()
                 balanced_demand_dict[p] = seg_demand_dict[p] * factors # check here that sums for productions and attractions do match.
-
                 balanced_demand_dict[p].save(pathlib.Path(self.model.export_home) / f"bal_demand{p}.hdf")
+            
+
             
             #out.save(self.model.export_paths.pure_demand[year])
 
@@ -132,12 +133,12 @@ class AttractionModel_TP:
     
 
     def _read_emp_lu(self, year):
+        # Read the employment landuse DVector for the given year
         emp_landuse = cb.DVector.load(self.emp_landuse_paths[year])
-        # Catch for NorMITs land use custom name / zoning system
-        if emp_landuse.zoning_system.name=="DZ2011+LSOA2021":
-            emp_landuse = cb.DVector(segmentation=emp_landuse.segmentation, import_data=emp_landuse.data, zoning_system=cb.ZoningSystem.get_zoning("lsoa_2021"))
-        desired_zoning = cb.ZoningSystem.get_zoning(self.model._zoning_system)
-        emp_landuse = emp_landuse.translate_zoning(desired_zoning, check_totals=False, no_factors=True)
+        # Translate the employment landuse to the TEM Model zoning system
+        zoning_system = cb.ZoningSystem.get_zoning(self.model._zoning_system)
+        emp_landuse = emp_landuse.translate_zoning(zoning_system, check_totals=False, no_factors=True)
+
         return emp_landuse
 
 
@@ -151,8 +152,8 @@ class AttractionModel_TP:
                     pathlib.Path(self.hh_landuse_dirs[year])
                     / f"{self.hh_landuse_prefix}_{region}.hdf"
                 )
-            )  # .aggregate(SEG_HH)) # I don't know what SEG_HH should be -> to come back to potentially
-        # Horizontally concatonate each GOR's household landuse DVector.
+            )
+        # Horizontally concatonate each GOR's household landuse DVector
         data = pd.concat([d.data for d in hh_list], axis=1)
         hh_landuse = cb.DVector(import_data=data, segmentation=hh_list[0].segmentation, zoning_system=hh_list[0].zoning_system)
         # Translate the household landuse to the TEM Model zoning system
@@ -175,7 +176,7 @@ class AttractionModel_TP:
 
     def _read_mts(self):
         mts = cb.DVector.load(self.mts_path)
-        # Ensure zoning system of mts matches the TEM Model zoning systeme
+        # Ensure zoning system of mts matches the TEM Model zoning system
         zoning_system = cb.ZoningSystem.get_zoning(self.model._zoning_system)
         mts = mts.translate_zoning(zoning_system, check_totals=False, no_factors=True)
         
@@ -189,6 +190,9 @@ class AttractionModel_TP:
             # The purpose segment must be in attraction segmentation for multiplying with the MTS DVector
             attr = attr.add_segments([cb.segmentation.SegmentsSuper("p").get_segment(subset=[p])])
             mts_dict[p] = attr * mts
+            # Remove total segment if it is in the segmentation, it is no longer needed
+            if "total" in mts_dict[p].segmentation.names:
+                mts_dict[p] = mts_dict[p].aggregate(mts_dict[p].segmentation.names.remove("total"))
 
         return mts_dict
 
