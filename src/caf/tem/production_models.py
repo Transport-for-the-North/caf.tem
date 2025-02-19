@@ -58,7 +58,7 @@ class HBProductionModel_TP:
 
     def __init__(
         self,
-        export_paths: ProductionModelPaths,
+        model: ProductionModelPaths,
         population_paths: dict[int, os.PathLike],
         trip_rates_path: os.PathLike,
         mode_time_splits_path: os.PathLike,
@@ -111,7 +111,7 @@ class HBProductionModel_TP:
         # Validate that we have data for all the years we're running for
 
         # Assign
-        self.export_paths = export_paths
+        self.model = model
         self.export_home = export_home
         self.population_paths = {i: pathlib.Path(j) for i, j in population_paths.items()}
         self.trip_rates_path = pathlib.Path(trip_rates_path)
@@ -137,11 +137,11 @@ class HBProductionModel_TP:
 
         # Build the output paths
 
-        path_years = self.years
-        export_home = export_home
-        report_home = report_home
-        zoning_system = self.model_zoning.name
-        _trip_origin = "hb"
+        self.path_years = self.years
+        self.export_home = export_home
+        self.report_home = report_home
+        self.zoning_system = self.model_zoning.name
+        self._trip_origin = "hb"
 
         # TODO sort loggers
         logger_name = "%s.%s" % ("placeholder", self.__class__.__name__)
@@ -216,7 +216,7 @@ class HBProductionModel_TP:
                     "Output P11_{}.hdf",
                     out_zoning=self.model_zoning,
                 )
-                pop_dvec.save(self.export_paths.export_paths.home / f"pop_{year}.dvec")
+                pop_dvec.save(self.model.export_paths.home / f"pop_{year}.dvec")
 
             else:
                 pop_dvec = cb.DVector.load(self.population_paths[year])
@@ -231,11 +231,11 @@ class HBProductionModel_TP:
 
             if export_pure_demand:
                 self._logger.info("Exporting pure demand to disk")
-                pure_demand.save(self.export_paths.export_paths.pure_demand[year])
+                pure_demand.save(self.model.export_paths.pure_demand[year])
 
             if export_reports:
                 self._logger.info("Exporting pure demand reports to disk")
-                pure_demand_paths = self.export_paths.report_paths.pure_demand
+                pure_demand_paths = self.model.report_paths.pure_demand
                 pure_demand.write_sector_reports(
                     segment_totals_path=pure_demand_paths.segment_total[year],
                     ca_sector_path=pure_demand_paths.ca_sector[year],
@@ -266,12 +266,12 @@ class HBProductionModel_TP:
 
             if export_tem_segmentation:
                 self._logger.info("Exporting tem segmented demand to disk")
-                productions.save(self.export_paths.export_paths.tem_segmented[year])
+                productions.save(self.model.export_paths.tem_segmented[year])
 
             if export_reports:
                 # TODO possible save segmentations/subsets somewhere standard
                 self._logger.info("Exporting notem segmented reports to disk")
-                tem_segmented_paths = self.export_paths.report_paths.tem_segmented
+                tem_segmented_paths = self.model.report_paths.tem_segmented
                 productions.write_sector_reports(
                     segment_totals_path=tem_segmented_paths.segment_total[year],
                     ca_sector_path=tem_segmented_paths.ca_sector[year],
@@ -350,7 +350,7 @@ class HBProductionModel_TP:
         for zone, dvec in pure_demand.items():
             mts = mode_time_splits.select_zone(zone)
             dvec *= mts
-            out_path = self.export_paths.export_paths.fully_segmented[year]
+            out_path = self.model.export_paths.fully_segmented[year]
             out_path.mkdir(exist_ok=True, parents=False)
             dvec.save(out_path / f"at_{zone}.hdf")
             total += dvec.sum()

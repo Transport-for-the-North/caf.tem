@@ -38,7 +38,7 @@ class TEMModel:
         # return_segmentation: cb.Segmentations --> is this supposed to be a user input?
     ):
         self.hb_production_model = HBProductionModel_TP(
-            self.export_paths.hb_production.export_paths.pure_demand,
+            self.export_paths.hb_production,
             population_paths,
             trip_rates_path,
             mode_time_splits_path,
@@ -72,7 +72,7 @@ class TEMModel:
         
         self.hb_attraction_model = AttractionModel_TP(  # to rename AttractionModel
             self.export_paths.hb_production,
-            self.hb_attraction_model,
+            self.export_paths.hb_attraction,
             trip_rates_paths,
             balance_production,
             self.export_paths.hb_production.export_paths.tem_segmented,

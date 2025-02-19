@@ -49,9 +49,10 @@ class AttractionModel_TP:
 
         ## Don't currently have
 
-        # ## PURE DEMAND ## #
         # For each year the model is running for...
         for year in self.model.path_years:
+
+            # ## PURE DEMAND ## #
             # If the output pure demand file doesn't already exist...
             if os.path.exists(self.model.export_paths.pure_demand[year]):
                 continue
@@ -67,15 +68,7 @@ class AttractionModel_TP:
                 #pure_demand.save(self.model.export_paths.pure_demand[year])
                 # Forget landuse for the given year
                 del landuses
-# Come back to this
-        #    # Add productions segmentation to pure demand segmentation
-        #    productions = cb.DVector.load(self.production_paths[year])
-        #    attractions = pure_demand.split_by_other(productions)
-#
-        #    # Balance attractions and productions
-        #    if self.balance_production:
-        #        attractions = _attraction_balancing(attractions, productions, True)
-#
+
             # ## MODE TIME SPLIT ## #
             mts_demand_dict: dict[int, cb.DVector] = {}
             for p in trip_rates.keys():
@@ -86,15 +79,33 @@ class AttractionModel_TP:
                     if mts.zoning_system != pure_demand.zoning_system:
                         mts = mts.translate_zoning(pure_demand.zoning_system, check_totals=False, no_factors=True)
                 segment = [cb.segmentation.SegmentsSuper("p").get_segment(subset=[p])]
-                mts_demand_dict[p] = pure_demand.add_segments(segment) * mts.filter_segment_value("p", [p])
+                mts_demand_dict[p] = pure_demand.add_segments(segment) * mts#.filter_segment_value("p", [p])
             del pure_demand, pure_demand_dict
 
                 #mts_demand_dict[p].save(rf"C:\Users\Spiral\Documents\Thomas Prince\Common Analytical Framework\NoTEM\test\mts{p}.hdf")
 
 
             # ## PRODUCTION SEGMENTATION ## #
-            self.production_model.export_paths.pure_demand[year]
-            mts_demand_dict
+            pure_production = cb.DVector.load(self.production_model.export_paths.tem_segmented[year]) # should it be pure_demand or tem_segmented paths? -> tem_segmented is pure_demand.aggregate([*segs]) -> default to pure_demand (everything)
+            seg_demand_dict: dict[int, cb.DVector] = {}
+            for p in mts_demand_dict.keys(): # save progress
+                mts_demand_dict[p].save(pathlib.Path(self.model.export_home) / f"mts_demand{p}.hdf") # save progress
+            for p in mts_demand_dict.keys():
+                seg_demand_dict[p] = mts_demand_dict[p].split_by_other(pure_production.filter_segment_value("p", [p]), agg_zone=cb.ZoningSystem.get_zoning("gor")) # want zoning for splitting and balancing to both be arguments / levers re: issues down the line, optional arg with default "gor". splitting = gor, balancing = gb currently (remove zoning)
+                seg_demand_dict[p].save(pathlib.Path(self.model.export_home) / f"seg_demand{p}.hdf") # save progress
+            del mts_demand_dict
+
+            # ## PRODUCTION BALANCING ## #
+            pure_production_gb = pure_production.remove_zoning() # if/or function depending on balancing zones argument
+            balanced_demand_dict: dict[int, cb.DVector] = {}
+            for p in seg_demand_dict.keys():
+                factors  = pure_production_gb / seg_demand_dict[p].remove_zoning()
+                balanced_demand_dict[p] = seg_demand_dict[p] * factors # check here that sums for productions and attractions do match.
+
+                balanced_demand_dict[p].save(pathlib.Path(self.model.export_home) / f"bal_demand{p}.hdf")
+            
+
+            out.save(self.model.export_paths.pure_demand[year])
 
             # read in production
             # remove zoning from production 
@@ -170,6 +181,11 @@ class AttractionModel_TP:
             #landuse = landuse.aggregate(trip_rate.segmentation)
             # Create pure attraction DVector for the purpose
             attr = landuse * trip_rate
+            attr = attr.add_segments([cb.segmentation.SegmentsSuper("total").get_segment()])
+            if "soc" in trip_rate.segmentation.names: 
+                attr = attr.aggregate(["soc"])
+            else: 
+                attr = attr.aggregate(["total"])
             # Ensure soc is in the segmentation
             #if not "soc" in attr.segmentation.names: 
             #    attr = attr.add_segments([cb.segmentation.SegmentsSuper("total").get_segment()]).aggregate(["total"])
