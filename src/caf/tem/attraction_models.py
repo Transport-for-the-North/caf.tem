@@ -25,12 +25,13 @@ class AttractionModel_TP:
         production_model: ProductionModelPaths,
         model: AttractionModelPaths,
         trip_rates_paths: dict[int, os.PathLike],
-        balance_production: bool,
+        balance_production: cb.zoning.BalancingZones | bool,
         production_paths: dict[int, os.PathLike],
         emp_landuse_paths: dict[int, os.PathLike],
         hh_landuse_dirs: dict[int, os.PathLike], 
         hh_landuse_prefix: str,
         mts_path: os.PathLike,
+        tem_segmentation: cb.Segmentation
     ):
         self.production_model = production_model
         self.model = model
@@ -41,8 +42,9 @@ class AttractionModel_TP:
         self.hh_landuse_dirs = hh_landuse_dirs
         self.hh_landuse_prefix = hh_landuse_prefix
         self.mts_path = mts_path
+        self.tem_segmentation = tem_segmentation
 
-    def run(self):
+    def run(self, export_pure_attractions: bool=True, export_tem_segmentation: bool=True, export_reports: bool=True) -> None:
         """
         Runs the HB/NHB Attraction Model.
 
@@ -52,17 +54,12 @@ class AttractionModel_TP:
             - Reads in the trip rates data given in the constructor.
             - Multiplies the purpose-specific landuse and trip rates, producing Attractions.
             - Reduces the attraction segmentation to soc, or otherwise total if soc is not in the purpose-specific trip rate segmentation.
-            - Optionally writes out a pickled DVector of "pure attractions"
-                at self.export_paths.fully_segmented[year]. TBC this step.
             - Reads in the mode time split data given in the constructor.
             - Mutiplies the purpose-specific attraction with the mode time split, producing MTS Attraction.
-            - Balances purpose-spcific MTS Attraction to Pure Production, producing "Pure Demand".
-            - Balances "pure attractions" to production notem segmentation,
-                producing "notem segmented" attractions.
-            - Optionally writes out a pickled DVector of "notem segmented attractions"
-                at self.export_paths.tem_segmented[year].
-            - Optionally writes out a number of "notem segmented" reports, if
-                reports is True.
+            - Balances purpose-spcific MTS Attraction to Pure Production, producing "Pure Attraction".
+            - Optionally balances "Pure Attractions" to "Pure Production", as exported in the HB/NHB Production Model, producing balanced attractions.
+            - Optionally writes out a pickled DVector of "TEM Segmented Attractions" at self.export_paths.tem_segmented[year] # TBC whether pickled
+            - Optionally writes out a number of reports, if export_reports is True.
 
         Parameters
         ----------
@@ -70,24 +67,23 @@ class AttractionModel_TP:
             Whether to export the pure attractions to disk or not.
             Will be written out to: self.export_paths.pure_demand[year]
 
-        export_notem_segmentation:
-            Whether to export the notem segmented demand to disk or not.
+        export_tem_segmentation:
+            Whether to export the TEM specified return segmentation demand to disk or not.
             Will be written out to: self.export_paths.tem_segmented[year]
 
         export_reports:
             Whether to output reports while running. All reports will be
-            written out to self.report_home.
-
-        non_resi_path : bool, default True
-            Whether to use the `non_resi_path` (True) or the
-            `employment_paths` for the employment file.
+            written out to self.report_home
 
         Returns
         -------
         None
         """
-        # Ensure production balance file already exists...
-        self.production_model.export_paths.pure_demand[year]
+
+        # Ensure production balance file already exists... (if balance_production is True)
+        if self.balance_production:
+            os.path.exists(self.production_model.export_paths.pure_demand[year])
+            raise LookupError("The Pure Productions have not been created by running the HBProductionModel. Do this first.")
 
         # For each year the model is running for...
         for year in self.model.path_years:
@@ -133,20 +129,43 @@ class AttractionModel_TP:
             # ## PRODUCTION BALANCING ## #
             pure_production_gb = pure_production.remove_zoning() # if/or function depending on balancing zones argument
             balanced_demand_dict: dict[int, cb.DVector] = {}
-            for p in seg_demand_dict.keys():
-                factors  = pure_production_gb / seg_demand_dict[p].remove_zoning()
-                balanced_demand_dict[p] = seg_demand_dict[p] * factors # check here that sums for productions and attractions do match.
-                balanced_demand_dict[p].save(pathlib.Path(self.model.export_home) / f"bal_demand{p}.hdf")
+            if self.balance_production == True:
+                for p in seg_demand_dict.keys():
+                    factors  = pure_production_gb / seg_demand_dict[p].remove_zoning()
+                    balanced_demand_dict[p] = seg_demand_dict[p] * factors # check here that sums for productions and attractions do match.
+                    balanced_demand_dict[p].save(pathlib.Path(self.model.export_home) / f"bal_demand{p}.hdf")
+                del seg_demand_dict
+            elif type(self.balance_production) is cb.BalancingZones: # TODO
+                pass
+
+            # ## PURE DEMAND OUTPUT ## #
+            # Don't export if user has set export to False
+            if export_pure_attractions:
+                output_pure: cb.DVector = None
+                for p in balanced_demand_dict.keys():
+                    if output_pure is None:
+                        output_pure = balanced_demand_dict[p]
+                    else:
+                        output_pure = output_pure.concat(balanced_demand_dict[p])
+                output_pure.save(self.model.export_paths.pure_demand[year])
             
             # ## TEM SEGMENTATION ## #
             # Take the pure segmentation, and aggregate to the desired TEM segmentation
+            if export_tem_segmentation:
+                try:
+                    output_pure
+                except NameError:
+                    output_pure: cb.DVector = None
+                    for p in balanced_demand_dict.keys():
+                        if output_pure is None:
+                            output_pure = balanced_demand_dict[p]
+                        else:
+                            output_pure = output_pure.concat(balanced_demand_dict[p])
+                output_tem = output_pure.aggregate(self.tem_segmentation)
+                output_tem.save(self.model.export_paths.tem_segmented[year])
 
-            
-            #out.save(self.model.export_paths.pure_demand[year])
-
-        # Forget trip_rates variable
-        try: del trip_rates
-        except NameError: pass
+        # ## END ## #
+        return None
 
 
     def _read_emp_lu(self, year):
@@ -188,6 +207,7 @@ class AttractionModel_TP:
             check_totals=False,
             no_factors=True,
         )
+        
         return trip_rate
 
 
@@ -232,10 +252,11 @@ class AttractionModel_TP:
             attr = attr_dict[p]
             # The purpose segment must be in attraction segmentation for multiplying with the MTS DVector
             attr = attr.add_segments([cb.segmentation.SegmentsSuper("p").get_segment(subset=[p])])
-            mts_dict[p] = attr * mts
+            mts_dict[p] = attr * mts.filter_segment_value("p", [p]) # NB. to Isaac - error thrown if mts not filtered. Should look into this...
             # Remove total segment if it is in the segmentation, it is no longer needed
             if "total" in mts_dict[p].segmentation.names:
-                mts_dict[p] = mts_dict[p].aggregate(mts_dict[p].segmentation.names.remove("total"))
+                segmentation = mts_dict[p].segmentation.remove_segment("total")
+                mts_dict[p] = mts_dict[p].aggregate(segmentation.names)
 
         return mts_dict
 

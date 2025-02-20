@@ -109,7 +109,8 @@ class TEMModel:
             emp_landuse_paths,
             hh_landuse_dirs,
             hh_landuse_prefix,
-            hb_mts_path
+            hb_mts_path,
+            self.return_segmentation
         )
 
         return self.hb_attraction_model
@@ -120,15 +121,20 @@ class TEMModel:
         emp_landuse_paths: dict[int, os.PathLike],  # path with respect to year
         hh_landuse_dirs: dict[int, os.PathLike],  # path with respect to year
         hh_landuse_prefix: str,
-        nhb_mts_split_path: os.PathLike
+        nhb_mts_path: os.PathLike,
+        balance_production: bool=True
     ):
         self.nhb_attraction_model = AttractionModel_TP(  # to rename AttractionModel
+            self.export_paths.nhb_production,
             self.export_paths.nhb_attraction,
             trip_rates_paths,
+            balance_production,
+            self.export_paths.hb_production.export_paths.tem_segmented,
             emp_landuse_paths,
             hh_landuse_dirs,
             hh_landuse_prefix,
-            nhb_mts_split_path
+            nhb_mts_path,
+            self.return_segmentation
         )
 
         return self.nhb_attraction_model

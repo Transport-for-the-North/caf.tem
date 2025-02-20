@@ -149,7 +149,7 @@ class HBProductionModel_TP:
 
     def run(
         self,
-        export_pure_demand: bool = False,
+        export_pure_demand: bool = True,
         export_tem_segmentation: bool = True,
         export_reports: bool = True,
     ) -> None:
@@ -514,7 +514,7 @@ class HBProductionModel(ProductionModelPaths):
 
     def run(
         self,
-        export_pure_demand: bool = False,
+        export_pure_demand: bool = True,
         export_tem_segmentation: bool = True,
         export_reports: bool = True,
     ) -> None:
