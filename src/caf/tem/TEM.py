@@ -254,6 +254,6 @@ class TEM:
     
     def run(self): # assumes that all models are defined and setup.
         self.hb_production_model.run()
-        self.nhb_production_model.run()
         self.hb_attraction_model.run()
+        self.nhb_production_model.run()
         self.nhb_attraction_model.run()

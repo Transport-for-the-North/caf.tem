@@ -156,7 +156,7 @@ class HBProductionModel_TP:
             pure_production = population * trip_rates
 
             if export_pure_production:
-                pure_production.save(self.model.export_paths.pure_production[year]) # TODO In this case - pure production is applied before mts. Is this the case, or should they be the same with only segmentation being different (I guess applying mts is just different segmentation....)
+                pure_production.save(self.model.export_paths.pure_demand[year]) # TODO In this case - pure production is applied before mts. Is this the case, or should they be the same with only segmentation being different (I guess applying mts is just different segmentation....)
 
             if export_reports:
                 pure_production_paths = self.model.report_paths.pure_demand
@@ -225,7 +225,7 @@ class HBProductionModel_TP:
         # TODO probably needs to be more flexible
         if mode_time_splits.zoning_system != pure_demand.zoning_system:
             pure_demand = pure_demand.split_by_agg_zoning(
-                mode_time_splits.zoning_system, trans=self.trans
+                mode_time_splits.zoning_system
             )
         for zone, dvec in pure_demand.items():
             mts = mode_time_splits.select_zone(zone)

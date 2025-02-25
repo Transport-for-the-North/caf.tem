@@ -125,16 +125,20 @@ class AttractionModel_TP:
             # No longer need dictionary of mts attraction by purpose
             del mts_dict
 
-            # ## BALANCE TO PRODUCTIONS ## #
-            balanced_dict = self._balance_to_production(seg_dict, tem_production)
-            
             # ## TEM SEGMENTATION ## #
             # Take the pure segmentation, and aggregate to the desired TEM segmentation
+            tem_dvec = self._create_tem_dvec(seg_dict)
+            # No longer need dictionary of further segmented mts attraction by purpose
+            del seg_dict
+            
+            #tem_dvec.save(self.model.export_home / "NHB_TEM_Attr.hdf") # Progress check
+            # ## BALANCE TO PRODUCTIONS ## #
+            balanced_dvec = self._balance_to_production(tem_dvec, tem_production)
+            del tem_dvec
+            
+            # ## TEM EXPORT ## #
             if export_tem_segmentation:
-                for p in balanced_dict.keys():
-                    try: output_tem = output_tem.concat(balanced_dict[p].aggregate(self.tem_segmentation))
-                    except NameError: output_tem = balanced_dict[p].aggregate(self.tem_segmentation) # Initialises the output object
-                output_tem.save(self.model.export_paths.tem_segmented[year])
+                balanced_dvec.save(self.model.export_paths.tem_segmented[year])
 
         # ## END ## #
         return None
@@ -281,23 +285,28 @@ class AttractionModel_TP:
         return seg_dict
     
 
-    def _balance_to_production(self, seg_dict: dict[int, cb.DVector], tem_production: cb.DVector):
+    def _create_tem_dvec(self, seg_dict: dict[int, cb.DVector]) -> cb.DVector:
+        for p in seg_dict.keys():
+            try: tem_dvec = tem_dvec.concat(seg_dict[p].aggregate(self.tem_segmentation))
+            except NameError: tem_dvec = seg_dict[p].aggregate(self.tem_segmentation)
+
+        return tem_dvec
+
+
+    def _balance_to_production(self, tem_dvec: cb.DVector, tem_production: cb.DVector) -> cb.DVector:
         """
         - 
         """
         if self.balance_production == True:
-            gb_production = tem_production.remove_zoning()
-            balanced_dict: dict[int, cb.DVector] = {}
-            for p in seg_dict.keys():
-                factors  = gb_production / seg_dict[p].remove_zoning()
-                balanced_dict[p] = seg_dict[p] * factors.filter_segment_value("p", [p]) # check here that sums for productions and attractions do match.
-            del seg_dict
+            tem_dvec.fill(0, 1e-6)
+            gb_factors = tem_production.remove_zoning() / tem_dvec.remove_zoning()
+            balanced_dvec = tem_dvec * gb_factors # check here that sums for productions and attractions do match.
         elif isinstance(self.balance_production, (cb.BalancingZones, cb.ZoningSystem)):
-                balanced_dict[p] = seg_dict[p].balance_by_segments(tem_production.filter_segment_value("p", [p]), self.balance_production)
+                balanced_dvec = tem_dvec.balance_by_segments(tem_production, self.balance_production)
         else:
-            balanced_dict = seg_dict
+            balanced_dvec = tem_dvec
 
-        return balanced_dict 
+        return balanced_dvec 
 
     # class AttractionModel(AttractionModelPaths):
     #    _log_fname = "HBAttractionModel_log.log"
