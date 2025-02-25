@@ -304,12 +304,12 @@ class NHBProductionModel_TP:
         self,
         hb_attraction_model: AttractionModelPaths, # HB Attraction Paths for balancing - not user input - assume these are pure attraction.
         model: ProductionModelPaths,
-        trip_rates_path: os.PathLike, # User input
+        trip_rates_path: os.PathLike,
         balance_production,
-        mts_path: str, # User input
-         # not needed - replace with paths from model
+        mts_path: str,
         #constraint_paths: Dict[int, os.PathLike] = None,
-        process_count: int = 1,
+        #process_count: int = 1,
+        return_segmentation
     ) -> None:
         """
         Sets up and validates arguments for the NHB Production model.
@@ -356,9 +356,10 @@ class NHBProductionModel_TP:
         self.trip_rates_path = trip_rates_path
         self.mts_path = mts_path
         self.balance_production = balance_production
-        self.process_count = process_count
+        #self.process_count = process_count
         self.years = list(self.hb_attraction_paths.keys())
         self.model = model
+        self.return_segmentation = return_segmentation
         # Build the output paths
         
 
@@ -466,7 +467,7 @@ class NHBProductionModel_TP:
             trip_rates = cb.DVector.load(self.trip_rates_path)
             trip_rates = trip_rates.translate_zoning(cb.ZoningSystem.get_zoning("normits"), check_totals=False, no_factors=True) # TODO pass model and get _zoning_system attribute
 
-            hbattr =  cb.DVector.load(self.hb_attraction_model.export_paths.pure_demand[year])
+            hbattr =  cb.DVector.load(self.hb_attraction_model.export_paths.tem_segmented[year])
             segs = hbattr.segmentation.names
             if "tp" in segs:
                 segs.remove("tp")
@@ -483,7 +484,7 @@ class NHBProductionModel_TP:
                                 import_data=hbattr_data,
                                 zoning_system=hbattr.zoning_system)
 
-            hbattr = hbattr.aggregate(["soc", "hh_type", "m_hb", "p_hb"]) # TODO fix
+            #hbattr = hbattr.aggregate(["soc", "hh_type", "m_hb", "p_hb"]) # TODO fix
             pure_production = hbattr * trip_rates
             
             mts = cb.DVector.load(self.mts_path)
@@ -504,6 +505,7 @@ class NHBProductionModel_TP:
                 import_data=temp_data,
                 zoning_system=temp.zoning_system)
             temp.save(self.model.export_paths.pure_demand[year])
+            temp.aggregate(self.return_segmentation).save(self.model.export_paths.tem_segmented[year])
 
 
             

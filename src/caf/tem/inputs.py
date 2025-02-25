@@ -14,35 +14,6 @@ from dataclasses import dataclass
 import caf.toolkit as ctk
 import caf.base as cb
 
-# Local Imports
-# pylint: disable=import-error,wrong-import-position
-# Local imports here
-# pylint: enable=import-error,wrong-import-position
-
-
-# # # CONSTANTS # # #
-TT = cb.SegmentationInput(
-    enum_segments=[
-        "adult_nssec",
-        "gender_3",
-        "ns_sec",
-        "soc",
-        "car_availability",
-        "aws",
-        "hh_type",
-    ],
-    naming_order=[
-        "adult_nssec",
-        "gender_3",
-        "ns_sec",
-        "soc",
-        "car_availability",
-        "aws",
-        "hh_type",
-    ],
-)
-
-
 class TEMSegmentations(ctk.BaseConfig):
 
     prod_pure_report: cb.SegmentationInput
@@ -295,9 +266,9 @@ class TEMModelPaths:
         fname_parts = [self._trip_origin, report_name]
 
         segment_total_paths = dict()
-        ca_sector_paths = dict()
-        ie_sector_paths = dict()
-        lad_paths = dict()
+        ca_sector_paths: dict[int, os.PathLike] = dict()
+        ie_sector_paths: dict[int, os.PathLike] = dict()
+        lad_paths: dict[int, os.PathLike] = dict()
 
         # Create the paths for each year
         for year in self.path_years:

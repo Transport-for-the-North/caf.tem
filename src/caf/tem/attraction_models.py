@@ -17,8 +17,7 @@ from .inputs import ProductionModelPaths, AttractionModelPaths
 
 # local imports
 
-
-class AttractionModel_TP: # should this be a subclass of TEM
+class AttractionModel_TP:
 
     def __init__(
         self,
@@ -26,7 +25,6 @@ class AttractionModel_TP: # should this be a subclass of TEM
         model: AttractionModelPaths,
         trip_rates_paths: dict[int, os.PathLike],
         balance_production: cb.zoning.BalancingZones | bool,
-        #production_paths: dict[int, os.PathLike], # -> TODO redundant, remove for production model.
         emp_landuse_paths: dict[int, os.PathLike],
         hh_landuse_dirs: dict[int, os.PathLike], 
         hh_landuse_prefix: str,
@@ -37,7 +35,6 @@ class AttractionModel_TP: # should this be a subclass of TEM
         self.model = model
         self.trip_rates_paths = trip_rates_paths
         self.balance_production = balance_production
-        #self.production_paths = production_paths
         self.emp_landuse_paths = emp_landuse_paths
         self.hh_landuse_dirs = hh_landuse_dirs
         self.hh_landuse_prefix = hh_landuse_prefix
@@ -81,83 +78,62 @@ class AttractionModel_TP: # should this be a subclass of TEM
         None
         """
         # ## START ## #
-        # If all exports are False, then the function is redundant
+
+        # ## TEM PRE-REQUISITES ## #
+        # If all exports are False, then the run() function is redundant.
         if not (export_pure_attractions or export_tem_segmentation or export_reports):
-            print("All HB Attraction Model exports are set to False, running the HB Attraction Model is redundant. The code has been terminated.")
-            return None
+            raise IOError("The code has been terminated. All HB Attraction Model exports are set to False, running the HB Attraction Model is redundant.")
 
         # Ensure production balance file exists... (if balance_production is True)
-        if self.balance_production and not os.path.exists(self.production_model.export_paths.pure_demand[year]):
-            FileNotFoundError("The Pure Productions have not been created by running the HBProductionModel. Do this first.")
+        for year in self.model.path_years:
+            if not os.path.exists(self.production_model.export_paths.pure_demand[year]):
+                raise FileNotFoundError("The Pure Productions file is not found. Run the Home Based Production Model to create this file first.")
+
+        # ## READ INPUTS ## #
+        # Read in the trip rates DVector files for each purpose. Trip rates are not year dependent.
+        trip_rates: dict[int, cb.DVector] = {p: self._read_trip_rate(p) for p in self.trip_rates_paths}
+        # Read in the MTS dvec file, if not already read. MTS is not year dependent.
+        mts: cb.DVector = self._read_mts()
 
         # For each year the model is running for...
-        for year in self.model.path_years: # -> TODO is this the correct iterable, or keys of emp landuse?
-
-            # ## ATTRACTION ## #
+        for year in self.model.path_years: # -> TODO is this the correct iterable, or keys of emp landuse? - or check path_years = dict keys
+            
             # Read in the landuses dvec files specific to the year.
             landuses: dict[str, cb.DVector] = {"emp": self._read_emp_lu(year), "hh": self._read_hh_lu(year)}
-            # Read in the trip rate dvec files for each purpose, if not already read. Trip rates are not year dependent.
-            try: 
-                trip_rates
-            except NameError:
-                trip_rates: dict[int, cb.DVector] = {p: self._read_trip_rate(p) for p in self.trip_rates_paths}
+            
+
+            # ## PURE ATTRACTION ## #
             # Create a dictionary of attractions by purpose
             attr_dict: dict[int, cb.DVector] = self._create_attr_dict(landuses, trip_rates)
             # No longer need landuses for the given year
             del landuses
-            
-            # ## PURE DEMAND OUTPUT ## #
-            # Don't export if user has set export to False
+            # Export Pure Attractions
             if export_pure_attractions:
-                # Concatonate the (optionally balanced) Pure Attraction by purpose
-                for p in attr_dict.keys():
-                    try: output_pure = output_pure.concat(attr_dict[p].aggregate(["total"]))
-                    except NameError: output_pure = attr_dict[p].aggregate(["total"]) # Initialises the output object
-                # Write Pure Attractions
-                output_pure.save(self.model.export_paths.pure_demand[year])
+                self._export_pure_attractions(attr_dict, year)
 
             # ## MODE TIME SPLIT ## #
-            # Read in the MTS dvec file, if not already read. MTS is not year dependent.
-            try: mts
-            except NameError: mts = self._read_mts()
             # Create a dictionary of attractions, with mode time split applied, by purpose
             mts_dict = self._create_mts_dict(attr_dict, mts)
             # No longer need dictionary of attractions by purpose
             del attr_dict
 
-            # ## PURE SEGMENTATION ## #
-            pure_production = cb.DVector.load(self.production_model.export_paths.pure_demand[year])
-            seg_demand_dict = self._create_seg_demand_dict(mts_dict, pure_production)
+            # ## SPLIT PRODUCTION SEGMENTATION ## #
+            # Load the TEM Production from the HB/NHB Production Model Output
+            tem_production = cb.DVector.load(self.production_model.export_paths.tem_segmented[year])
+            # Apply the split_by_other method to the mts DVectors, given the tem_production
+            seg_dict = self._create_seg_dict(mts_dict, tem_production)
+            # No longer need dictionary of mts attraction by purpose
             del mts_dict
 
-            # ## PRODUCTION BALANCING ## #
-            pure_production_gb = pure_production.remove_zoning() # if/or function depending on balancing zones argument
-            balanced_demand_dict: dict[int, cb.DVector] = {}
-            if self.balance_production == True:
-                for p in seg_demand_dict.keys():
-                    factors  = pure_production_gb / seg_demand_dict[p].remove_zoning()
-                    balanced_demand_dict[p] = seg_demand_dict[p] * factors # check here that sums for productions and attractions do match.
-                    #balanced_demand_dict[p].save(pathlib.Path(self.model.export_home) / f"bal_demand{p}.hdf")
-                del seg_demand_dict
-            elif type(self.balance_production) is cb.BalancingZones: # TODO
-                pass
-            else: 
-                balanced_demand_dict = seg_demand_dict
-
-            
+            # ## BALANCE TO PRODUCTIONS ## #
+            balanced_dict = self._balance_to_production(seg_dict, tem_production)
             
             # ## TEM SEGMENTATION ## #
             # Take the pure segmentation, and aggregate to the desired TEM segmentation
             if export_tem_segmentation:
-                # If Pure Attractions has already been created 
-                if os.path.exists(self.production_model.export_paths.pure_demand[year]):
-                    try: output_pure
-                    except NameError: output_pure = cb.DVector.load(self.production_model.export_paths.pure_demand[year])
-                else:
-                    for p in balanced_demand_dict.keys():
-                        try: output_pure = output_pure.concat(balanced_demand_dict[p])
-                        except NameError: output_pure = balanced_demand_dict[p] # Initialises the output object
-                output_tem = output_pure.aggregate(self.tem_segmentation)
+                for p in balanced_dict.keys():
+                    try: output_tem = output_tem.concat(balanced_dict[p].aggregate(self.tem_segmentation))
+                    except NameError: output_tem = balanced_dict[p].aggregate(self.tem_segmentation) # Initialises the output object
                 output_tem.save(self.model.export_paths.tem_segmented[year])
 
         # ## END ## #
@@ -168,7 +144,8 @@ class AttractionModel_TP: # should this be a subclass of TEM
 
     def _read_emp_lu(self, year):
         """
-        
+        - Reads the employment land use DVector, for one given year, from the path given in the constructor
+        - Translates the employment landuse DVector zoning system to the TEM Model zoning system
         """
         # Read the employment landuse DVector for the given year
         emp_landuse = cb.DVector.load(self.emp_landuse_paths[year])
@@ -180,6 +157,12 @@ class AttractionModel_TP: # should this be a subclass of TEM
 
 
     def _read_hh_lu(self, year):
+        """
+        - Reads all household landuse DVectors, for each Government Office Region (GOR), using the file prefix and the directory given in the constructor 
+        - Concatonates the household landuse DVectors
+        - Translates the concatonated household DVector zoning system to the TEM Model zoning system
+        DVector files, in the directory, should be formated: {hh_landuse_prefix}_{gor_code}.{hdf/dvec}
+        """
         # Create an empty list of DVectors which will contain household landuse for each Government Office Region (GOR)
         hh_list: list[cb.DVector] = []
         # For each GOR...
@@ -220,7 +203,8 @@ class AttractionModel_TP: # should this be a subclass of TEM
     def _create_attr_dict(self, landuses: dict[str, cb.DVector], trip_rates: dict[int, cb.DVector]) -> dict[int, cb.DVector]:
         """
         - Multiplies the purpose-specific landuse by the purpose-specific trip rates, creating attraction
-        - Reduces the attraction segmentation to soc, or otherwise to total if soc is not in the purpose-specific trip rate segmentation
+        - Adds purpose segmentation to each DVector, based on the trip rates key
+        - Reduces the attraction segmentation to p and soc, or otherwise to p if soc is not in the purpose-specific trip rate segmentation
         """
         # Create an empty dict to store attraction by purpose
         attr_dict: dict[int, cb.DVector] = {}
@@ -229,28 +213,39 @@ class AttractionModel_TP: # should this be a subclass of TEM
             # Access the purpose's trip rate dvec
             trip_rate = trip_rates[p]
             # Access the landuse dvec (employment or household) with respect to travel purpose
-            if p!=7:
-                landuse = landuses["emp"]
-            else:
-                landuse = landuses["hh"] # Purpose 7 is Visiting Friends / Relatives and uses household landuse as the attraction
+            if p!=7: landuse = landuses["emp"]
+            else: landuse = landuses["hh"]
             # Create the attraction DVector for the given purpose
-            attr = landuse * trip_rate # NB. it is assumed that trip_rate segmentation is a subset of landuse segmentation
-            # Aggregate the attraction DVector to soc if soc is in the trip rate segmentation, total segmentation otherwise
-            attr = attr.add_segments([cb.segmentation.SegmentsSuper("total").get_segment()])
-            if "soc" in trip_rate.segmentation.names: 
-                attr = attr.aggregate(["total", "soc"])
-            else:
-                # Add the total segmentation to the attraction DVector and aggregate to total
-                attr = attr.aggregate(["total"])
+            attr = landuse * trip_rate
+            # Add the purpose segmentat to the DVector segmentation
+            attr = attr.add_segments([cb.segmentation.SegmentsSuper("p").get_segment(subset=[p])])
+            # Aggregate the attraction DVector to p and soc if soc is in the trip rate segmentation, p segmentation otherwise
+            if "soc" in trip_rate.segmentation.names: attr = attr.aggregate(["p", "soc"])
+            else: attr = attr.aggregate(["p"])
             attr_dict[p] = attr
 
         return attr_dict
     
 
+    def _export_pure_attractions(self, attr_dict: dict[int, cb.DVector], year: int) -> None:
+        """
+        - Concatonates the DVectors stored in the Pure Attractions dictionary, aggregated to p segmentation
+        - Saves the concatonated DVector to the pure_demand export path for the given year
+        """
+        # Concatonate the (optionally balanced) Pure Attraction by purpose
+        for p in attr_dict.keys():
+            try: output_pure = output_pure.concat(attr_dict[p].aggregate(["p"]))
+            except NameError: output_pure = attr_dict[p].aggregate(["p"]) # Initialises the output object
+        # Write Pure Attractions
+        output_pure.save(self.model.export_paths.pure_demand[year])
+
+        return None
+    
+
     def _read_mts(self):
         """
-        - Reads the mts DVector, from the path given in the constructor
-        - Translates the mts DVector zoning system to the TEM Model zoning system
+        - Reads the mode-time split (MTS) DVector, from the path given in the constructor
+        - Translates the MTS DVector zoning system to the TEM Model zoning system
         """
         mts = cb.DVector.load(self.mts_path)
         # Ensure zoning system of mts matches the TEM Model zoning system
@@ -262,36 +257,47 @@ class AttractionModel_TP: # should this be a subclass of TEM
 
     def _create_mts_dict(self, attr_dict: dict[int, cb.DVector], mts: cb.DVector) -> dict[int, cb.DVector]:
         """
-        - Adds purpose segmentation to each attr_dict DVector
         - Multiplies the attraction DVector with the mts DVector, as read from the path given in the constructor
         - Removes total segmentation from the MTS Demand DVector if total is in the segmentation
         """
         mts_dict: dict[int, cb.DVector] = {}
         for p in attr_dict.keys():
             attr = attr_dict[p]
-            # The purpose segment must be in attraction segmentation for multiplying with the MTS DVector
-            attr = attr.add_segments([cb.segmentation.SegmentsSuper("p").get_segment(subset=[p])])
             mts_dict[p] = attr * mts.filter_segment_value("p", [p]) # TODO NB. to Isaac - error thrown if mts not filtered. Should look into this...
-            # Remove total segment if it is in the segmentation, it is no longer needed
-            if "total" in mts_dict[p].segmentation.names:
-                segmentation = mts_dict[p].segmentation.remove_segment("total")
-                mts_dict[p] = mts_dict[p].aggregate(segmentation.names)
 
         return mts_dict
     
 
-    def _create_seg_demand_dict(self, mts_dict: dict[int, cb.DVector], pure_production: cb.DVector) -> dict[int, cb.DVector]:
+    def _create_seg_dict(self, mts_dict: dict[int, cb.DVector], tem_production: cb.DVector) -> dict[int, cb.DVector]:
         """
-        - Applies the split_by_other method to each mts_dict DVector, expanding the segmentation to match that of Pure Production.
+        - Applies the split_by_other method to each DVector in mts_dict, expanding the segmentation to match that of TEM Segmented Production
         """
-        seg_demand_dict: dict[int, cb.DVector] = {}
+        seg_dict: dict[int, cb.DVector] = {}
         for p in mts_dict.keys():
-            seg_demand_dict[p] = mts_dict[p].split_by_other(pure_production.filter_segment_value("p", [p]),
+            seg_dict[p] = mts_dict[p].split_by_other(tem_production.filter_segment_value("p", [p]),
                                                             agg_zone=cb.ZoningSystem.get_zoning("gor")
             ) # TODO want zoning for splitting and balancing to both be arguments / levers re: issues down the line, optional arg with default "gor". splitting = gor, balancing = gb currently (remove zoning)
             
-        return seg_demand_dict
+        return seg_dict
+    
 
+    def _balance_to_production(self, seg_dict: dict[int, cb.DVector], tem_production: cb.DVector):
+        """
+        - 
+        """
+        if self.balance_production == True:
+            gb_production = tem_production.remove_zoning()
+            balanced_dict: dict[int, cb.DVector] = {}
+            for p in seg_dict.keys():
+                factors  = gb_production / seg_dict[p].remove_zoning()
+                balanced_dict[p] = seg_dict[p] * factors.filter_segment_value("p", [p]) # check here that sums for productions and attractions do match.
+            del seg_dict
+        elif isinstance(self.balance_production, (cb.BalancingZones, cb.ZoningSystem)):
+                balanced_dict[p] = seg_dict[p].balance_by_segments(tem_production.filter_segment_value("p", [p]), self.balance_production)
+        else:
+            balanced_dict = seg_dict
+
+        return balanced_dict 
 
     # class AttractionModel(AttractionModelPaths):
     #    _log_fname = "HBAttractionModel_log.log"
@@ -609,8 +615,7 @@ class AttractionModel_TP: # should this be a subclass of TEM
         p_dvec = cb.DVector.load(p_dvec_path)
 
         # Split a_dvec into p_dvec segments and balance
-        self._logger.info("Split attractions segmentations to match productions")
-        a_dvec = a_dvec.split_by_other(p_dvec)
+        a_dvec = a_dvec.split_by_other(p_dvec) # TODO agg_zoning input used
 
         return _attraction_balancing(a_dvec, p_dvec, self.balance_zoning, self._logger)
 

@@ -63,7 +63,6 @@ sic_to_ecode = {
 
 # # # FUNCTIONS # # #
 
-
 def file_exists(file_path: os.PathLike) -> bool:
     """
     Checks if a file exists at the given path.
@@ -82,7 +81,7 @@ def file_exists(file_path: os.PathLike) -> bool:
         return False
 
     if not os.path.isfile(file_path):
-        raise IOError(
+        raise IsADirectoryError(
             "The given path exists, but does not point to a file. "
             "Given path: %s" % str(file_path)
         )
@@ -111,7 +110,7 @@ def check_file_exists(
     None
     """
     if not file_exists(file_path):
-        raise IOError("Cannot find a path to: %s" % str(file_path))
+        raise FileNotFoundError("Cannot find a path to: %s" % str(file_path))
 
 
 def lu_to_tt(dvec: cb.DVector):

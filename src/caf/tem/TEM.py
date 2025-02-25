@@ -10,32 +10,53 @@ class TEM:
     """
     The Trip End Model (TEM) of caf.tem
 
-    From this parent model class, you can define:
+    Attributes
+    ----------
+    model_years: dict[int]
+        The years to run the TEM for.
+
+    scenario: str
+        The TAG Scenario. Core, High, Low, Regional, or Technology.
+
+    output_zoning: str
+        The zoning system for outputs.
+
+    iteration_name: str
+        A name for this TEM Output.
+    
+    export_home: os.PathLike
+        The parent directory for exports of this TEM.
+    
+    return_segmentation: list[str]
+        Segmentations to return in the output.
+    
+    
+    Required Child Models
+    ----------
+    From this parent model class, you should define:
     - a Home Based (HB) Production Model
     - a HB Attraction Model
     - a non-Home Based (NHB) Production Model
     - a NHB Attraction Model
 
-    Run the TEM by calling the class' run() method once all child models (HB/NHB, Production/Attraction) have been set up.
-
-    Attributes
+    
     ----------
-    TODO
+    Run the TEM by calling the class' run() method once all child models (HB/NHB, Production/Attraction) have been set up.
     """
     def __init__(
         self,
         model_years: list[int],
-        scenario: Scenarios,
+        scenario: str, # TODO - should this be an input, assume that scenario would be core?
         output_zoning: str,
         iteration_name: str,
         export_home: os.PathLike,
         return_segmentation: list[str]
     ):
         self.years = model_years
-        self.scenario = scenario
+        self.scenario = Scenarios(scenario)
         self.output_zoning = output_zoning
         self.iteration_name = iteration_name
-        self.export_paths = TEMExportPaths(model_years, scenario, iteration_name, export_home)
+        self.export_paths = TEMExportPaths(model_years, self.scenario, iteration_name, export_home)
         self.return_segmentation = cb.Segmentation(cb.SegmentationInput(enum_segments=return_segmentation, naming_order=return_segmentation))
         self.hb_production_model: HBProductionModel_TP = None
         self.hb_attraction_model: AttractionModel_TP = None
@@ -144,7 +165,6 @@ class TEM:
             self.export_paths.hb_attraction,
             trip_rates_paths,
             balance_production,
-            #self.export_paths.hb_production.export_paths.tem_segmented, TODO -> remove production model paths.
             emp_landuse_paths,
             hh_landuse_dirs,
             hh_landuse_prefix,
@@ -167,6 +187,7 @@ class TEM:
             trip_rates_path,
             balance_production,
             nhb_mts_path,
+            self.return_segmentation
         )
         
 
@@ -220,7 +241,6 @@ class TEM:
             self.export_paths.nhb_attraction,
             trip_rates_paths,
             balance_production,
-            self.export_paths.nhb_production.export_paths.tem_segmented,
             emp_landuse_paths,
             hh_landuse_dirs,
             hh_landuse_prefix,
