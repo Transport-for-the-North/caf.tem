@@ -24,6 +24,4 @@ import caf.space as cs
 # # # TESTS # # #
 
 if __name__ == "__main__":
-    #TestProductionModels.test_HBProduction(None)
-    a = ct.inputs.NHBProdInput.load_yaml(r"C:\Users\Spiral\Documents\Thomas Prince\Common Analytical Framework\caf.tem\tests\test_NHBProdInput.yaml")
-    print(a)
+    trip_rate = cb.DVector.load(r"C:\Users\Spiral\Documents\Thomas Prince\Common Analytical Framework\NoTEM\NTS Output\productions\nhb\trip_rates\nhb_trip_rates_production.hdf")
