@@ -278,8 +278,6 @@ class NHBProductionModel_TP:
         trip_rates_path: os.PathLike,
         balance_production,
         mts_path: str,
-        #constraint_paths: Dict[int, os.PathLike] = None,
-        #process_count: int = 1,
         return_segmentation
     ) -> None:
         """
@@ -390,91 +388,115 @@ class NHBProductionModel_TP:
         -------
         None
         """
+
+        # ## START ## #
+
+        # ## READ INPUTS ## #
+        # TODO
+        trip_rates = self._read_trip_rates()
+        # TODO
+        mts = self._read_mts()
+
         # Generate the nhb productions for each year
         for year in self.years:
 
             # ## GENERATE PURE DEMAND ## #
-            trip_rates = cb.DVector.load(self.trip_rates_path)
-            trip_rates = trip_rates.translate_zoning(cb.ZoningSystem.get_zoning("normits"), check_totals=False, no_factors=True) # TODO pass model and get _zoning_system attribute
+            # TODO
+            hbattr = self._read_HB_attraction(year)
 
-            hbattr =  cb.DVector.load(self.hb_attraction_model.export_paths.tem_segmented[year])
-            segs = hbattr.segmentation.names
-            if "tp" in segs:
-                segs.remove("tp")
-                hbattr = hbattr.aggregate(segs)
-            hbattr_data = hbattr.data.reset_index().rename(columns={"p": "p_hb", "m": "m_hb"})
-            segs = hbattr.segmentation.names
-            segs.remove("p")
-            segs.remove("m")
-            segs.append("p_hb")
-            segs.append("m_hb")
-            hbattr_data = hbattr_data.set_index(segs)
-            hbattr = cb.DVector(segmentation=cb.Segmentation(cb.SegmentationInput(enum_segments=segs,
-                                                                                naming_order=segs)),
-                                import_data=hbattr_data,
-                                zoning_system=hbattr.zoning_system)
-
-            #hbattr = hbattr.aggregate(["soc", "hh_type", "m_hb", "p_hb"]) # TODO fix
-            pure_production = hbattr * trip_rates
+            # ## PURE PRODUCTION ## #
+            # TODO
+            pure_production = self._create_pure_production(hbattr, trip_rates)
+            # TODO
+            if export_nhb_pure_demand:
+                pure_production.save(self.model.export_paths.pure_demand[year])
             
-            mts = cb.DVector.load(self.mts_path)
-            mts = mts.translate_zoning(cb.ZoningSystem.get_zoning("normits"), check_totals=False, no_factors=True)
-            temp = pure_production * mts
-            segs = temp.segmentation.names
-            segs.remove("p_hb")
-            segs.remove("m_hb")
-            temp = temp.aggregate(segs)
-            temp_data = temp.data.reset_index().rename(columns={"m_nhb": "m", "p_nhb": "p"})
-            segs.remove("p_nhb")
-            segs.remove("m_nhb")
-            segs.append("p")
-            segs.append("m")
-            temp_data = temp_data.set_index(segs)
-            temp = cb.DVector(segmentation = cb.Segmentation(cb.SegmentationInput(enum_segments=segs,
-                                                                     naming_order=segs)),
-                import_data=temp_data,
-                zoning_system=temp.zoning_system)
-            temp.save(self.model.export_paths.pure_demand[year])
-            temp.aggregate(self.return_segmentation).save(self.model.export_paths.tem_segmented[year])
+            # ## MODE TIME SPLIT ## #
+            # TODO
+            mts_production = self._create_mts_production(pure_production, mts)
+
+            # ## TEM SEGMENTATION ## #
+            # TODO
+            mts_production.aggregate(self.return_segmentation).save(self.model.export_paths.tem_segmented[year])
 
 
-            
-
-    def _transform_attractions(
-        self,
-        year: int,
-    ) -> cb.DVector:
+    def _read_trip_rates(self) -> cb.DVector:
         """
-        Removes time period and adds tfn_at to HB attraction DVector
-
-        - Reads the HB attractions compressed pickle.
-        - Removes time period from segmentation.
-        - Extracts the mapping of msoa_zone_id to tfn_at from land use.
-        - Adds tfn_at to the HB attraction and returns its DVector.
-
-        Parameters
-        ----------
-        year:
-            The year to get HB attractions data for.
-
-        Returns
-        -------
-        hb_attr_dvec:
-            Returns the HB attraction Dvector with tfn_at.
+        - TODO
         """
-        # Define the zoning and segmentations we want to use
-        # TODO this function is probably unnecessary
-        tem_no_tp_seg = cb.Segmentation(self.tem_segs.output_no_tp)
-        tem_output_seg = cb.Segmentation(self.tem_segs.output)
-        hb_attr_notem = cb.DVector.load(self.hb_attraction_paths[year])
-        if hb_attr_notem.segmentation != tem_output_seg:
-            raise cb.segmentation.SegmentationError(
-                "Unexpected segmentation. This DVector should be "
-                f"{tem_output_seg.names}, but is actually {hb_attr_notem.segmentation.names}."
-            )
-        # Remove time period
-        hb_attr = hb_attr_notem.aggregate(tem_no_tp_seg)
-        return hb_attr
+        trip_rates = cb.DVector.load(self.trip_rates_path)
+        zoning_system = cb.ZoningSystem.get_zoning(self.model._zoning_system) # TODO - have as global var / pass as zoning so it doesn't get read multiple times. Not urgent. - possibly change to utils func "read dvec" from path input
+        trip_rates = trip_rates.translate_zoning(zoning_system, check_totals=False, no_factors=True)
+
+        return trip_rates
+    
+
+    def _read_mts(self) -> cb.DVector:
+        """
+        - Reads the mode-time split (MTS) DVector, from the path given in the constructor
+        - Translates the MTS DVector zoning system to the TEM Model zoning system
+        """
+        mts = cb.DVector.load(self.mts_path)
+        # Ensure zoning system of mts matches the TEM Model zoning system
+        zoning_system = cb.ZoningSystem.get_zoning(self.model._zoning_system)
+        mts = mts.translate_zoning(zoning_system, check_totals=False, no_factors=True)
+        
+        return mts
+    
+
+    def _read_HB_attraction(self, year: int) -> cb.DVector: # TODO tidy. Perhaps use segment translation method.
+        """
+        - Reads the TEM Segmented HB Attraction file, as written by the HB Attraction model
+        - Removes time period from the HB Attraction DVector segmentation
+        - Changes the purpose and mode segmentations, to explicit home-based purpose and home-based mode segmentations
+        """
+        hbattr =  cb.DVector.load(self.hb_attraction_model.export_paths.tem_segmented[year])
+        segs = hbattr.segmentation.names
+        if "tp" in segs:
+            segs.remove("tp")
+            hbattr = hbattr.aggregate(segs)
+        # hbattr.translate_segment("p", "p_hb") TODO something like this could be possible and tidier
+        hbattr_data = hbattr.data.reset_index().rename(columns={"p": "p_hb", "m": "m_hb"})
+        segs = hbattr.segmentation.names
+        segs.remove("p")
+        segs.remove("m")
+        segs.append("p_hb")
+        segs.append("m_hb")
+        hbattr_data = hbattr_data.set_index(segs)
+        hbattr = cb.DVector(segmentation=cb.Segmentation(cb.SegmentationInput(enum_segments=segs, naming_order=segs)),
+                            import_data=hbattr_data,
+                            zoning_system=hbattr.zoning_system)
+        
+        return hbattr
+
+
+    def _create_pure_production(self, hbattr: cb.DVector, trip_rates: cb.DVector) -> cb.DVector:
+        """
+        - TODO
+        """
+        pure_production = hbattr * trip_rates
+
+        return pure_production
+    
+
+    def _create_mts_production(self, pure_production: cb.DVector, mts: cb.DVector) -> cb.DVector:
+        mts_production = pure_production * mts
+        segs = mts_production.segmentation.names
+        segs.remove("p_hb")
+        segs.remove("m_hb")
+        mts_production = mts_production.aggregate(segs)
+        mts_production_data = mts_production.data.reset_index().rename(columns={"m_nhb": "m", "p_nhb": "p"})
+        segs.remove("p_nhb")
+        segs.remove("m_nhb")
+        segs.append("p")
+        segs.append("m")
+        mts_production_data = mts_production_data.set_index(segs)
+        mts_production = cb.DVector(segmentation = cb.Segmentation(cb.SegmentationInput(enum_segments=segs,
+                                                                    naming_order=segs)),
+            import_data=mts_production_data,
+            zoning_system=mts_production.zoning_system)
+        
+        return mts_production
 
     def _generate_nhb_productions(
         self,
