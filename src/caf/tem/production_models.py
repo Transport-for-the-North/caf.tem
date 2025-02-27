@@ -39,14 +39,12 @@ class HBProductionModel_TP:
         The path to the production trip rates. As passed into the constructor.
         Trip rates data should be in DVector format with either .dvec or .hdf extension.
 
-    mode_time_splits_path: os.PathLike
+    mts_path: os.PathLike
         The path to HB production mode-time splits (MTS). As passed into the constructor.
         MTS data should be in DVector format with either .dvec or .hdf extension.
 
-    return_segmentation: caf.base.Segmentation
+    tem_segmentation: caf.base.Segmentation
         The TEM segmentation. This is automatically passed from the return segmentation specified in the created TEM model, of which the HB Production Model is a child.
-
-    model_zoning: caf.base.ZoningSystem
 
     trip_end_adjustments: List[TripEndAdjustmentFactors], optional TODO
             List of all adjustment factors to apply to the trip ends. Adjustments
@@ -58,9 +56,8 @@ class HBProductionModel_TP:
         model: ProductionModelPaths,
         population_paths: dict[int, os.PathLike],
         trip_rates_path: os.PathLike,
-        mode_time_splits_path: os.PathLike,
-        return_segmentation: cb.Segmentation,
-        output_zoning: cb.ZoningSystem,
+        mts_path: os.PathLike,
+        tem_segmentation: cb.Segmentation,
     ):
         """
         
@@ -70,25 +67,19 @@ class HBProductionModel_TP:
         self.model = model
         self.population_paths = {i: pathlib.Path(j) for i, j in population_paths.items()}
         self.trip_rates_path = pathlib.Path(trip_rates_path)
-        self.mode_time_splits_path = pathlib.Path(mode_time_splits_path)
+        self.mts_path = pathlib.Path(mts_path)
         self.years = list(self.population_paths.keys())
-        self.return_segmentation = return_segmentation
-        self.output_zoning = output_zoning
+        self.tem_segmentation = tem_segmentation
 
         for key, pop_path in self.population_paths.items():
             if (not pop_path.is_file()) and (not pop_path.is_dir()):
                 raise FileNotFoundError(f"{pop_path} is not a valid file.")
         if not self.trip_rates_path.is_file():
             raise FileNotFoundError(f"{trip_rates_path} not a valid file.")
-        if not self.mode_time_splits_path.is_file():
-            raise FileNotFoundError(f"{mode_time_splits_path} is not a valid file.")
-
-        # Make sure the reports paths exists
-        #report_home = pathlib.Path(export_home) / "Reports"
-        #report_home.mkdir(exist_ok=True, parents=True)
+        if not self.mts_path.is_file():
+            raise FileNotFoundError(f"{mts_path} is not a valid file.")
 
         self.path_years = self.years
-        self.zoning_system = self.output_zoning.name
 
     def run(
         self,
@@ -114,7 +105,7 @@ class HBProductionModel_TP:
             - Optionally writes out a pickled DVector of "fully segmented demand"
               at self.export_paths.fully_segmented[year] if export_fully_segmented
               is True.
-            - Aggregates this demand into self._return_segmentation_name segmentation,
+            - Aggregates this demand into self._tem_segmentation_name segmentation,
               producing "notem segmented demand".
             - Optionally writes out a number of "notem segmented demand"
               reports, if reports is True.
@@ -143,126 +134,106 @@ class HBProductionModel_TP:
         """
 
         # ## START ## #
+
+        # ## READ INPUTS ## #
+        # Read in the trip rates DVector file. Trip rates are not year dependent.
+        trip_rates: cb.DVector = self._read_trip_rates()
+        # Read in the MTS dvec file. MTS is not year dependent.
+        mts: cb.DVector = self._read_mts()
+
         # If all exports are False, then the function is redundant
         if not (export_pure_production or export_tem_segmentation or export_reports):
             return None
 
         # Generate the productions for each year
         for year in self.population_paths.keys():
-            # ## GENERATE PURE DEMAND ## #
-            population = self._read_population(year)
-            trip_rates = self._read_trip_rates()
             
-            pure_production = population * trip_rates
+            # ## READ INPUTS ## #
+            # Read in the population land use for the given year
+            population = self._read_population(year)
 
+            # ## PURE PRODUCTION ## #
+            # Creat pure productions
+            pure_production = self._create_pure_production(population, trip_rates)
+            # Export pure productions
             if export_pure_production:
-                pure_production.save(self.model.export_paths.pure_demand[year]) # TODO In this case - pure production is applied before mts. Is this the case, or should they be the same with only segmentation being different (I guess applying mts is just different segmentation....)
+                self._export_pure_production(pure_production, year)
 
-            if export_reports:
-                pure_production_paths = self.model.report_paths.pure_demand
-                pure_production.write_sector_reports(
-                    segment_totals_path=pure_production_paths.segment_total[year],
-                    ca_sector_path=pure_production_paths.ca_sector[year],
-                    ie_sector_path=pure_production_paths.ie_sector[year],
-                )
+            # ## MODE TIME SPLIT ## #
+            mts_production = self._create_mts_production(pure_production, mts)
+            # No longer need Pure Production
+            del pure_production
 
-            # ## SPLIT PURE DEMAND BY MODE AND TIME ## #
-            fully_segmented = self._split_by_tp_and_mode(
-                pure_production, year
-            )
-
-            # ## AGGREGATE INTO RETURN SEGMENTATION ## #
-            return_seg = self.return_segmentation
-            productions = cb.DVector.concat_from_dir(
-                folder=fully_segmented, segmentation=return_seg
-            )
+            # ## TEM SEGMENTATION ## #
+            tem_production = self._create_tem_production(mts_production)
 
             if export_tem_segmentation:
-                productions.save(self.model.export_paths.tem_segmented[year])
+                tem_production.save(self.model.export_paths.tem_segmented[year])
 
-            if export_reports:
-                # TODO possible save segmentations/subsets somewhere standard
-                tem_segmented_paths = self.model.report_paths.tem_segmented
-                productions.write_sector_reports(
-                    segment_totals_path=tem_segmented_paths.segment_total[year],
-                    ca_sector_path=tem_segmented_paths.ca_sector[year],
-                    ie_sector_path=tem_segmented_paths.ie_sector[year],
-                )
-
-    def _read_population(self, year):
-        population = cb.DVector.load(self.population_paths[year])
-        if population.zoning_system != self.output_zoning:
-            population = population.translate_zoning(self.output_zoning, check_totals=False, no_factors=True)
-        
-        return (population)
+        return None
 
 
     def _read_trip_rates(self) -> cb.DVector:
         trip_rates = cb.DVector.load(self.trip_rates_path)
-        if trip_rates.zoning_system != self.output_zoning:
-            trip_rates = trip_rates.translate_zoning(self.output_zoning, check_totals=False, no_factors=True)
+        zoning_system = cb.ZoningSystem.get_zoning(self.model._zoning_system) # TODO - have as global var / pass as zoning so it doesn't get read multiple times. Not urgent.
+        trip_rates = trip_rates.translate_zoning(zoning_system, check_totals=False, no_factors=True)
 
         return trip_rates
     
 
-
-    def _split_by_tp_and_mode(self, pure_demand: cb.DVector, year: int) -> cb.DVector:
+    def _read_mts(self) -> cb.DVector:
         """
-        Applies time period and mode splits to the given pure demand.
-
-        Parameters
-        ----------
-        pure_demand:
-            Dvector containing the pure demand to split.
-
-        Returns
-        -------
-        full_segmented_demand:
-            A DVector containing pure_demand split by mode and time.
+        - Reads the mode-time split (MTS) DVector, from the path given in the constructor
+        - Translates the MTS DVector zoning system to the TEM Model zoning system
         """
-        mode_time_splits = cb.DVector.load(self.mode_time_splits_path)
-        total = 0
-        # TODO probably needs to be more flexible
-        if mode_time_splits.zoning_system != pure_demand.zoning_system:
-            pure_demand = pure_demand.split_by_agg_zoning(
-                mode_time_splits.zoning_system
-            )
-        for zone, dvec in pure_demand.items():
-            mts = mode_time_splits.select_zone(zone)
-            dvec *= mts
-            out_path = self.model.export_paths.fully_segmented[year]
-            out_path.mkdir(exist_ok=True, parents=False)
-            dvec.save(out_path / f"at_{zone}.hdf")
-            total += dvec.sum()
-        return out_path
+        mts = cb.DVector.load(self.mts_path)
+        # Ensure zoning system of mts matches the TEM Model zoning system
+        zoning_system = cb.ZoningSystem.get_zoning(self.model._zoning_system)
+        mts = mts.translate_zoning(zoning_system, check_totals=False, no_factors=True)
+        
+        return mts
+    
 
-    def _trip_end_adjustment(self, trip_ends: cb.DVector) -> cb.DVector:
-        """Multiply `trip_ends` by `adjustment_factors`.
-
-        Trip ends are multiplied by all adjustment factors in
-        the list one after another.
-
-        Parameters
-        ----------
-        trip_ends : cb.DVector
-            Productions trip ends for adjustment.
-
-        Returns
-        -------
-        cb.DVector
-            Productions trip ends after applying all adjustments.
+    def _read_population(self, year: int):
         """
-        for adjustment in self.adjustment_factors:
+        - Reads the population land use DVector, for one given year, from the path given in the constructor
+        - Translates the population landuse DVector zoning system to the TEM Model zoning system
+        """
+        population = cb.DVector.load(self.population_paths[year])
+        # Ensure zoning system of mts matches the TEM Model zoning system
+        zoning_system = cb.ZoningSystem.get_zoning(self.model._zoning_system)
+        population = population.translate_zoning(zoning_system, check_totals=False, no_factors=True)
+        
+        return (population)
 
-            adjust_dvec = adjustment.dvector
-            if adjustment.zoning != trip_ends.zoning_system:
-                adjust_dvec = adjustment.dvector.translate_zoning(
-                    trip_ends.zoning_system, weighting="no_weight"
-                )
 
-            trip_ends = trip_ends * adjust_dvec
+    def _create_pure_production(self, population: cb.DVector, trip_rates: cb.DVector) -> cb.DVector:
+        """
+        - Multiplies the population landuse by the trip rates, creating pure production
+        """
+        pure_production = population * trip_rates
 
-        return trip_ends
+        return pure_production
+
+
+    def _export_pure_production(self, pure_production: cb.DVector, year: int) -> None:
+        # Write Pure Production
+        pure_production.save(self.model.export_paths.pure_demand[year])
+
+
+    def _create_mts_production(self, pure_production: cb.DVector, mts: cb.DVector) -> cb.DVector:
+        """
+        - Multiplies the Pure Production by the mode-time split DVector, as passed into the constructor
+        """
+        mts_production = pure_production * mts
+
+        return mts_production
+
+
+    def _create_tem_production(self, mts_production: cb.DVector) -> cb.DVector:
+        tem_production = mts_production.aggregate(self.tem_segmentation)
+
+        return tem_production
 
 
 class NHBProductionModel_TP:
@@ -280,7 +251,7 @@ class NHBProductionModel_TP:
     trip_rates_path: str
         The path to the production trip rates. As passed into the constructor.
 
-    mode_time_splits_path: str
+    mts_path: str
         The path to production mode-time splits. As passed into the
         constructor.
 
@@ -356,50 +327,9 @@ class NHBProductionModel_TP:
         self.trip_rates_path = trip_rates_path
         self.mts_path = mts_path
         self.balance_production = balance_production
-        #self.process_count = process_count
         self.years = list(self.hb_attraction_paths.keys())
         self.model = model
         self.return_segmentation = return_segmentation
-        # Build the output paths
-        
-
-    #    """def _production_nhb(self, hbf_attr: Dict) -> Dict:
-    #        fun.log_stderr('\nProduction trip-end (NHB)')
-    #        # not yet possible to implement multiprocessing
-    #        nhb_fldr = self.nts_fldr / self.fld_prod / self.fld_nhbase
-    #        nhb_rate = fun.csv_to_dfr(nhb_fldr / self.fld_rates / 'nhb_trip_rates_production.csv')
-    #        nhb_rate.drop(columns=['trips', 'trips.hb'], inplace=True)
-    #        col_grby = [col for col in self.seg_spec if col != 'period']
-    #        nhb_prod = {pp: pd.DataFrame() for pp in hbf_attr}
-    #        for pp in hbf_attr:
-    #            out = hbf_attr[pp].groupby(col_grby)[['trips']].sum().reset_index()
-    #            out = out.rename(columns={col: f'{col}.hb' for col in ['mode', 'purpose']})
-    #            fac = nhb_rate.loc[nhb_rate['purpose.hb'] == pp]
-    #            out = out.merge(fac, how='left', on=['tfn_at', 'mode.hb', 'purpose.hb'])
-    #            out['trips'] = out['trips'].mul(out['gamma'])
-    #            out = out.groupby(col_grby)[['trips']].sum().reset_index()
-    #            # add trips to nhb_prod[px]
-    #            for px in out['purpose'].unique():
-    #                _list = [nhb_prod[px], out.loc[out['purpose'] == px]]
-    #                nhb_prod[px] = (pd.concat(_list, axis=0).groupby(col_grby)[['trips']]
-    #                                .sum().reset_index())
-#
-    #        # apply nhb time split: mts[at, p, m](t)
-    #        fun.log_stderr(' .. apply mode-time split')
-    #        mts_grby = [col for col in self.mts_incl if col not in ["period", "rho"]]
-    #        mts_fact = fun.csv_to_dfr(nhb_fldr / self.fld_split /
-    #                                f"mode_time_split_production_nhb{self.rho_type}.csv",
-    #                                self.mts_incl)
-#
-    #        pool = mp.Pool(self.num_cpus)
-    #        nhb_prod = {pp: pool.apply_async(self._fn_prod_nhb_mts,
-    #                                        [pp, itm, col_grby, mts_fact, mts_grby])
-    #                    for pp, itm in nhb_prod.items()}
-    #        pool.close()
-    #        pool.join()
-    #        nhb_prod = {pp: itm.get() for pp, itm in nhb_prod.items()}
-#
-    #        return nhb_prod"""
 #
     def run(
         self,
@@ -595,7 +525,7 @@ class HBProductionModel(ProductionModelPaths):
     trip_rates_path: str
         The path to the production trip rates. As passed into the constructor.
 
-    mode_time_splits_path: str
+    mts_path: str
         The path to production mode-time splits. As passed into the
         constructor.
 

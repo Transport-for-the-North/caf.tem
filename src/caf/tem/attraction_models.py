@@ -15,7 +15,15 @@ import caf.base as cb
 from .inputs import ProductionModelPaths, AttractionModelPaths
 #from .utils import *
 
+lad_report_seg: cb.SegmentationInput = cb.SegmentationInput(
+        enum_segments=["p", "m", "tp"],
+        naming_order=["p", "m", "tp"],
+        subsets={"tp": [1, 2, 3, 4, 5, 6]},
+    )
+
 # local imports
+
+
 
 class AttractionModel_TP:
 
@@ -92,11 +100,11 @@ class AttractionModel_TP:
         # ## READ INPUTS ## #
         # Read in the trip rates DVector files for each purpose. Trip rates are not year dependent.
         trip_rates: dict[int, cb.DVector] = {p: self._read_trip_rate(p) for p in self.trip_rates_paths}
-        # Read in the MTS dvec file, if not already read. MTS is not year dependent.
+        # Read in the MTS dvec file. MTS is not year dependent.
         mts: cb.DVector = self._read_mts()
 
         # For each year the model is running for...
-        for year in self.model.path_years: # -> TODO is this the correct iterable, or keys of emp landuse? - or check path_years = dict keys
+        for year in self.emp_landuse_paths.keys(): # -> TODO is this the correct iterable, path_years or keys of emp landuse? - or check path_years = dict keys of emp_landuse and hh_landuse. What if p7 isn't being tested, wouldn't need hh_landuse...
             
             # Read in the landuses dvec files specific to the year.
             landuses: dict[str, cb.DVector] = {"emp": self._read_emp_lu(year), "hh": self._read_hh_lu(year)}
@@ -109,11 +117,13 @@ class AttractionModel_TP:
             del landuses
             # Export Pure Attractions
             if export_pure_attractions:
-                self._export_pure_attractions(attr_dict, year)
+                self._export_pure_attractions(attr_dict, year) # TODO - ask Isaac whether pure attractions should be aggregated, and concatonated with only purpose segmentation, or whether it should include the likes of sic/soc and be purpose specific DVectors written
 
             # ## MODE TIME SPLIT ## #
             # Create a dictionary of attractions, with mode time split applied, by purpose
             mts_dict = self._create_mts_dict(attr_dict, mts)
+            # Tests to the MTS dict created - TODO confirm rel/abs tolerance w Isaac for this test.
+            self._check_mts_dict(attr_dict, mts_dict)
             # No longer need dictionary of attractions by purpose
             del attr_dict
 
@@ -122,29 +132,73 @@ class AttractionModel_TP:
             tem_production = cb.DVector.load(self.production_model.export_paths.tem_segmented[year])
             # Apply the split_by_other method to the mts DVectors, given the tem_production
             seg_dict = self._create_seg_dict(mts_dict, tem_production)
+            # Test all mts_dict DVectors match sum of attr_dict DVectors - TODO confirm rel/abs tolerance w Isaac for this test.
+            self._check_seg_dict(mts_dict, seg_dict)
             # No longer need dictionary of mts attraction by purpose
             del mts_dict
 
             # ## TEM SEGMENTATION ## #
             # Take the pure segmentation, and aggregate to the desired TEM segmentation
             tem_dvec = self._create_tem_dvec(seg_dict)
+            # Test all mts_dict DVectors match sum of attr_dict DVectors - TODO confirm rel/abs tolerance w Isaac for this test.
+            seg_dict_sum: float = 0
+            for p in seg_dict.keys():
+                seg_dict_sum += seg_dict[p].sum()
+            if not tem_dvec.sum_is_close(seg_dict_sum, 0.01, 100):
+                print(f"The sum of the TEM Segmented segmented attraction (split by TEM Production) does not match the expected sum.\n"
+                        f"Expected: {attr_dict[p].sum()}\nGot: {seg_dict[p].sum()}")
             # No longer need dictionary of further segmented mts attraction by purpose
             del seg_dict
             
-            #tem_dvec.save(self.model.export_home / "NHB_TEM_Attr.hdf") # Progress check
             # ## BALANCE TO PRODUCTIONS ## #
             balanced_dvec = self._balance_to_production(tem_dvec, tem_production)
             del tem_dvec
             
-            # ## TEM EXPORT ## #
+            # ## TEM SEGMENTATION EXPORT ## #
+            balanced_dvec.write_sector_reports(
+                     segment_totals_path=self.model.report_paths.tem_segmented.segment_total[year],
+                     ca_sector_path=self.model.report_paths.tem_segmented.ca_sector[year],
+                     ie_sector_path=self.model.report_paths.tem_segmented.ie_sector[year],
+                     lad_report_path=self.model.report_paths.tem_segmented.lad_report[year],
+                     lad_report_seg=cb.Segmentation(lad_report_seg),
+                 )
             if export_tem_segmentation:
                 balanced_dvec.save(self.model.export_paths.tem_segmented[year])
+
 
         # ## END ## #
         return None
 
 
     # # # HELPER FUNCTIONS # # #
+    def _read_trip_rate(self, p: int) -> cb.DVector:
+        """
+        - Reads one purpose-specific trip rates DVector, from the path given in the constructor
+        - Translates the trip rates DVector zoning system to the TEM Model zoning system
+        """
+        # Each trip rate file is explicitly defined in the input dictionary by purpose HB Attraction Model, similar assumption for NHB
+        trip_rate = cb.DVector.load(self.trip_rates_paths[p])
+        trip_rate = trip_rate.translate_zoning(
+            cb.ZoningSystem.get_zoning(self.model._zoning_system),
+            check_totals=False,
+            no_factors=True,
+        )
+
+        return trip_rate
+    
+
+    def _read_mts(self) -> cb.DVector:
+        """
+        - Reads the mode-time split (MTS) DVector, from the path given in the constructor
+        - Translates the MTS DVector zoning system to the TEM Model zoning system
+        """
+        mts = cb.DVector.load(self.mts_path)
+        # Ensure zoning system of mts matches the TEM Model zoning system
+        zoning_system = cb.ZoningSystem.get_zoning(self.model._zoning_system)
+        mts = mts.translate_zoning(zoning_system, check_totals=False, no_factors=True)
+        
+        return mts
+    
 
     def _read_emp_lu(self, year):
         """
@@ -162,7 +216,7 @@ class AttractionModel_TP:
 
     def _read_hh_lu(self, year):
         """
-        - Reads all household landuse DVectors, for each Government Office Region (GOR), using the file prefix and the directory given in the constructor 
+        - Reads all household landuse DVectors, for each Government Office Region (GOR), using the file prefix and the directory given in the constructor
         - Concatonates the household landuse DVectors
         - Translates the concatonated household DVector zoning system to the TEM Model zoning system
         DVector files, in the directory, should be formated: {hh_landuse_prefix}_{gor_code}.{hdf/dvec}
@@ -185,22 +239,6 @@ class AttractionModel_TP:
         hh_landuse = hh_landuse.translate_zoning(zoning_system)
 
         return hh_landuse
-
-
-    def _read_trip_rate(self, p):
-        """
-        - Reads one purpose-specific trip rates DVector, from the path given in the constructor
-        - Translates the trip rates DVector zoning system to the TEM Model zoning system
-        """
-        # Each trip rate file is explicitly defined in the input dictionary by purpose HB Attraction Model, similar assumption for NHB
-        trip_rate = cb.DVector.load(self.trip_rates_paths[p])
-        trip_rate = trip_rate.translate_zoning(
-            cb.ZoningSystem.get_zoning(self.model._zoning_system),
-            check_totals=False,
-            no_factors=True,
-        )
-
-        return trip_rate
 
 
     # Returns a year-specific dictionary of pure demand, for each purpose as the key
@@ -246,19 +284,6 @@ class AttractionModel_TP:
         return None
     
 
-    def _read_mts(self):
-        """
-        - Reads the mode-time split (MTS) DVector, from the path given in the constructor
-        - Translates the MTS DVector zoning system to the TEM Model zoning system
-        """
-        mts = cb.DVector.load(self.mts_path)
-        # Ensure zoning system of mts matches the TEM Model zoning system
-        zoning_system = cb.ZoningSystem.get_zoning(self.model._zoning_system)
-        mts = mts.translate_zoning(zoning_system, check_totals=False, no_factors=True)
-        
-        return mts
-    
-
     def _create_mts_dict(self, attr_dict: dict[int, cb.DVector], mts: cb.DVector) -> dict[int, cb.DVector]:
         """
         - Multiplies the attraction DVector with the mts DVector, as read from the path given in the constructor
@@ -267,10 +292,20 @@ class AttractionModel_TP:
         mts_dict: dict[int, cb.DVector] = {}
         for p in attr_dict.keys():
             attr = attr_dict[p]
-            mts_dict[p] = attr * mts.filter_segment_value("p", [p]) # TODO NB. to Isaac - error thrown if mts not filtered. Should look into this...
+            mts_dict[p] = attr * mts.filter_segment_value("p", [p]) # TODO NB. to Isaac - error thrown if mts not filtered. Should look into this... Issue with order of operation?
 
         return mts_dict
     
+
+    def _check_mts_dict(self, attr_dict: dict[int, cb.DVector], mts_dict: dict[int, cb.DVector]) -> None:
+        # Checks that sum of all purpose-specific DVectors match following the application of MTS to Pure Attractions
+        for p in mts_dict.keys():
+            if not mts_dict[p].sum_is_close(attr_dict[p], 0.01, 100):
+                print(f"The sum of mode-time split, of the Pure Attractions for purpose {p}, does not match the expected sum.\n"
+                      f"Expected: {attr_dict[p].sum()}\nGot: {mts_dict[p].sum()}\n")
+        
+        return None
+                    
 
     def _create_seg_dict(self, mts_dict: dict[int, cb.DVector], tem_production: cb.DVector) -> dict[int, cb.DVector]:
         """
@@ -284,6 +319,15 @@ class AttractionModel_TP:
             
         return seg_dict
     
+    def _check_seg_dict(self, mts_dict: dict[int, cb.DVector], seg_dict: dict[int, cb.DVector]) -> None:
+        # Checks that sum of all purpose-specific DVectors match following the application of TEM Production Segmentation
+        for p in seg_dict.keys():
+            if not seg_dict[p].sum_is_close(mts_dict[p], 0.01, 100):
+                print(f"The sum of Segmented MTS Attractions, of the pre-segmented MTS Attractions for purpose {p}, does not match the expected sum.\n"
+                      f"Expected: {mts_dict[p].sum()}\nGot: {seg_dict[p].sum()}\n")
+                
+        return None
+                
 
     def _create_tem_dvec(self, seg_dict: dict[int, cb.DVector]) -> cb.DVector:
         for p in seg_dict.keys():

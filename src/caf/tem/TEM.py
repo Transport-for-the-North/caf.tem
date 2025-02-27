@@ -46,7 +46,7 @@ class TEM:
     def __init__(
         self,
         model_years: list[int],
-        scenario: str, # TODO - should this be an input, assume that scenario would be core?
+        scenario: str, # TODO - should this be an input, assume that scenario would be core? Scenario could go in Iteration Name?
         output_zoning: str,
         iteration_name: str,
         export_home: os.PathLike,
@@ -109,8 +109,8 @@ class TEM:
             trip_rates_path,
             mode_time_splits_path,
             #export_home=self.export_paths.hb_production.export_home,
-            return_segmentation=self.return_segmentation,
-            output_zoning=cb.ZoningSystem.get_zoning(self.output_zoning)
+            tem_segmentation=self.return_segmentation,
+            #output_zoning=cb.ZoningSystem.get_zoning(self.output_zoning)
         )
 
         return self.hb_production_model
@@ -119,9 +119,9 @@ class TEM:
 
     def HBAttractionModel(
         self,
-        trip_rates_paths: dict[int, os.PathLike],  # path with respect to purpose
-        emp_landuse_paths: dict[int, os.PathLike],  # path with respect to year
-        hh_landuse_dirs: dict[int, os.PathLike],  # path with respect to year
+        trip_rates_paths: dict[int, os.PathLike],  
+        emp_landuse_paths: dict[int, os.PathLike],  
+        hh_landuse_dirs: dict[int, os.PathLike], 
         hh_landuse_prefix: str,
         hb_mts_path: os.PathLike,
         balance_production: bool=True
@@ -182,7 +182,7 @@ class TEM:
         balance_production: bool=True
     ) -> NHBProductionModel_TP:
         self.nhb_production_model = NHBProductionModel_TP(
-            self.export_paths.hb_attraction, # HB Attraction Paths for balancing - not user input - assume these are pure attraction.
+            self.export_paths.hb_attraction,
             self.export_paths.nhb_production,
             trip_rates_path,
             balance_production,

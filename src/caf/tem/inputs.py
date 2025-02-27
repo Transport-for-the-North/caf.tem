@@ -234,7 +234,7 @@ class TEMModelPaths:
             tem_segmented=self._generate_report_paths(self._tem_segmented),
         )
 
-    def _generate_report_paths(
+    def _generate_report_paths( # TODO should this be a class, rather than function? 
         self,
         report_name: str,
     ) -> tuple[dict[int, str], dict[int, str], dict[int, str]]:
@@ -265,7 +265,7 @@ class TEMModelPaths:
         base_fname = self._base_report_fname
         fname_parts = [self._trip_origin, report_name]
 
-        segment_total_paths = dict()
+        segment_total_paths: dict[int, os.PathLike] = dict()
         ca_sector_paths: dict[int, os.PathLike] = dict()
         ie_sector_paths: dict[int, os.PathLike] = dict()
         lad_paths: dict[int, os.PathLike] = dict()
