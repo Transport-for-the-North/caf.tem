@@ -155,7 +155,7 @@ class AttractionModel_TP:
             del tem_dvec
             
             # ## TEM SEGMENTATION EXPORT ## #
-            balanced_dvec.write_sector_reports(
+            balanced_dvec.write_sector_reports( # TODO put in utils function.
                      segment_totals_path=self.model.report_paths.tem_segmented.segment_total[year],
                      ca_sector_path=self.model.report_paths.tem_segmented.ca_sector[year],
                      ie_sector_path=self.model.report_paths.tem_segmented.ie_sector[year],
@@ -171,6 +171,7 @@ class AttractionModel_TP:
 
 
     # # # HELPER FUNCTIONS # # #
+
     def _read_trip_rate(self, p: int) -> cb.DVector:
         """
         - Reads one purpose-specific trip rates DVector, from the path given in the constructor

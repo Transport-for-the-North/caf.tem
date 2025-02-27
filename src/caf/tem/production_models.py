@@ -22,31 +22,32 @@ from caf.tem.utils import check_file_exists, read_pop_lu
 from .inputs import ProductionModelPaths, AttractionModelPaths
 
 class HBProductionModel_TP:
-    """The Home-Based (HB) Production Model of caf.tem
+    """
+    The Home-Based (HB) Production Model of caf.tem
 
     Run the HB Production Model by calling the run() method.
 
-    Attributes
+    Paramaters
     ----------
-    model: caf.tem.ProductionModelPaths
-        The HB Production Model paths for exporting data. These are automatically created through creating a Trip End Model (TEM).
+    model : caf.tem.ProductionModelPaths
+        The HB Production Model paths for exporting data. These are automatically created through within the Trip End Model (TEM).
 
-    population_paths: Dict[int, os.PathLike]:
+    population_paths : Dict[int, os.PathLike]
         Dictionary of {year: land_use_employment_data} pairs. As passed into the constructor.
         Land use employment data should be in DVector format with either .dvec or .hdf extension.
 
-    trip_rates_path: os.PathLike
+    trip_rates_path : os.PathLike
         The path to the production trip rates. As passed into the constructor.
         Trip rates data should be in DVector format with either .dvec or .hdf extension.
 
-    mts_path: os.PathLike
+    mts_path : os.PathLike
         The path to HB production mode-time splits (MTS). As passed into the constructor.
         MTS data should be in DVector format with either .dvec or .hdf extension.
 
-    tem_segmentation: caf.base.Segmentation
+    tem_segmentation : caf.base.Segmentation
         The TEM segmentation. This is automatically passed from the return segmentation specified in the created TEM model, of which the HB Production Model is a child.
 
-    trip_end_adjustments: List[TripEndAdjustmentFactors], optional TODO
+    trip_end_adjustments : List[TripEndAdjustmentFactors], optional TODO
             List of all adjustment factors to apply to the trip ends. Adjustments
             are applied one after another at to the productions in the output
             segmentation.
@@ -172,6 +173,8 @@ class HBProductionModel_TP:
 
         return None
 
+
+    # # # HELPER FUNCTIONS # # #
 
     def _read_trip_rates(self) -> cb.DVector:
         trip_rates = cb.DVector.load(self.trip_rates_path)
@@ -410,6 +413,8 @@ class NHBProductionModel_TP:
             # TODO
             if export_nhb_pure_demand:
                 pure_production.save(self.model.export_paths.pure_demand[year])
+            if export_reports:
+                pass # self._write_reports(pure_production) # TODO this should be a utils function
             
             # ## MODE TIME SPLIT ## #
             # TODO
@@ -417,8 +422,13 @@ class NHBProductionModel_TP:
 
             # ## TEM SEGMENTATION ## #
             # TODO
-            mts_production.aggregate(self.return_segmentation).save(self.model.export_paths.tem_segmented[year])
+            tem_production = self._create_tem_production(mts_production)
+            
+            if export_notem_segmentation:
+                tem_production.save(self.model.export_paths.tem_segmented[year])
 
+
+    # # # HELPER FUNCTIONS # # #
 
     def _read_trip_rates(self) -> cb.DVector:
         """
@@ -497,6 +507,11 @@ class NHBProductionModel_TP:
             zoning_system=mts_production.zoning_system)
         
         return mts_production
+    
+
+    def _create_tem_production(self, mts_production: cb.DVector) -> cb.DVector:
+        tem_production = mts_production.aggregate(self.return_segmentation)
+        
 
     def _generate_nhb_productions(
         self,
