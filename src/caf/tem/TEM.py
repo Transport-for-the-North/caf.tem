@@ -31,9 +31,9 @@ class TEM:
         Segmentations to return in the output.
     
     
-    Required Child Models
+    Child Models
     ----------
-    From this parent model class, you should define:
+    From this parent model class, define:
     - a Home Based (HB) Production Model
     - a HB Attraction Model
     - a non-Home Based (NHB) Production Model
@@ -45,11 +45,11 @@ class TEM:
     """
     def __init__(
         self,
-        model_years: list[int],
+        model_years: list[int], # TODO should this be an input, if so - do we want checks that all model_years are in path keys for other models?
         scenario: str, # TODO - should this be an input, assume that scenario would be core? Scenario could go in Iteration Name?
         output_zoning: str,
         iteration_name: str,
-        export_home: os.PathLike,
+        export_home: os.PathLike, # TODO should this be /Export as default within the directory of the terminal when run is called?
         return_segmentation: list[str]
     ):
         self.years = model_years
@@ -64,7 +64,7 @@ class TEM:
         self.nhb_attraction_model: AttractionModel_TP = None
         
 
-    def HBProductionModel(
+    def HBProductionModel( # TODO default with respect to the NTS-Processing model output folder structure? - similarly for other models?
         self,
         population_paths: dict[int, os.PathLike],
         trip_rates_path: os.PathLike,
@@ -108,13 +108,10 @@ class TEM:
             population_paths,
             trip_rates_path,
             mode_time_splits_path,
-            #export_home=self.export_paths.hb_production.export_home,
-            tem_segmentation=self.return_segmentation,
-            #output_zoning=cb.ZoningSystem.get_zoning(self.output_zoning)
+            tem_segmentation=self.return_segmentation
         )
 
         return self.hb_production_model
-
     
 
     def HBAttractionModel(
@@ -123,7 +120,7 @@ class TEM:
         emp_landuse_paths: dict[int, os.PathLike],  
         hh_landuse_dirs: dict[int, os.PathLike], 
         hh_landuse_prefix: str,
-        hb_mts_path: os.PathLike,
+        mode_time_splits_path: os.PathLike,
         balance_production: bool=True
     ) -> AttractionModel_TP:
         """
@@ -150,7 +147,7 @@ class TEM:
         production_balance_paths: Dict[int, os.PathLike]:
             Dictionary of {year: path_to_production_to_control_to} pairs. As passed into the constructor.
 
-        hb_mts_path: os.PathLike
+        hb_mode_time_splits_path: os.PathLike
             The path to attraction mode time splits file. As passed into the constructor.
 
         balance_production: bool=True
@@ -160,7 +157,7 @@ class TEM:
             "path_years, export_home, report_home, export_paths, report_paths"
         """
 
-        self.hb_attraction_model = AttractionModel_TP(  # to rename AttractionModel
+        self.hb_attraction_model = AttractionModel_TP(  # TODO to rename AttractionModel
             self.export_paths.hb_production,
             self.export_paths.hb_attraction,
             trip_rates_paths,
@@ -168,7 +165,7 @@ class TEM:
             emp_landuse_paths,
             hh_landuse_dirs,
             hh_landuse_prefix,
-            hb_mts_path,
+            mode_time_splits_path,
             self.return_segmentation
         )
 
@@ -177,8 +174,8 @@ class TEM:
 
     def NHBProductionModel(
         self,
-        trip_rates_path: os.PathLike,  # path with respect to purpose
-        nhb_mts_path: os.PathLike,
+        trip_rates_path: os.PathLike,
+        mode_time_splits_path: os.PathLike,
         balance_production: bool=True
     ) -> NHBProductionModel_TP:
         self.nhb_production_model = NHBProductionModel_TP(
@@ -186,7 +183,7 @@ class TEM:
             self.export_paths.nhb_production,
             trip_rates_path,
             balance_production,
-            nhb_mts_path,
+            mode_time_splits_path,
             self.return_segmentation
         )
         
@@ -199,7 +196,7 @@ class TEM:
         emp_landuse_paths: dict[int, os.PathLike],  # path with respect to year
         hh_landuse_dirs: dict[int, os.PathLike],  # path with respect to year
         hh_landuse_prefix: str,
-        nhb_mts_path: os.PathLike,
+        nhb_mode_time_splits_path: os.PathLike,
         balance_production: bool=True,
     ) -> AttractionModel_TP:
         """
@@ -226,7 +223,7 @@ class TEM:
         production_balance_paths: Dict[int, os.PathLike]:
             Dictionary of {year: path_to_production_to_control_to} pairs. As passed into the constructor.
 
-        nhb_mts_path: os.PathLike
+        nhb_mode_time_splits_path: os.PathLike
             The path to attraction mode time splits file. As passed into the constructor.
 
         balance_production: bool=True
@@ -244,7 +241,7 @@ class TEM:
             emp_landuse_paths,
             hh_landuse_dirs,
             hh_landuse_prefix,
-            nhb_mts_path,
+            nhb_mode_time_splits_path,
             self.return_segmentation
         )
 

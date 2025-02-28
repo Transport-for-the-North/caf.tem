@@ -3,7 +3,8 @@
 Module containing input classes for trip-end models, mainly around imports and 
 exports.
 """
-# Built-Ins
+
+# Built-Ins TODO tidy this file
 import enum
 import os
 import pathlib

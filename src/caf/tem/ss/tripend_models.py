@@ -9,7 +9,7 @@ import caf.base as cb
 # Local Imports
 # pylint: disable=import-error,wrong-import-position
 # Local imports here
-from .inputs import (
+from ..inputs import (
     Scenarios,
     TEMExportPaths,
     HBProdInput,
@@ -17,8 +17,8 @@ from .inputs import (
     AttrInput,
     TEMSegmentations,
 )
-from .production_models import HBProductionModel, NHBProductionModel
-from .attraction_models import AttractionModel
+from ..production_models import HBProductionModel, NHBProductionModel
+from ..attraction_models import AttractionModel
 
 
 # pylint: enable=import-error,wrong-import-position

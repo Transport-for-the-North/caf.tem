@@ -46,6 +46,11 @@ TT_POP = cb.SegmentationInput(enum_segments=SEG_POP, naming_order=SEG_POP)
 TT_EMP = cb.SegmentationInput(enum_segments=SEG_EMP, naming_order=SEG_EMP)
 TT_HH = cb.SegmentationInput(enum_segments=SEG_HH, naming_order=SEG_HH)
 
+LAD_REPORT_SEG: cb.SegmentationInput = cb.SegmentationInput(
+        enum_segments=["p", "m", "tp"],
+        naming_order=["p", "m", "tp"],
+        subsets={"tp": [1, 2, 3, 4, 5, 6]},
+    )
 
 sic_to_ecode = {
     1: [],  # commuting
@@ -63,15 +68,21 @@ sic_to_ecode = {
 
 # # # FUNCTIONS # # #
 
-def write_reports(dvec: cb.DVector, report_path, year) -> None:
-
+def write_reports(dvec: cb.DVector, report_path, year: int) -> None:
+    """
+    - Calls the write_sector_reports() function on a DVector.
+    - Writes reports given the report path to output to.
+    """
     dvec.write_sector_reports(
                      segment_totals_path=report_path.segment_total[year],
                      ca_sector_path=report_path.ca_sector[year],
                      ie_sector_path=report_path.ie_sector[year],
                      lad_report_path=report_path.lad_report[year],
-                     lad_report_seg=cb.Segmentation(lad_report_seg),
+                     lad_report_seg=cb.Segmentation(LAD_REPORT_SEG),
                  )
+    
+    return None
+
 
 def file_exists(file_path: os.PathLike) -> bool:
     """

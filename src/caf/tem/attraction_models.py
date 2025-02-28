@@ -13,16 +13,8 @@ import pandas as pd
 
 import caf.base as cb
 from .inputs import ProductionModelPaths, AttractionModelPaths
-#from .utils import *
 
-lad_report_seg: cb.SegmentationInput = cb.SegmentationInput(
-        enum_segments=["p", "m", "tp"],
-        naming_order=["p", "m", "tp"],
-        subsets={"tp": [1, 2, 3, 4, 5, 6]},
-    )
-
-# local imports
-
+import caf.tem.utils as utils
 
 
 class AttractionModel_TP:
@@ -48,6 +40,7 @@ class AttractionModel_TP:
         self.hh_landuse_prefix = hh_landuse_prefix
         self.mts_path = mts_path
         self.tem_segmentation = tem_segmentation
+
 
     def run(self, export_pure_attractions: bool=True, export_tem_segmentation: bool=True, export_reports: bool=True) -> None:
         """
@@ -96,6 +89,11 @@ class AttractionModel_TP:
         for year in self.model.path_years:
             if not os.path.exists(self.production_model.export_paths.pure_demand[year]):
                 raise FileNotFoundError("The Pure Productions file is not found. Run the Home Based Production Model to create this file first.")
+
+        # ## CONSTANTS ## #
+        report_paths = self.model.report_paths
+        export_paths = self.model.export_paths
+        zoning_system_name = self.model._zoning_system
 
         # ## READ INPUTS ## #
         # Read in the trip rates DVector files for each purpose. Trip rates are not year dependent.
@@ -155,15 +153,10 @@ class AttractionModel_TP:
             del tem_dvec
             
             # ## TEM SEGMENTATION EXPORT ## #
-            balanced_dvec.write_sector_reports( # TODO put in utils function.
-                     segment_totals_path=self.model.report_paths.tem_segmented.segment_total[year],
-                     ca_sector_path=self.model.report_paths.tem_segmented.ca_sector[year],
-                     ie_sector_path=self.model.report_paths.tem_segmented.ie_sector[year],
-                     lad_report_path=self.model.report_paths.tem_segmented.lad_report[year],
-                     lad_report_seg=cb.Segmentation(lad_report_seg),
-                 )
+            if export_reports:
+                utils.write_dvec_reports(balanced_dvec, report_paths.tem_segmented)
             if export_tem_segmentation:
-                balanced_dvec.save(self.model.export_paths.tem_segmented[year])
+                balanced_dvec.save(export_paths.tem_segmented[year])
 
 
         # ## END ## #
@@ -331,6 +324,9 @@ class AttractionModel_TP:
                 
 
     def _create_tem_dvec(self, seg_dict: dict[int, cb.DVector]) -> cb.DVector:
+        """
+        - 
+        """
         for p in seg_dict.keys():
             try: tem_dvec = tem_dvec.concat(seg_dict[p].aggregate(self.tem_segmentation))
             except NameError: tem_dvec = seg_dict[p].aggregate(self.tem_segmentation)
@@ -340,18 +336,26 @@ class AttractionModel_TP:
 
     def _balance_to_production(self, tem_dvec: cb.DVector, tem_production: cb.DVector) -> cb.DVector:
         """
-        - 
+        IF balance_prodcution is TRUE
+        - Divides the TEM Production by the TEM Attraction with zoning removed (Great Britain level), producing segmentation balancing factors.
+        - Multiplies the TEM Attractions by the factors.
+        IF balance_production is BalancingZones OR ZoningSystem
+        - Calls the balance_by_segments function on the TEM Attractions, balancing against TEM Productions using the specified balancing zones
         """
+        # If balancing_zones is True
         if self.balance_production == True:
             tem_dvec.fill(0, 1e-6)
             gb_factors = tem_production.remove_zoning() / tem_dvec.remove_zoning()
             balanced_dvec = tem_dvec * gb_factors # check here that sums for productions and attractions do match.
+        # If soning is specified for balancing
         elif isinstance(self.balance_production, (cb.BalancingZones, cb.ZoningSystem)):
                 balanced_dvec = tem_dvec.balance_by_segments(tem_production, self.balance_production)
+        # If balancing_zones is False
         else:
             balanced_dvec = tem_dvec
 
-        return balanced_dvec 
+        return balanced_dvec
+    
 
     # class AttractionModel(AttractionModelPaths):
     #    _log_fname = "HBAttractionModel_log.log"

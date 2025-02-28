@@ -17,11 +17,13 @@ import caf.toolkit as ctk
 
 from pathlib import Path
 from caf.tem.inputs import ProductionModelPaths, TEMSegmentations
-from caf.tem.utils import check_file_exists, read_pop_lu
 
 from .inputs import ProductionModelPaths, AttractionModelPaths
 
+import caf.tem.utils as utils
+
 class HBProductionModel_TP:
+    _log_fname = "HBProductionModel_log.log"
     """
     The Home-Based (HB) Production Model of caf.tem
 
@@ -61,26 +63,35 @@ class HBProductionModel_TP:
         tem_segmentation: cb.Segmentation,
     ):
         """
-        
+        - Assigns class attributes
         """
-
-        # Assign
         self.model = model
-        self.population_paths = {i: pathlib.Path(j) for i, j in population_paths.items()}
-        self.trip_rates_path = pathlib.Path(trip_rates_path)
-        self.mts_path = pathlib.Path(mts_path)
+        self.population_paths, self.trip_rates_path, self.mts_path = self._format_init_paths(population_paths, trip_rates_path, mts_path)
         self.years = list(self.population_paths.keys())
         self.tem_segmentation = tem_segmentation
+        self.path_years = self.years
 
+
+    def _format_init_paths(self, population_paths: dict[int, os.PathLike], trip_rates_path: os.PathLike, mts_path: os.PathLike) -> tuple[dict[int, Path], Path, Path]:
+        """
+        - Ensures all paths in population_paths, trip_rates_path, and mts_path
+        """
+        # 
+        population_paths = {i: Path(j) for i, j in population_paths.items()} # Turns the os.PathLike input into Path types
+        trip_rates_path = Path(trip_rates_path)
+        mts_path = Path(mts_path)
+
+        # Raises error if paths given in the constructor are invalid. # TODO use utils
         for key, pop_path in self.population_paths.items():
-            if (not pop_path.is_file()) and (not pop_path.is_dir()):
+            if not pop_path.is_file():
                 raise FileNotFoundError(f"{pop_path} is not a valid file.")
         if not self.trip_rates_path.is_file():
             raise FileNotFoundError(f"{trip_rates_path} not a valid file.")
         if not self.mts_path.is_file():
             raise FileNotFoundError(f"{mts_path} is not a valid file.")
 
-        self.path_years = self.years
+        return population_paths, trip_rates_path, mts_path
+    
 
     def run(
         self,
@@ -510,6 +521,9 @@ class NHBProductionModel_TP:
     
 
     def _create_tem_production(self, mts_production: cb.DVector) -> cb.DVector:
+        """
+        - Aggregates the mode-time split productions to the TEM segmentation
+        """
         tem_production = mts_production.aggregate(self.return_segmentation)
         
 
@@ -518,6 +532,7 @@ class NHBProductionModel_TP:
         hb_attractions: cb.DVector,
     ) -> cb.DVector:
         """
+        - 
         Applies NHB trip rates to hb_attractions
 
         Parameters
@@ -548,7 +563,9 @@ class NHBProductionModel_TP:
 
 
 class HBProductionModel(ProductionModelPaths):
+
     _log_fname = "HBProductionModel_log.log"
+
     """The Home-Based Production Model of NoTEM
 
     The production model can be ran by calling the class run() method.
