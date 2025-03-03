@@ -16,7 +16,7 @@ import caf.base as cb
 import caf.toolkit as ctk
 
 from pathlib import Path
-from caf.tem.inputs import ProductionModelPaths, TEMSegmentations
+from caf.tem.inputs import ProductionModelPaths
 
 from .inputs import ProductionModelPaths, AttractionModelPaths
 
@@ -82,12 +82,12 @@ class HBProductionModel_TP:
         mts_path = Path(mts_path)
 
         # Raises error if paths given in the constructor are invalid. # TODO use utils
-        for key, pop_path in self.population_paths.items():
+        for key, pop_path in population_paths.items():
             if not pop_path.is_file():
                 raise FileNotFoundError(f"{pop_path} is not a valid file.")
-        if not self.trip_rates_path.is_file():
+        if not trip_rates_path.is_file():
             raise FileNotFoundError(f"{trip_rates_path} not a valid file.")
-        if not self.mts_path.is_file():
+        if not mts_path.is_file():
             raise FileNotFoundError(f"{mts_path} is not a valid file.")
 
         return population_paths, trip_rates_path, mts_path

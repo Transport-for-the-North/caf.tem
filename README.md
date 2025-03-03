@@ -19,7 +19,11 @@
 </p>
 
 
-A template repo for caf modules.
+The Common Analytical Framework (CAF) Trip End Model (TEM) is a...
+
+
+
+
 
 For an example implementation of this template please see [caf.toolkit](https://github.com/Transport-for-the-North/caf.toolkit)
 
@@ -31,9 +35,9 @@ standard caf structure. Briefly:
 - Run and install versioneer
 
 ### Places to change package name
-In short - anywhere there is something named {package_name} 
+In short - anywhere there is something named tem 
 
-- `src/caf/{package_name}`
+- `src/caf/tem`
 - `RELEASE.md` - 1 change
   - Update the URL in the 'releases' link
 - `pyproject.toml` - 4 changes
@@ -99,7 +103,7 @@ All code goes in here. Some files already exist:
 
 ### tests
 All tests go here.
-Tests should be written in pytest and should follow the same structure as the src package (minus the src/caf/{package_name}).
+Tests should be written in pytest and should follow the same tsructure as the src package (minus the src/caf/{package_name}).
 See the [pytest](https://docs.pytest.org/en/7.2.x/) documentation for full detail, or [caf.toolkit](https://github.com/Transport-for-the-North/caf.toolkit) for an example.
 
 

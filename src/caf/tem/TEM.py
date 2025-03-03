@@ -1,10 +1,27 @@
+"""ASSUMPTIONS:
+"""
+
+"""IMPORTS REQUIRED:
+"""
+
 import os
 import caf.base as cb
 
 from .inputs import TEMExportPaths, Scenarios
-from .attraction_models import AttractionModel_TP
+from .attraction_models import AttractionModel
 from .production_models import HBProductionModel_TP, NHBProductionModel_TP
 
+"""VARIABLE CODING INFORMATION:
+"""
+
+"""RELEVANT FILE PATHS:
+"""
+
+"""FUNCTIONS:
+"""
+
+"""EXECUTION OF CODE:
+"""
 
 class TEM:
     """
@@ -59,9 +76,9 @@ class TEM:
         self.export_paths = TEMExportPaths(model_years, self.scenario, iteration_name, export_home)
         self.return_segmentation = cb.Segmentation(cb.SegmentationInput(enum_segments=return_segmentation, naming_order=return_segmentation))
         self.hb_production_model: HBProductionModel_TP = None
-        self.hb_attraction_model: AttractionModel_TP = None
+        self.hb_attraction_model: AttractionModel = None
         self.nhb_production_model: NHBProductionModel_TP = None
-        self.nhb_attraction_model: AttractionModel_TP = None
+        self.nhb_attraction_model: AttractionModel = None
         
 
     def HBProductionModel( # TODO default with respect to the NTS-Processing model output folder structure? - similarly for other models?
@@ -122,7 +139,7 @@ class TEM:
         hh_landuse_prefix: str,
         mode_time_splits_path: os.PathLike,
         balance_production: bool=True
-    ) -> AttractionModel_TP:
+    ) -> AttractionModel:
         """
         The Home Based (HB) Attraction Model of caf.tem
 
@@ -157,7 +174,7 @@ class TEM:
             "path_years, export_home, report_home, export_paths, report_paths"
         """
 
-        self.hb_attraction_model = AttractionModel_TP(  # TODO to rename AttractionModel
+        self.hb_attraction_model = AttractionModel(  # TODO to rename AttractionModel
             self.export_paths.hb_production,
             self.export_paths.hb_attraction,
             trip_rates_paths,
@@ -168,6 +185,12 @@ class TEM:
             mode_time_splits_path,
             self.return_segmentation
         )
+
+        # User Input Test
+        for p in trip_rates_paths.keys():
+            vals = cb.segmentation.SegmentsSuper("p_hb").get_segment().int_values
+            if p not in vals:
+                raise KeyError(f"Trip rates key {p} was passed.\nTrip rates keys must be in {vals}")
 
         return self.hb_attraction_model
 
@@ -186,7 +209,6 @@ class TEM:
             mode_time_splits_path,
             self.return_segmentation
         )
-        
 
         return self.nhb_production_model
 
@@ -198,7 +220,7 @@ class TEM:
         hh_landuse_prefix: str,
         nhb_mode_time_splits_path: os.PathLike,
         balance_production: bool=True,
-    ) -> AttractionModel_TP:
+    ) -> AttractionModel:
         """
         The non-Home Based (NHB) Attraction Model of caf.tem
 
@@ -233,7 +255,9 @@ class TEM:
             "path_years, export_home, report_home, export_paths, report_paths"
         """
 
-        self.nhb_attraction_model = AttractionModel_TP(  # to rename AttractionModel
+        
+
+        self.nhb_attraction_model = AttractionModel(
             self.export_paths.nhb_production,
             self.export_paths.nhb_attraction,
             trip_rates_paths,
@@ -245,12 +269,25 @@ class TEM:
             self.return_segmentation
         )
 
+        # User Input Test
+        vals = cb.segmentation.SegmentsSuper("p_nhb").get_segment().int_values
+        for p in trip_rates_paths.keys(): 
+            if p not in vals:
+                raise KeyError(f"Trip rates key {p} was passed.\nTrip rates keys must be in {vals}")
+
         return self.nhb_attraction_model
     
     
     
-    def run(self): # assumes that all models are defined and setup.
-        self.hb_production_model.run()
-        self.hb_attraction_model.run()
-        self.nhb_production_model.run()
-        self.nhb_attraction_model.run()
+    def run(self):
+        if not all([self.hb_production_model, self.hb_attraction_model, self.nhb_production_model, self.nhb_attraction_model]):
+            self.hb_production_model.run()
+            self.hb_attraction_model.run()
+            self.nhb_production_model.run()
+            self.nhb_attraction_model.run()
+        else:
+            print("All child models must be defined before running the Trip End Model.")
+
+
+"""SAVE OUTPUT:
+"""

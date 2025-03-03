@@ -15,61 +15,9 @@ from dataclasses import dataclass
 import caf.toolkit as ctk
 import caf.base as cb
 
-class TEMSegmentations(ctk.BaseConfig):
-
-    prod_pure_report: cb.SegmentationInput
-    prod_full_tfnat: cb.SegmentationInput
-    prod_full: cb.SegmentationInput
-    prod_return_seg: cb.SegmentationInput
-    lad_report_seg: cb.SegmentationInput = cb.SegmentationInput(
-        enum_segments=["p", "m", "tp"],
-        naming_order=["p", "m", "tp"],
-        subsets={"tp": [1, 2, 3, 4, 5, 6]},
-    )
-    output: cb.SegmentationInput
-    area_type: cb.SegmentationInput
-    trip_rates: cb.SegmentationInput
-    trip_weights: cb.SegmentationInput
-    employment: cb.SegmentationInput
-    attr_pure: cb.SegmentationInput
-
-    @property
-    def output_no_tp(self):
-        no_tp = self.output.model_copy()
-        no_tp.enum_segments.remove("tp")
-        return no_tp
-
-
-class HBProdInput(ctk.BaseConfig):
-    population_paths: dict[int, os.PathLike]
-    trip_rates_path: os.PathLike
-    mode_time_splits_path: os.PathLike
-    export_home: os.PathLike
-    process_count: int = 1
-
-
-class NHBProdInput(ctk.BaseConfig):
-    hb_attraction_paths: dict[int, os.PathLike]
-    population_paths: dict[int, os.PathLike]
-    trip_rates_path: str
-    time_splits_path: str
-    export_home: str
-    constraint_paths: dict[int, os.PathLike] = None
-    process_count: int = 1
-
-
-class AttrInput(ctk.BaseConfig):
-    triprates: dict[
-        str, os.PathLike
-    ]  # purpose: path, goes to directory, reads in purpose for each one.
-    landuse: dict[
-        str, os.PathLike
-    ]  # year: directory, within dir have emp, household, etc., download lu and same folder.
-    balance_paths: dict[str, os.PathLike]  # might be obsolete - attractions balanced to prods.
-    balance_zoning: cb.BalancingZones  #
-
-    class Config:
-        arbitrary_types_allowed = True
+#class NHBProdInput(ctk.BaseConfig):
+#    constraint_paths: dict[int, os.PathLike] = None TODO understand what this is and if it's needed
+#    process_count: int = 1 TODO include if needed
 
 
 # # # CLASSES # # #
@@ -81,25 +29,6 @@ class Scenarios(enum.Enum):
     LOW = "Low"
     REGIONAL = "Regional"
     TECHNOLOGY = "Technology"
-
-
-class TEMSegmentationWrapper(ctk.BaseConfig):
-
-    hb: TEMSegmentations
-    nhb: TEMSegmentations
-
-
-@dataclass
-class AttractionTripRates:
-
-    Work: pathlib.Path
-    Employers_Business: pathlib.Path
-    Education: pathlib.Path
-    Shopping: pathlib.Path
-    Personal_Business: pathlib.Path
-    Recreation_Social: pathlib.Path
-    Visiting_friends_and_relatives: pathlib.Path
-    Holiday_Day_trip: pathlib.Path
 
 
 class TEMModelPaths:
@@ -125,7 +54,6 @@ class TEMModelPaths:
 
     # Segmentation names
     _pure_demand = "pure_demand"
-    _fully_segmented = "fully_segmented"
     _tem_segmented = "tem_segmented"
 
     # Report names
@@ -137,7 +65,7 @@ class TEMModelPaths:
     # Output Path Classes
     ExportPaths = collections.namedtuple(
         typename="ExportPaths",
-        field_names="home, pure_demand, fully_segmented, tem_segmented",
+        field_names="home, pure_demand, tem_segmented",
     )
 
     ReportPaths = collections.namedtuple(
@@ -200,17 +128,12 @@ class TEMModelPaths:
         fname_parts = [self._trip_origin, self._zoning_system]
 
         pure_demand_paths: dict[int, os.PathLike] = dict()
-        fully_segmented_paths: dict[int, os.PathLike] = dict()
         tem_segmented_paths: dict[int, os.PathLike] = dict()
 
         for year in self.path_years:
             # Pure demand path
             fname = base_fname % (*fname_parts, self._pure_demand, year)
             pure_demand_paths[year] = self.export_home / fname
-
-            # Fully Segmented path
-            fname = f"fully_segmented_by_at_{year}"
-            fully_segmented_paths[year] = self.export_home / fname
 
             # TEM Segmented path
             fname = base_fname % (*fname_parts, self._tem_segmented, year)
@@ -220,7 +143,6 @@ class TEMModelPaths:
         self.export_paths = self.ExportPaths(
             home=self.export_home,
             pure_demand=pure_demand_paths,
-            fully_segmented=fully_segmented_paths,
             tem_segmented=tem_segmented_paths,
         )
 
@@ -231,7 +153,6 @@ class TEMModelPaths:
         self.report_paths = self.ExportPaths(
             home=self.report_home,
             pure_demand=self._generate_report_paths(self._pure_demand),
-            fully_segmented=None,
             tem_segmented=self._generate_report_paths(self._tem_segmented),
         )
 
@@ -311,7 +232,6 @@ class ProductionModelPaths(TEMModelPaths):
         attributes (dictionary keys are path_years):
         - home: The home directory of all exports
         - pure_demand: A dictionary of export paths for pure_demand DVectors
-        - fully_segmented: A dictionary of export paths for fully_segmented DVectors
         - tem_segmented: A dictionary of export paths for tem_segmented DVectors
 
     report_paths: os.PathLike
@@ -319,7 +239,6 @@ class ProductionModelPaths(TEMModelPaths):
         attributes (dictionary keys are path_years):
         - home: The home directory of all exports
         - pure_demand: A TEMModelPaths.ReportPaths object
-        - fully_segmented: A TEMModelPaths.ReportPaths object
         - tem_segmented: A TEMModelPaths.ReportPaths object
 
     See TEMModelPaths for documentation on:
@@ -353,7 +272,6 @@ class AttractionModelPaths(TEMModelPaths):
         attributes (dictionary keys are path_years):
         - home: The home directory of all exports
         - pure_demand: A dictionary of export paths for pure_demand DVectors
-        - fully_segmented: A dictionary of export paths for fully_segmented DVectors
         - tem_segmented: A dictionary of export paths for tem_segmented DVectors
 
     report_paths: os.PathLike
@@ -361,7 +279,7 @@ class AttractionModelPaths(TEMModelPaths):
         attributes (dictionary keys are path_years):
         - home: The home directory of all exports
         - pure_demand: A TEMModelPaths.ReportPaths object
-        - fully_segmented: A TEMModelPaths.ReportPaths object
+
         - tem_segmented: A TEMModelPaths.ReportPaths object
 
     See TEMModelPaths for documentation on:

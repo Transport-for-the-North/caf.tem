@@ -1,8 +1,0 @@
-hb_attraction_paths:
-    2023: "asd"
-population_paths:
-    2023: "asdf"
-trip_rates_path: ""
-time_splits_path: ""
-export_home: ""
-process_count: 1
