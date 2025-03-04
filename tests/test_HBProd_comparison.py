@@ -33,15 +33,15 @@ class InputSetup:
         dvec_path = r"T:\ThomasPrince\TEM Input\comparison\01_HBProduction\input\lu_pop_2023.hdf"
         if not os.path.exists(dvec_path):
             pop = pd.read_csv(r"T:\ThomasPrince\TEM Input\comparison\01_HBProduction\input\lu_pop_2023.csv")
-            pop = pop.set_index(["gender_3", "aws", "ns_sec", "soc", "hh_type"]).drop(columns=["adult_nssec"])
-            segmentation = cb.Segmentation(cb.SegmentationInput(enum_segments=["gender_3", "aws", "ns_sec", "soc", "hh_type"],
-                                                    naming_order=["gender_3", "aws", "ns_sec", "soc", "hh_type"]))
+            pop = pop.set_index(["gender_3", "aws", "adult_nssec", "ns_sec", "soc", "hh_type"])
+            segmentation = cb.Segmentation(cb.SegmentationInput(enum_segments=["gender_3", "aws", "adult_nssec", "ns_sec", "soc", "hh_type"],
+                                                    naming_order=["gender_3", "aws", "adult_nssec", "ns_sec", "soc", "hh_type"]))
             zoning_system = cb.ZoningSystem.get_zoning("lsoa_2021")
             pop_dvec = cb.DVector(segmentation=segmentation, import_data=pop, zoning_system=zoning_system)
             pop_dvec.save(dvec_path)
         else:
             pop = pd.read_csv(r"T:\ThomasPrince\TEM Input\comparison\01_HBProduction\input\lu_pop_2023.csv")
-            pop = pop.set_index(["gender_3", "aws", "ns_sec", "soc", "hh_type"]).drop(columns=["adult_nssec"])
+            pop = pop.set_index(["gender_3", "aws", "adult_nssec", "ns_sec", "soc", "hh_type"])
             pop_dvec = cb.DVector.load(dvec_path)
 
         assert pop.sum().sum() - pop_dvec.data.sum().sum() < 0.01
@@ -109,8 +109,8 @@ def model_setup():
     tem = ct.TEM(
         model_years=[2023],
         scenario="Core",
-        output_zoning="gor",
-        iteration_name=datetime.datetime.now().ctime(),
+        output_zoning="normits",
+        iteration_name=datetime.datetime.now().strftime("%Y-%m-%d_%H%M"),
         export_home=r"T:\ThomasPrince\TEM Input\comparison\caf.tem output",
         return_segmentation=["hh_type", "p", "m", "tp"]
     )
@@ -121,13 +121,25 @@ def model_setup():
         population_paths={2023: input_dir / "lu_pop_2023.hdf"},
         trip_rates_path=input_dir / "hb_trip_rates_production.hdf",
         mode_time_splits_path=input_dir / "mode_time_split_production_hb_fr_reg.hdf",
-        adjustment_path=input_dir / "trip_rate_adjustments_production_hb_fr.hdf"
+        adjustment_path=input_dir / "trip_rate_adjustments_production_hb_fr.hdf",
+        population_translation_path=r"T:\ThomasPrince\TEM Input\lsoa_normits_pop.csv"
     )
 
     return tem
 
+
 class OutputCheck:
-    def check_
+    def diff_1(tem: ct.TEM):
+        check = cb.DVector.load(tem.hb_production_model.model.export_paths.pure_demand[2023])
+        pop_2023 = pd.read_csv(r"T:\ThomasPrince\TEM Input\comparison\01_HBProduction\mdlnotem Output\pop_2023_normits.csv")
+        pop_2023 = pop_2023.groupby(["normits_v3.3_id"])[["1","2","3","4","5","6","7","8"]].sum().T
+        pop_2023.index = pop_2023.index.astype(int)
+        test = (check.aggregate(["p"]).data - pop_2023).stack()
+        test = test.reset_index()
+        test = test.groupby("normits_id")[0].sum()
+        test = test.loc[abs(test)>1] # Where the difference in total trips, by normits id, is > 1
+        assert test.shape[0]<=1 # Currently one zone of issue -> check 5248009
+
 
 if __name__=="__main__":
     # Assert input sums are close
@@ -139,4 +151,4 @@ if __name__=="__main__":
     tem = model_setup()
     tem.hb_production_model.run()
 
-    OutputCheck
+    OutputCheck.diff_1(tem)
