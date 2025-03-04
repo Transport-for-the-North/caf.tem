@@ -85,7 +85,9 @@ class TEM:
         self,
         population_paths: dict[int, os.PathLike],
         trip_rates_path: os.PathLike,
-        mode_time_splits_path: os.PathLike
+        mode_time_splits_path: os.PathLike,
+        adjustment_path: os.PathLike=None,
+        population_translation_path=None
     ) -> HBProductionModel_TP:
         """
         The Home-Based (HB) Production Model of caf.tem
@@ -123,9 +125,11 @@ class TEM:
         self.hb_production_model = HBProductionModel_TP(
             self.export_paths.hb_production,
             population_paths,
+            population_translation_path,
             trip_rates_path,
             mode_time_splits_path,
-            tem_segmentation=self.return_segmentation
+            tem_segmentation=self.return_segmentation,
+            hb_fr_adjustment_path=adjustment_path,
         )
 
         return self.hb_production_model

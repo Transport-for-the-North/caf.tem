@@ -37,6 +37,7 @@ class AttractionModel:
         self.model = model
         self.trip_rates_paths, self.emp_landuse_paths, self.hh_landuse_paths, mts_path = self._format_init_paths(trip_rates_paths, emp_landuse_paths, hh_landuse_dirs, hh_landuse_prefix, mts_path)
         self.tem_segmentation = tem_segmentation
+        self.balance_production = balance_production
 
 
     def _format_init_paths(self, trip_rates_paths: dict[int, os.PathLike], emp_landuse_paths: dict[int, os.PathLike], hh_landuse_dirs: dict[int, os.PathLike], hh_landuse_prefix: str, mts_path: os.PathLike) -> tuple[dict[int, Path], dict[int, Path], dict[int, dict[str, Path]], Path]:
@@ -65,7 +66,11 @@ class AttractionModel:
         return trip_rates_paths, emp_landuse_paths, hh_landuse_paths, mts_path
 
 
-    def run(self, export_pure_attractions: bool=True, export_tem_segmentation: bool=True, export_reports: bool=True) -> None:
+    def run(self,
+            export_pure_attractions: bool=True,
+            export_tem_segmentation: bool=True,
+            export_reports: bool=True
+        ) -> None:
         """
         Runs the HB/NHB Attraction Model.
 
@@ -130,7 +135,6 @@ class AttractionModel:
             # Read in the landuses dvec files specific to the year.
             landuses: dict[str, cb.DVector] = {"emp": self._read_emp_lu(year), "hh": self._read_hh_lu(year)}
             
-
             # ## PURE ATTRACTION ## #
             # Create a dictionary of attractions by purpose
             attr_dict: dict[int, cb.DVector] = self._create_attr_dict(landuses, trip_rates)
@@ -149,8 +153,8 @@ class AttractionModel:
             del attr_dict
 
             # ## SPLIT PRODUCTION SEGMENTATION ## #
-            # Load the TEM Production from the HB/NHB Production Model Output
-            tem_production = cb.DVector.load(self.production_model.export_paths.tem_segmented[year])
+            # Load the Adjusted TEM Production from the HB/NHB Production Model Output
+            tem_production = cb.DVector.load(self.production_model.export_paths.tem_segmented_adj[year])
             # Apply the split_by_other method to the mts DVectors, given the tem_production
             seg_dict = self._create_seg_dict(mts_dict, tem_production)
             # Test all mts_dict DVectors match sum of attr_dict DVectors - TODO confirm rel/abs tolerance w Isaac for this test.
@@ -226,7 +230,7 @@ class AttractionModel:
         emp_landuse = cb.DVector.load(self.emp_landuse_paths[year])
         # Translate the employment landuse to the TEM Model zoning system
         zoning_system = cb.ZoningSystem.get_zoning(self.model._zoning_system)
-        emp_landuse = emp_landuse.translate_zoning(zoning_system, check_totals=False, no_factors=True)
+        emp_landuse = emp_landuse.translate_zoning(zoning_system, check_totals=True, no_factors=False)
 
         return emp_landuse
 
@@ -253,7 +257,7 @@ class AttractionModel:
         hh_landuse = cb.DVector(import_data=data, segmentation=hh_list[0].segmentation, zoning_system=hh_list[0].zoning_system)
         # Translate the household landuse to the TEM Model zoning system
         zoning_system = cb.ZoningSystem.get_zoning(self.model._zoning_system)
-        hh_landuse = hh_landuse.translate_zoning(zoning_system)
+        hh_landuse = hh_landuse.translate_zoning(zoning_system, check_totals=True, no_factors=False)
 
         return hh_landuse
 
