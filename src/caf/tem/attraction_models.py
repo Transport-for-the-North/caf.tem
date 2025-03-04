@@ -35,7 +35,7 @@ class AttractionModel:
     ):
         self.production_model = production_model
         self.model = model
-        self.trip_rates_paths, self.emp_landuse_paths, self.hh_landuse_paths, mts_path = self._format_init_paths(trip_rates_paths, emp_landuse_paths, hh_landuse_dirs, hh_landuse_prefix, mts_path)
+        self.trip_rates_paths, self.emp_landuse_paths, self.hh_landuse_paths, self.mts_path = self._format_init_paths(trip_rates_paths, emp_landuse_paths, hh_landuse_dirs, hh_landuse_prefix, mts_path)
         self.tem_segmentation = tem_segmentation
         self.balance_production = balance_production
 
@@ -171,7 +171,7 @@ class AttractionModel:
                 seg_dict_sum += seg_dict[p].sum()
             if not tem_dvec.sum_is_close(seg_dict_sum, 0.01, 100):
                 print(f"The sum of the TEM Segmented segmented attraction (split by TEM Production) does not match the expected sum.\n"
-                        f"Expected: {attr_dict[p].sum()}\nGot: {seg_dict[p].sum()}")
+                        f"Expected: {seg_dict[p].sum()}\nGot: {seg_dict[p].sum()}")
             # No longer need dictionary of further segmented mts attraction by purpose
             del seg_dict
             
@@ -227,7 +227,7 @@ class AttractionModel:
         - Translates the employment landuse DVector zoning system to the TEM Model zoning system
         """
         # Read the employment landuse DVector for the given year
-        emp_landuse = cb.DVector.load(self.emp_landuse_paths[year])
+        emp_landuse = cb.DVector.load(self.emp_landuse_paths[year]).add_segments([cb.segmentation.SegmentsSuper("total").get_segment()])
         # Translate the employment landuse to the TEM Model zoning system
         zoning_system = cb.ZoningSystem.get_zoning(self.model._zoning_system)
         emp_landuse = emp_landuse.translate_zoning(zoning_system, check_totals=True, no_factors=False)
@@ -248,9 +248,8 @@ class AttractionModel:
         for gor in self.hh_landuse_paths[year].keys():
             hh_list.append(
                 cb.DVector.load(
-                    pathlib.Path(self.hh_landuse_dirs[year])
-                    / f"{self.hh_landuse_prefix}_{gor}.hdf"
-                )
+                    pathlib.Path(self.hh_landuse_paths[year][gor])
+                ).add_segments([cb.segmentation.SegmentsSuper("total").get_segment()])
             )
         # Horizontally concatonate each GOR's household landuse DVector
         data = pd.concat([d.data for d in hh_list], axis=1)
@@ -273,6 +272,7 @@ class AttractionModel:
         attr_dict: dict[int, cb.DVector] = {}
         # For each purpose...
         for p in trip_rates.keys():
+            print(p)
             # Access the purpose's trip rate dvec
             trip_rate = trip_rates[p]
             # Access the landuse dvec (employment or household) with respect to travel purpose

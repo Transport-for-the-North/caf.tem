@@ -104,6 +104,7 @@ class InputSetup:
 
         assert mts.sum().sum() - mts_dvec.data.sum().sum() < 0.01
 
+
 def model_setup():
     # Create TEM model
     tem = ct.TEM(
