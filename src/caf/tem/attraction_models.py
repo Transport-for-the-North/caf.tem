@@ -38,6 +38,8 @@ class AttractionModel:
         self.trip_rates_paths, self.emp_landuse_paths, self.hh_landuse_paths, self.mts_path = self._format_init_paths(trip_rates_paths, emp_landuse_paths, hh_landuse_dirs, hh_landuse_prefix, mts_path)
         self.tem_segmentation = tem_segmentation
         self.balance_production = balance_production
+        self.hh_landuse_dirs = hh_landuse_dirs
+        self.hh_landuse_prefix = hh_landuse_prefix
 
 
     def _format_init_paths(self, trip_rates_paths: dict[int, os.PathLike], emp_landuse_paths: dict[int, os.PathLike], hh_landuse_dirs: dict[int, os.PathLike], hh_landuse_prefix: str, mts_path: os.PathLike) -> tuple[dict[int, Path], dict[int, Path], dict[int, dict[str, Path]], Path]:
@@ -47,7 +49,9 @@ class AttractionModel:
         # 
         trip_rates_paths: dict[int, Path] = {p: Path(path) for p, path in trip_rates_paths.items()}
         emp_landuse_paths = {year: Path(file) for year, file in emp_landuse_paths.items()}
-        hh_landuse_paths: dict[int, dict[str, Path]] = {year: {f"{gor}": Path(dir) / f"{hh_landuse_prefix}_{gor}.hdf"} for year, dir in hh_landuse_dirs.items() for gor in utils.GOR}
+        hh_landuse_paths: dict[int, dict[str, Path]] = {year: {f"{gor}": Path(hh_landuse_dirs[year]) / f"{hh_landuse_prefix}_{gor}.hdf" 
+                                                               for gor in utils.GOR} 
+                                                               for year in hh_landuse_dirs.keys()}
         mts_path = Path(mts_path)
 
         for p, trip_rates_path in trip_rates_paths.items():
@@ -181,7 +185,7 @@ class AttractionModel:
             
             # ## TEM SEGMENTATION EXPORT ## #
             if export_reports:
-                utils.write_dvec_reports(balanced_dvec, report_paths.tem_segmented)
+                utils.write_reports(balanced_dvec, report_paths.tem_segmented, year)
             if export_tem_segmentation:
                 balanced_dvec.save(export_paths.tem_segmented[year])
 
@@ -246,14 +250,13 @@ class AttractionModel:
         hh_list: list[cb.DVector] = []
         # For each GOR...
         for gor in self.hh_landuse_paths[year].keys():
-            hh_list.append(
-                cb.DVector.load(
-                    pathlib.Path(self.hh_landuse_paths[year][gor])
-                ).add_segments([cb.segmentation.SegmentsSuper("total").get_segment()])
-            )
+            dvec = cb.DVector.load(pathlib.Path(self.hh_landuse_paths[year][gor]))
+            if "total" not in dvec.segmentation.names:
+                dvec = dvec.add_segments([cb.segmentation.SegmentsSuper("total").get_segment()])
+            hh_list.append(dvec)
         # Horizontally concatonate each GOR's household landuse DVector
         data = pd.concat([d.data for d in hh_list], axis=1)
-        hh_landuse = cb.DVector(import_data=data, segmentation=hh_list[0].segmentation, zoning_system=hh_list[0].zoning_system)
+        hh_landuse = cb.DVector(import_data=data, segmentation=hh_list[0].segmentation, zoning_system=cb.ZoningSystem.get_zoning("lsoa_2021"))
         # Translate the household landuse to the TEM Model zoning system
         zoning_system = cb.ZoningSystem.get_zoning(self.model._zoning_system)
         hh_landuse = hh_landuse.translate_zoning(zoning_system, check_totals=True, no_factors=False)
@@ -272,7 +275,6 @@ class AttractionModel:
         attr_dict: dict[int, cb.DVector] = {}
         # For each purpose...
         for p in trip_rates.keys():
-            print(p)
             # Access the purpose's trip rate dvec
             trip_rate = trip_rates[p]
             # Access the landuse dvec (employment or household) with respect to travel purpose
@@ -373,7 +375,11 @@ class AttractionModel:
         # If balancing_zones is True
         if self.balance_production == True:
             tem_dvec.fill(0, 1e-6)
+            #tem_dvec.fillna(1e-6) - TODO currently just p7 - figure why
+            tem_production.save(r"C:\Users\Spiral\Documents\Thomas Prince\Common Analytical Framework\tem_production.hdf")
+            tem_dvec.save(r"C:\Users\Spiral\Documents\Thomas Prince\Common Analytical Framework\tem_dvec_na.hdf")
             gb_factors = tem_production.remove_zoning() / tem_dvec.remove_zoning()
+            gb_factors.save(r"C:\Users\Spiral\Documents\Thomas Prince\Common Analytical Framework\gb_factors.hdf")
             balanced_dvec = tem_dvec * gb_factors # check here that sums for productions and attractions do match.
         # If soning is specified for balancing
         elif isinstance(self.balance_production, (cb.BalancingZones, cb.ZoningSystem)):
