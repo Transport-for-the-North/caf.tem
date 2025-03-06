@@ -182,18 +182,18 @@ class HBProductionModel_TP:
                 pure_production_adj.save(self.model.export_paths.pure_demand_adj[year])
 
             # ## MODE TIME SPLIT ## #
-            mts_production = self._create_mts_production(pure_production, mts)
+            mts_production = self._create_mts_production(pure_production_adj, mts) # Only carry on adj from here TODO confirm w Isaac
             # No longer need Pure Production
             del pure_production, pure_production_adj
 
             # ## TEM SEGMENTATION ## #
             tem_production = self._create_tem_production(mts_production)
             # Adjust rate
-            tem_production_adj = self._adjust_production(tem_production, adj_factors)
+            #tem_production_adj = self._adjust_production(tem_production, adj_factors)
             # Export pure productions
             if export_tem_segmentation:
                 tem_production.save(self.model.export_paths.tem_segmented[year])
-                tem_production_adj.save(self.model.export_paths.tem_segmented_adj[year])
+                #tem_production_adj.save(self.model.export_paths.tem_segmented_adj[year])
 
         return None
 

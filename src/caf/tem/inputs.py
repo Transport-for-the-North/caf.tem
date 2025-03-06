@@ -55,8 +55,9 @@ class TEMModelPaths:
     # Segmentation names
     _pure_demand = "pure_demand"
     _pure_demand_adj = "pure_demand_adj"
+    _mts_demand = "mts_demand"
+    _mts_demand_adj = "mts_demand_adj"
     _tem_segmented = "tem_segmented"
-    _tem_segmented_adj = "tem_segmented_adj"
 
     # Report names
     _segment_totals_report_name = "segment_totals"
@@ -67,7 +68,7 @@ class TEMModelPaths:
     # Output Path Classes
     ExportPaths = collections.namedtuple(
         typename="ExportPaths",
-        field_names="home, pure_demand, pure_demand_adj, tem_segmented, tem_segmented_adj",
+        field_names="home, pure_demand, pure_demand_adj, mts_demand, mts_demand_adj, tem_segmented",
     )
 
     ReportPaths = collections.namedtuple(
@@ -131,8 +132,9 @@ class TEMModelPaths:
 
         pure_demand_paths: dict[int, os.PathLike] = dict()
         pure_demand_adj_paths: dict[int, os.PathLike] = dict()
+        mts_demand_paths: dict[int, os.PathLike] = dict()
+        mts_demand_adj_paths: dict[int, os.PathLike] = dict()
         tem_segmented_paths: dict[int, os.PathLike] = dict()
-        tem_segmented_adj_paths: dict[int, os.PathLike] = dict()
 
         for year in self.path_years:
             # Pure demand path
@@ -143,21 +145,26 @@ class TEMModelPaths:
             fname = base_fname % (*fname_parts, self._pure_demand_adj, year)
             pure_demand_adj_paths[year] = self.export_home / fname
 
+            # MTS demand path
+            fname = base_fname % (*fname_parts, self._pure_demand, year)
+            mts_demand_paths[year] = self.export_home / fname
+
+            # MTS demand path adj
+            fname = base_fname % (*fname_parts, self._pure_demand_adj, year)
+            mts_demand_adj_paths[year] = self.export_home / fname
+
             # TEM Segmented path
             fname = base_fname % (*fname_parts, self._tem_segmented, year)
             tem_segmented_paths[year] = self.export_home / fname
-
-            # TEM Segmented path adj
-            fname = base_fname % (*fname_parts, self._tem_segmented_adj, year)
-            tem_segmented_adj_paths[year] = self.export_home / fname
 
         # Create the export_paths class
         self.export_paths = self.ExportPaths(
             home=self.export_home,
             pure_demand=pure_demand_paths,
             pure_demand_adj=pure_demand_adj_paths,
+            mts_demand=pure_demand_paths,
+            mts_demand_adj=pure_demand_adj_paths,
             tem_segmented=tem_segmented_paths,
-            tem_segmented_adj=tem_segmented_adj_paths
         )
 
     def _create_report_paths(self) -> None:
@@ -168,8 +175,9 @@ class TEMModelPaths:
             home=self.report_home,
             pure_demand=self._generate_report_paths(self._pure_demand),
             pure_demand_adj=self._generate_report_paths(self._pure_demand_adj),
+            mts_demand=self._generate_report_paths(self._pure_demand),
+            mts_demand_adj=self._generate_report_paths(self._pure_demand_adj),
             tem_segmented=self._generate_report_paths(self._tem_segmented),
-            tem_segmented_adj=self._generate_report_paths(self._tem_segmented_adj)
         )
 
     def _generate_report_paths( # TODO should this be a class, rather than function? 

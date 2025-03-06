@@ -168,13 +168,16 @@ class AttractionModel:
             # Tests to the MTS dict created - TODO confirm rel/abs tolerance w Isaac for this test.
             self._check_mts_dict(attr_dict_adj, mts_dict)
             # Apply mts adjustment
-            mts_dict_adj = self._adjust_mts_dict(mts_dict, adj_factors_dict["mts"])
+            mts_dict_adj = self._adjust_mts_dict(mts_dict, adj_factors_dict["mts"]) # TODO do I want an mts_dict_adj variable and/or output? To ask Isaac
+            if export_pure_attractions:
+                self._export_mts_attractions(mts_dict, year)
+                self._export_mts_attractions(mts_dict_adj, year, adj=True)
             # No longer need dictionary of attractions by purpose
             del attr_dict, attr_dict_adj
 
             # ## SPLIT PRODUCTION SEGMENTATION ## #
             # Load the Adjusted TEM Production from the HB/NHB Production Model Output
-            tem_production = cb.DVector.load(self.production_model.export_paths.tem_segmented_adj[year])
+            tem_production = cb.DVector.load(self.production_model.export_paths.tem_segmented[year]) # TODO confirm not tem_segmented_adj i.e. are ==
             # Apply the split_by_other method to the mts DVectors, given the tem_production
             seg_dict = self._create_seg_dict(mts_dict, tem_production)
             # Test all mts_dict DVectors match sum of attr_dict DVectors - TODO confirm rel/abs tolerance w Isaac for this test.
@@ -260,6 +263,7 @@ class AttractionModel:
             mts = mts.translate_zoning(zoning_system, check_totals=False, no_factors=True)
             mts.fill(0, 1)
             mts.fillna(1)
+            mts = mts.add_segments([cb.segmentation.SegmentsSuper("total").get_segment()])
             adj_factors_dict["mts"]=mts
         
         return adj_factors_dict
@@ -327,8 +331,8 @@ class AttractionModel:
             # Add the purpose segmentat to the DVector segmentation
             attr = attr.add_segments([cb.segmentation.SegmentsSuper("p").get_segment(subset=[p])])
             # Aggregate the attraction DVector to p and soc if soc is in the trip rate segmentation, p segmentation otherwise
-            if "soc" in trip_rate.segmentation.names: attr = attr.aggregate(["p", "soc"])
-            else: attr = attr.aggregate(["p"])
+            if "soc" in trip_rate.segmentation.names: attr = attr.aggregate(["total", "p", "soc"])
+            else: attr = attr.aggregate(["total", "p"])
             attr_dict[p] = attr
 
         return attr_dict
@@ -368,12 +372,10 @@ class AttractionModel:
     def _create_mts_dict(self, attr_dict: dict[int, cb.DVector], mts: cb.DVector) -> dict[int, cb.DVector]:
         """
         - Multiplies the attraction DVector with the mts DVector, as read from the path given in the constructor
-        - Removes total segmentation from the MTS Demand DVector if total is in the segmentation
         """
         mts_dict: dict[int, cb.DVector] = {}
         for p in attr_dict.keys():
-            attr = attr_dict[p]
-            mts_dict[p] = attr * mts.filter_segment_value("p", [p]) # TODO NB. to Isaac - error thrown if mts not filtered. Should look into this... Issue with order of operation?
+            mts_dict[p] = attr_dict[p] * mts.filter_segment_value("p", [p]) # TODO NB. to Isaac - error thrown if mts not filtered. Should look into this... Issue with order of operation?
 
         return mts_dict
     
@@ -391,14 +393,38 @@ class AttractionModel:
     def _adjust_mts_dict(self, mts_dict: dict[int, cb.DVector], adj_factors: cb.DVector) -> dict[int, cb.DVector]:
         mts_dict_adj: dict[int, cb.DVector] = {} # TODO mts_dict_adj = mts_dict, removes need for else
         if adj_factors is not None:
-            for p in mts_dict.keys():
-                adj = mts_dict[p] * adj_factors
-                mts_dict_adj[p] = mts_dict[p] * adj_factors.filter_segment_value("p", [p])
+            for p in mts_dict.keys(): # TODO - this definitely needs tidying. Perhaps there's an inbuilt DVector function to use instead?
+                mts = mts_dict[p]
+                if "total" not in mts.segmentation.names:
+                    mts = mts.add_segments([cb.segmentation.SegmentsSuper("total").get_segment()])
+                adj = mts * adj_factors.filter_segment_value("p", [p])
+                numerator = mts.aggregate(["total"]).translate_zoning(cb.ZoningSystem.get_zoning("gor")).translate_zoning(cb.ZoningSystem.get_zoning(self.model._zoning_system), check_totals=False, no_factors=True)
+                denomenator = adj.aggregate(["total"]).translate_zoning(cb.ZoningSystem.get_zoning("gor")).translate_zoning(cb.ZoningSystem.get_zoning(self.model._zoning_system), check_totals=False, no_factors=True)
+                adj = adj * (numerator/denomenator)
+                mts_dict_adj[p] = adj
 
         else:
             mts_dict_adj = mts_dict
-        pass
-                    
+        
+        return mts_dict_adj
+
+
+    def _export_mts_attractions(self, attr_dict: dict[int, cb.DVector], year: int, adj: bool = False) -> None:
+        """ TODO fix description re: mts
+        - Concatonates the DVectors stored in the Pure Attractions dictionary, aggregated to p segmentation
+        - Saves the concatonated DVector to the pure_demand export path for the given year
+        """
+        # Concatonate the (optionally balanced) Pure Attraction by purpose
+        for p in attr_dict.keys():
+            try: output_pure = output_pure.concat(attr_dict[p].aggregate(["p"]))
+            except NameError: output_pure = attr_dict[p].aggregate(["p"]) # Initialises the output object
+        # Write Pure Attractions
+        out_path = self.model.export_paths.mts_demand[year]
+        if adj: out_path = self.model.export_paths.mts_demand_adj[year]
+        output_pure.save(out_path)
+
+        return None
+    
 
     def _create_seg_dict(self, mts_dict: dict[int, cb.DVector], tem_production: cb.DVector) -> dict[int, cb.DVector]:
         """
