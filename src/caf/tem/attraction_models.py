@@ -18,7 +18,6 @@ from .inputs import ProductionModelPaths, AttractionModelPaths
 
 import caf.tem.utils as utils
 
-
 class AttractionModel:
 
     def __init__(

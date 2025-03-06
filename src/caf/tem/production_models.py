@@ -1,14 +1,22 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
+"""ASSUMPTIONS:
+"""
+
+"""IMPORTS REQUIRED:
+"""
+
+
+
 # Builtins
-import dataclasses
+import dataclasses # TODO check if needed
 import os
 import pathlib
 import warnings
 import logging
 
-from typing import Dict, List, Optional, Literal
+from typing import Dict, List, Optional, Literal # TODO check if needed
 
 # Third party imports
 import pandas as pd
@@ -21,6 +29,19 @@ from caf.tem.inputs import ProductionModelPaths
 from .inputs import ProductionModelPaths, AttractionModelPaths
 
 import caf.tem.utils as utils
+
+
+"""VARIABLE CODING INFORMATION:
+"""
+
+"""RELEVANT FILE PATHS:
+"""
+
+"""FUNCTIONS:
+"""
+
+"""EXECUTION OF CODE:
+"""
 
 class HBProductionModel_TP:
     _log_fname = "HBProductionModel_log.log"
