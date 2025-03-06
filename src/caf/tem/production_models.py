@@ -265,7 +265,7 @@ class HBProductionModel_TP:
         zoning_system = cb.ZoningSystem.get_zoning(self.model._zoning_system)
         population = population.translate_zoning(zoning_system, trans_vector=self.pop_trans, check_totals=True, no_factors=False)
         
-        return (population)
+        return population
 
 
     def _create_pure_production(self, population: cb.DVector, trip_rates: cb.DVector) -> cb.DVector:
