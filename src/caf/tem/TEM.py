@@ -142,7 +142,11 @@ class TEM:
         hh_landuse_dirs: dict[int, os.PathLike], 
         hh_landuse_prefix: str,
         mode_time_splits_path: os.PathLike,
-        balance_production: bool=True
+        balance_production: bool=True,
+        trip_rate_adjustment_path: os.PathLike=None,
+        emp_translation_path: os.PathLike=None,
+        hh_translation_path: os.PathLike=None,
+        mode_time_splits_adjustment_path: os.PathLike=None
     ) -> AttractionModel:
         """
         The Home Based (HB) Attraction Model of caf.tem
@@ -182,12 +186,16 @@ class TEM:
             self.export_paths.hb_production,
             self.export_paths.hb_attraction,
             trip_rates_paths,
+            trip_rate_adjustment_path,
             balance_production,
             emp_landuse_paths,
+            emp_translation_path,
             hh_landuse_dirs,
             hh_landuse_prefix,
+            hh_translation_path,
             mode_time_splits_path,
-            self.return_segmentation
+            mode_time_splits_adjustment_path,
+            self.return_segmentation,
         )
 
         # User Input Test

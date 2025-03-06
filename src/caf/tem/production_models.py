@@ -73,7 +73,7 @@ class HBProductionModel_TP:
         self.tem_segmentation = tem_segmentation
         self.path_years = self.years
         self.hb_fr_adjustment_path = hb_fr_adjustment_path
-        self.pop_trans = pd.read_csv(pop_trans_path)
+        self.pop_trans = pd.read_csv(pop_trans_path) if pop_trans_path is not None else None
 
 
     def _format_init_paths(self, population_paths: dict[int, os.PathLike], trip_rates_path: os.PathLike, mts_path: os.PathLike) -> tuple[dict[int, Path], Path, Path]:
@@ -221,6 +221,8 @@ class HBProductionModel_TP:
         return mts
     
     def _read_adj_factors(self):
+        """
+        """
         if self.hb_fr_adjustment_path is None:
             return None
         
@@ -233,7 +235,7 @@ class HBProductionModel_TP:
     
 
     def _read_population(self, year: int):
-        """
+        """Reads in the Population Landuse DVector
         - Reads the population land use DVector, for one given year, from the path given in the constructor
         - Translates the population landuse DVector zoning system to the TEM Model zoning system
         """
@@ -246,7 +248,7 @@ class HBProductionModel_TP:
 
 
     def _create_pure_production(self, population: cb.DVector, trip_rates: cb.DVector) -> cb.DVector:
-        """
+        """Creates Pure Production
         - Multiplies the population landuse by the trip rates, creating pure production
         """
         pure_production = population * trip_rates
@@ -255,6 +257,9 @@ class HBProductionModel_TP:
 
 
     def _adjust_production(self, production, adj_factors):
+        """Adjusts the Pure Production
+        - 
+        """
         if adj_factors is not None:
             production_adj = production * adj_factors
         else:
