@@ -146,11 +146,11 @@ class TEMModelPaths:
             pure_demand_adj_paths[year] = self.export_home / fname
 
             # MTS demand path
-            fname = base_fname % (*fname_parts, self._pure_demand, year)
+            fname = base_fname % (*fname_parts, self._mts_demand, year)
             mts_demand_paths[year] = self.export_home / fname
 
             # MTS demand path adj
-            fname = base_fname % (*fname_parts, self._pure_demand_adj, year)
+            fname = base_fname % (*fname_parts, self._mts_demand_adj, year)
             mts_demand_adj_paths[year] = self.export_home / fname
 
             # TEM Segmented path
@@ -162,8 +162,8 @@ class TEMModelPaths:
             home=self.export_home,
             pure_demand=pure_demand_paths,
             pure_demand_adj=pure_demand_adj_paths,
-            mts_demand=pure_demand_paths,
-            mts_demand_adj=pure_demand_adj_paths,
+            mts_demand=mts_demand_paths,
+            mts_demand_adj=mts_demand_adj_paths,
             tem_segmented=tem_segmented_paths,
         )
 
@@ -175,8 +175,8 @@ class TEMModelPaths:
             home=self.report_home,
             pure_demand=self._generate_report_paths(self._pure_demand),
             pure_demand_adj=self._generate_report_paths(self._pure_demand_adj),
-            mts_demand=self._generate_report_paths(self._pure_demand),
-            mts_demand_adj=self._generate_report_paths(self._pure_demand_adj),
+            mts_demand=self._generate_report_paths(self._mts_demand),
+            mts_demand_adj=self._generate_report_paths(self._mts_demand_adj),
             tem_segmented=self._generate_report_paths(self._tem_segmented),
         )
 
