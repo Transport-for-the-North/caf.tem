@@ -81,9 +81,10 @@ class HBProductionModel_TP:
         population_paths: dict[int, os.PathLike],
         pop_trans_path: os.PathLike,
         trip_rates_path: os.PathLike,
-        mts_path: os.PathLike,
-        tem_segmentation: cb.Segmentation,
         hb_fr_adjustment_path: os.PathLike,
+        mts_path: os.PathLike,
+        mts_adjustment_path: os.PathLike,
+        tem_segmentation: cb.Segmentation,
     ):
         """
         - Assigns class attributes
@@ -95,6 +96,7 @@ class HBProductionModel_TP:
         self.path_years = self.years
         self.hb_fr_adjustment_path = hb_fr_adjustment_path
         self.pop_trans = pd.read_csv(pop_trans_path) if pop_trans_path is not None else None
+        self.mts_adjust_path = mts_adjustment_path
 
 
     def _format_init_paths(self, population_paths: dict[int, os.PathLike], trip_rates_path: os.PathLike, mts_path: os.PathLike) -> tuple[dict[int, Path], Path, Path]:
@@ -106,7 +108,7 @@ class HBProductionModel_TP:
         trip_rates_path = Path(trip_rates_path)
         mts_path = Path(mts_path)
 
-        # Raises error if paths given in the constructor are invalid. # TODO use utils
+        # Raises error if paths given in the constructor are invalid. # TODO use utils and add mts_adj + tr_adj
         for key, pop_path in population_paths.items():
             if not pop_path.is_file():
                 raise FileNotFoundError(f"{pop_path} is not a valid file.")
@@ -122,6 +124,7 @@ class HBProductionModel_TP:
     def run(
         self,
         export_pure_production: bool = True,
+        export_mts_production: bool = False,
         export_tem_segmentation: bool = True,
         export_reports: bool = True,
     ) -> None:
@@ -180,6 +183,7 @@ class HBProductionModel_TP:
         mts: cb.DVector = self._read_mts()
         # Read in the adjustment factors, if passed
         adj_factors: cb.DVector = self._read_adj_factors()
+        mts_adj_factors: cb.DVector = self._read_mts_adj_factors()
 
         # If all exports are False, then the function is redundant
         if not (export_pure_production or export_tem_segmentation or export_reports):
@@ -204,17 +208,21 @@ class HBProductionModel_TP:
 
             # ## MODE TIME SPLIT ## #
             mts_production = self._create_mts_production(pure_production_adj, mts) # Only carry on adj from here TODO confirm w Isaac
+            mts_production_adj = self._adjust_mts_production(mts_production, mts_adj_factors) # TODO check if HB Prod has mts adj. -> create function for this
+            # Export mts production
+            if export_mts_production:
+                mts_production.save(self.model.export_paths.mts_demand[year])
+                mts_production_adj.save(self.model.export_paths.mts_demand_adj[year])
             # No longer need Pure Production
             del pure_production, pure_production_adj
 
             # ## TEM SEGMENTATION ## #
-            tem_production = self._create_tem_production(mts_production)
+            tem_production = self._create_tem_production(mts_production_adj)
             # Adjust rate
             #tem_production_adj = self._adjust_production(tem_production, adj_factors)
-            # Export pure productions
+            # Export tem productions
             if export_tem_segmentation:
                 tem_production.save(self.model.export_paths.tem_segmented[year])
-                #tem_production_adj.save(self.model.export_paths.tem_segmented_adj[year])
 
         return None
 
@@ -248,6 +256,20 @@ class HBProductionModel_TP:
             return None
         
         adj_factors = cb.DVector.load(self.hb_fr_adjustment_path)
+        # Ensure zoning system of mts matches the TEM Model zoning system
+        zoning_system = cb.ZoningSystem.get_zoning(self.model._zoning_system)
+        adj_factors = adj_factors.translate_zoning(zoning_system, check_totals=False, no_factors=True)
+
+        return adj_factors
+    
+
+    def _read_mts_adj_factors(self):
+        """
+        """
+        if self.mts_adjust_path is None:
+            return None
+        
+        adj_factors = cb.DVector.load(self.mts_adjust_path)
         # Ensure zoning system of mts matches the TEM Model zoning system
         zoning_system = cb.ZoningSystem.get_zoning(self.model._zoning_system)
         adj_factors = adj_factors.translate_zoning(zoning_system, check_totals=False, no_factors=True)
@@ -296,6 +318,22 @@ class HBProductionModel_TP:
         mts_production = pure_production * mts
 
         return mts_production
+    
+
+    def _adjust_mts_production(self, mts_production: cb.DVector, adj_factors: cb.DVector) -> dict[int, cb.DVector]:
+        if adj_factors is not None:
+            mts = mts_production
+            if "total" not in mts.segmentation.names:
+                mts = mts.add_segments([cb.segmentation.SegmentsSuper("total").get_segment()])
+            adj = mts * adj_factors
+            numerator = mts.aggregate(["total"]).translate_zoning(cb.ZoningSystem.get_zoning("gor")).translate_zoning(cb.ZoningSystem.get_zoning(self.model._zoning_system), check_totals=False, no_factors=True)
+            denomenator = adj.aggregate(["total"]).translate_zoning(cb.ZoningSystem.get_zoning("gor")).translate_zoning(cb.ZoningSystem.get_zoning(self.model._zoning_system), check_totals=False, no_factors=True)
+            adj = adj * (numerator/denomenator)
+            mts_production_adj = adj
+        else:
+            mts_production_adj = mts_production
+        
+        return mts_production_adj
 
 
     def _create_tem_production(self, mts_production: cb.DVector) -> cb.DVector:

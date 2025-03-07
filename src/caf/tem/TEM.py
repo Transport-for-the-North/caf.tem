@@ -87,6 +87,7 @@ class TEM:
         trip_rates_path: os.PathLike,
         mode_time_splits_path: os.PathLike,
         adjustment_path: os.PathLike=None,
+        mts_adj_path: os.PathLike=None,
         population_translation_path=None
     ) -> HBProductionModel_TP:
         """
@@ -127,9 +128,10 @@ class TEM:
             population_paths,
             population_translation_path,
             trip_rates_path,
+            adjustment_path,
             mode_time_splits_path,
+            mts_adj_path,
             tem_segmentation=self.return_segmentation,
-            hb_fr_adjustment_path=adjustment_path,
         )
 
         return self.hb_production_model
