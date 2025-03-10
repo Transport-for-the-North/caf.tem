@@ -44,36 +44,41 @@ import caf.tem.utils as utils
 """
 
 class HBProductionModel_TP:
-    _log_fname = "HBProductionModel_log.log"
     """
-    The Home-Based (HB) Production Model of caf.tem
-
-    Run the HB Production Model by calling the run() method.
+    The Home-Based (HB) Production Model class of caf.tem
 
     Paramaters
     ----------
     model : caf.tem.ProductionModelPaths
-        The HB Production Model paths for exporting data. These are automatically created through within the Trip End Model (TEM).
+        The HB Production Model paths for exporting data.
+        These are automatically created in the Trip End Model (TEM), of which this HB Production Model is a child.
 
     population_paths : Dict[int, os.PathLike]
-        Dictionary of {year: land_use_employment_data} pairs. As passed into the constructor.
-        Land use employment data should be in DVector format with either .dvec or .hdf extension.
+        Dictionary of {year: population_data_path} pairs.
+        Population data should be in DVector format with either .dvec or .hdf extension.
+
+    pop_trans_path : os.Pathlike
+        The path to the translation vector between the zoning of the input population DVector and the Trip End Model's Output Zoning.
+        The translation vector should be a .csv file.
 
     trip_rates_path : os.PathLike
-        The path to the production trip rates. As passed into the constructor.
+        The path to the production trip rates.
         Trip rates data should be in DVector format with either .dvec or .hdf extension.
 
+    trip_rates_adjustment_path : os.PathLike
+        TODO
+
     mts_path : os.PathLike
-        The path to HB production mode-time splits (MTS). As passed into the constructor.
+        The path to HB production mode-time splits (MTS).
         MTS data should be in DVector format with either .dvec or .hdf extension.
 
-    tem_segmentation : caf.base.Segmentation
-        The TEM segmentation. This is automatically passed from the return segmentation specified in the created TEM model, of which the HB Production Model is a child.
+    mts_adjustment_path : os.PathLike
+        TODO
 
-    trip_end_adjustments : List[TripEndAdjustmentFactors], optional TODO
-            List of all adjustment factors to apply to the trip ends. Adjustments
-            are applied one after another at to the productions in the output
-            segmentation.
+    tem_segmentation : list[str]
+        TODO
+
+    
     """
     def __init__(
         self,
@@ -97,6 +102,11 @@ class HBProductionModel_TP:
         self.hb_fr_adjustment_path = hb_fr_adjustment_path
         self.pop_trans = pd.read_csv(pop_trans_path) if pop_trans_path is not None else None
         self.mts_adjust_path = mts_adjustment_path
+
+        _log_fname = "HBProductionModel_log.log"
+        logger_name = "%s.%s" % ("placeholder", self.__class__.__name__)
+        log_file_path = Path(self.model.export_home) / _log_fname
+        self._logger = logging.getLogger(logger_name)
 
 
     def _format_init_paths(self, population_paths: dict[int, os.PathLike], trip_rates_path: os.PathLike, mts_path: os.PathLike) -> tuple[dict[int, Path], Path, Path]:
@@ -161,6 +171,9 @@ class HBProductionModel_TP:
             Whether to export the pure demand to disk or not.
             Will be written out to: self.export_paths.pure_production[year]
 
+        export_mts_production:
+            TODO
+
         export_tem_segmentation:
             Whether to export the notem segmented demand to disk or not.
             Will be written out to: self.export_paths.notem_segmented[year]
@@ -175,6 +188,8 @@ class HBProductionModel_TP:
         """
 
         # ## START ## #
+        start_time = ctk.timing.current_milli_time()
+        self._logger.info("Starting HB Production Model")
 
         # ## READ INPUTS ## #
         # Read in the trip rates DVector file. Trip rates are not year dependent.
@@ -191,7 +206,7 @@ class HBProductionModel_TP:
 
         # Generate the productions for each year
         for year in self.population_paths.keys():
-            
+            year_start_time = ctk.timing.current_milli_time()
             # ## READ INPUTS ## #
             # Read in the population land use for the given year
             population = self._read_population(year)
@@ -224,6 +239,16 @@ class HBProductionModel_TP:
             if export_tem_segmentation:
                 tem_production.save(self.model.export_paths.tem_segmented[year])
 
+            year_end_time = ctk.timing.current_milli_time()
+            time_taken = ctk.timing.time_taken(year_start_time, year_end_time)
+            self._logger.info("HB Productions in year %s took: %s\n" % (year, time_taken))
+        
+        # End timing
+        end_time = ctk.timing.current_milli_time()
+        time_taken = ctk.timing.time_taken(start_time, end_time)
+        self._logger.info("HB Production Model took:%s" % time_taken)
+        self._logger.info("HB Production Model Finished")
+
         return None
 
 
@@ -250,11 +275,12 @@ class HBProductionModel_TP:
         return mts
     
     def _read_adj_factors(self):
-        """
+        """Reads in trip rates adjustment factors
         """
         if self.hb_fr_adjustment_path is None:
             return None
         
+        self._logger.info("Loading the trip rates adjustment factors")
         adj_factors = cb.DVector.load(self.hb_fr_adjustment_path)
         # Ensure zoning system of mts matches the TEM Model zoning system
         zoning_system = cb.ZoningSystem.get_zoning(self.model._zoning_system)
@@ -264,11 +290,12 @@ class HBProductionModel_TP:
     
 
     def _read_mts_adj_factors(self):
-        """
+        """Reads in MTS adjustment factors
         """
         if self.mts_adjust_path is None:
             return None
         
+        self._logger.info("Loading the MTS adjustment factors")
         adj_factors = cb.DVector.load(self.mts_adjust_path)
         # Ensure zoning system of mts matches the TEM Model zoning system
         zoning_system = cb.ZoningSystem.get_zoning(self.model._zoning_system)
@@ -282,6 +309,8 @@ class HBProductionModel_TP:
         - Reads the population land use DVector, for one given year, from the path given in the constructor
         - Translates the population landuse DVector zoning system to the TEM Model zoning system
         """
+
+        self._logger.info(f"Year {year}:\n  Loading the population data")
         population = cb.DVector.load(self.population_paths[year])
         # Ensure zoning system of mts matches the TEM Model zoning system
         zoning_system = cb.ZoningSystem.get_zoning(self.model._zoning_system)
@@ -294,6 +323,7 @@ class HBProductionModel_TP:
         """Creates Pure Production
         - Multiplies the population landuse by the trip rates, creating pure production
         """
+        self._logger.info(" Calculating pure production")
         pure_production = population * trip_rates
 
         return pure_production
@@ -303,6 +333,7 @@ class HBProductionModel_TP:
         """Adjusts the Pure Production
         - 
         """
+        self._logger.info(" Calculating pure production")
         if adj_factors is not None:
             production_adj = production * adj_factors
         else:
@@ -315,6 +346,7 @@ class HBProductionModel_TP:
         """
         - Multiplies the Pure Production by the mode-time split DVector, as passed into the constructor
         """
+        self._logger.info(" Applying mode time split")
         mts_production = pure_production * mts
 
         return mts_production
@@ -322,6 +354,7 @@ class HBProductionModel_TP:
 
     def _adjust_mts_production(self, mts_production: cb.DVector, adj_factors: cb.DVector) -> dict[int, cb.DVector]:
         if adj_factors is not None:
+            self._logger.info(" Adjusting mode time split")
             mts = mts_production
             #if "total" not in mts.segmentation.names:
             #    mts = mts.add_segments([cb.segmentation.SegmentsSuper("total").get_segment()])
@@ -341,6 +374,7 @@ class HBProductionModel_TP:
         """TEM Production
         - Aggregates MTS Production to TEM Segmentation
         """
+        self._logger.info(" Aggregating to TEM Output Segmentation")
         tem_production = mts_production.aggregate(self.tem_segmentation)
 
         return tem_production
@@ -541,6 +575,7 @@ class NHBProductionModel_TP:
         """
         - TODO
         """
+        self._logger.info("Loading the trip rates data")
         trip_rates = cb.DVector.load(self.trip_rates_path)
         zoning_system = cb.ZoningSystem.get_zoning(self.model._zoning_system) # TODO - have as global var / pass as zoning so it doesn't get read multiple times. Not urgent. - possibly change to utils func "read dvec" from path input
         trip_rates = trip_rates.translate_zoning(zoning_system, check_totals=False, no_factors=True)
@@ -553,6 +588,7 @@ class NHBProductionModel_TP:
         - Reads the mode-time split (MTS) DVector, from the path given in the constructor
         - Translates the MTS DVector zoning system to the TEM Model zoning system
         """
+        self._logger.info("Loading the mode time split data")
         mts = cb.DVector.load(self.mts_path)
         # Ensure zoning system of mts matches the TEM Model zoning system
         zoning_system = cb.ZoningSystem.get_zoning(self.model._zoning_system)
