@@ -9,7 +9,7 @@ import caf.base as cb
 
 from .inputs import TEMExportPaths, Scenarios
 from .attraction_models import AttractionModel
-from .production_models import HBProductionModel_TP, NHBProductionModel_TP
+from .production_models import HBProductionModel, NHBProductionModel_TP
 
 """VARIABLE CODING INFORMATION:
 """
@@ -89,7 +89,7 @@ class TEM:
         adjustment_path: os.PathLike=None,
         mts_adj_path: os.PathLike=None,
         population_translation_path=None
-    ) -> HBProductionModel_TP:
+    ) -> HBProductionModel:
         """
         The Home-Based (HB) Production Model of caf.tem
 
@@ -123,7 +123,7 @@ class TEM:
         See HBProductionModelPaths for documentation on:
             "path_years, export_home, report_home, export_paths, report_paths"
         """
-        self.hb_production_model = HBProductionModel_TP(
+        self.hb_production_model = HBProductionModel(
             self.export_paths.hb_production,
             population_paths,
             population_translation_path,

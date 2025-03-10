@@ -46,7 +46,7 @@ POPULATION_V2_LANDUSE_DIR = Path(r"F:\Deliverables\Land-Use\241213_Populationv2\
 
 """EXECUTION OF CODE:
 """
-class HBProductionModel_TP:
+class HBProductionModel:
     """
     The Home-Based (HB) Production Model class of caf.tem
 
