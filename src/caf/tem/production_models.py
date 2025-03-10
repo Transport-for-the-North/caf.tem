@@ -307,7 +307,7 @@ class HBProductionModel_TP:
             production_adj = production * adj_factors
         else:
             production_adj = production
-
+        
         return production_adj
         
 
@@ -323,11 +323,12 @@ class HBProductionModel_TP:
     def _adjust_mts_production(self, mts_production: cb.DVector, adj_factors: cb.DVector) -> dict[int, cb.DVector]:
         if adj_factors is not None:
             mts = mts_production
-            if "total" not in mts.segmentation.names:
-                mts = mts.add_segments([cb.segmentation.SegmentsSuper("total").get_segment()])
+            #if "total" not in mts.segmentation.names:
+            #    mts = mts.add_segments([cb.segmentation.SegmentsSuper("total").get_segment()])
+            adj_factors.fill(0,1)
             adj = mts * adj_factors
-            numerator = mts.aggregate(["total"]).translate_zoning(cb.ZoningSystem.get_zoning("gor")).translate_zoning(cb.ZoningSystem.get_zoning(self.model._zoning_system), check_totals=False, no_factors=True)
-            denomenator = adj.aggregate(["total"]).translate_zoning(cb.ZoningSystem.get_zoning("gor")).translate_zoning(cb.ZoningSystem.get_zoning(self.model._zoning_system), check_totals=False, no_factors=True)
+            numerator = mts.aggregate(["p"]).translate_zoning(cb.ZoningSystem.get_zoning("gor")).translate_zoning(cb.ZoningSystem.get_zoning(self.model._zoning_system), check_totals=False, no_factors=True)
+            denomenator = adj.aggregate(["p"]).translate_zoning(cb.ZoningSystem.get_zoning("gor")).translate_zoning(cb.ZoningSystem.get_zoning(self.model._zoning_system), check_totals=False, no_factors=True)
             adj = adj * (numerator/denomenator)
             mts_production_adj = adj
         else:
