@@ -39,16 +39,28 @@ def create_hb_production_input() -> dict[str, Path]:
         adj_dvec.save(dvec_path)
 
     # Mode Time Split
-    dvec_path = out_dir / "hb_mode_time_split_production_fr_reg.hdf"
+    dvec_path = out_dir / "mode_time_split_production_hb_fr_reg.hdf"
     hb_production_input_paths["mode_time_splits"] = dvec_path
     if not os.path.exists(dvec_path):
-        mts = pd.read_csv(NTS_DIR / "productions/hb/mode_time_splits/hb_mode_time_split_production_fr_reg.csv")
+        mts = pd.read_csv(NTS_DIR / "productions/hb/mode_time_splits/mode_time_split_production_hb_fr_reg.csv") # TODO double check correct path 25 Feb.
         mts = mts.rename(columns={"mode": "m", "period": "tp", "purpose": "p"}).pivot(index=["p", "m", "tp", "hh_type"], columns="tfn_at", values="rho")
         segmentation = cb.Segmentation(cb.SegmentationInput(enum_segments=["p", "m", "tp", "hh_type"],
                                                             naming_order=["p", "m", "tp", "hh_type"]))
         zoning_system = cb.ZoningSystem.get_zoning("tfn_at")
         mts_dvec = cb.DVector(segmentation=segmentation, import_data=mts, zoning_system=zoning_system)
         mts_dvec.save(dvec_path)
+
+    # Mode Time Split Adjustment
+    dvec_path = out_dir / "mode_time_split_adjustments.hdf"
+    hb_production_input_paths["mode_time_splits_adjustment"] = dvec_path
+    if not os.path.exists(dvec_path):
+        adj = pd.read_csv(NTS_DIR / "others/mode_time_split_adjustments.csv")
+        adj = adj.rename(columns={"purpose": "p", "period": "tp", "mode": "m"}).loc[(adj["pa"]=="p") & (adj["direction"]=="hb_fr")].pivot(index=["p", "tp", "m"], columns="gor", values="adj")
+        segmentation = cb.Segmentation(cb.SegmentationInput(enum_segments=["p", "tp", "m"],
+                                                            naming_order=["p", "tp", "m"]))
+        zoning_system = cb.ZoningSystem.get_zoning("gor")
+        adj_dvec = cb.DVector(segmentation=segmentation, import_data=adj, zoning_system=zoning_system)
+        adj_dvec.save(dvec_path)
 
     return hb_production_input_paths
 
