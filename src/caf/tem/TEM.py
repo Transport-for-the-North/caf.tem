@@ -75,7 +75,7 @@ class TEM:
         self.iteration_name = iteration_name
         self.export_paths = TEMExportPaths(model_years, self.scenario, iteration_name, export_home)
         self.return_segmentation = cb.Segmentation(cb.SegmentationInput(enum_segments=return_segmentation, naming_order=return_segmentation))
-        self.hb_production_model: HBProductionModel_TP = None
+        self.hb_production_model: HBProductionModel = None
         self.hb_attraction_model: AttractionModel = None
         self.nhb_production_model: NHBProductionModel_TP = None
         self.nhb_attraction_model: AttractionModel = None
