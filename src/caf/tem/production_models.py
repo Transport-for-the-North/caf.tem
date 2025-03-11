@@ -231,6 +231,9 @@ class HBProductionModel:
             if export_pure_production:
                 pure_production.save(self.model.export_paths.pure_demand[year])
                 pure_production_adj.save(self.model.export_paths.pure_demand_adj[year])
+            if export_reports:
+                utils.write_reports(pure_production, self.model.report_paths.pure_demand, year)
+                utils.write_reports(pure_production_adj, self.model.report_paths.pure_demand_adj, year)
 
             # ## MODE TIME SPLIT ## #
             mts_production = self._create_mts_production(pure_production_adj, mts) # Only carry on adj from here TODO confirm w Isaac
@@ -239,6 +242,9 @@ class HBProductionModel:
             if export_mts_production:
                 mts_production.save(self.model.export_paths.mts_demand[year])
                 mts_production_adj.save(self.model.export_paths.mts_demand_adj[year])
+            if export_reports:
+                utils.write_reports(mts_production, self.model.report_paths.mts_demand, year)
+                utils.write_reports(mts_production_adj, self.model.report_paths.mts_demand_adj, year)
             # No longer need Pure Production
             del pure_production, pure_production_adj
 
@@ -249,6 +255,8 @@ class HBProductionModel:
             # Export tem productions
             if export_tem_segmentation:
                 tem_production.save(self.model.export_paths.tem_segmented[year])
+            if export_reports:
+                utils.write_reports(mts_production, self.model.report_paths.tem_segmented, year)
 
             year_end_time = ctk.timing.current_milli_time()
             time_taken = ctk.timing.time_taken(year_start_time, year_end_time)
