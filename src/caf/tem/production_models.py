@@ -2,8 +2,9 @@
 from __future__ import annotations
 
 """ASSUMPTIONS:
-
+    - List assumptions here... TODO
 """
+
 
 """IMPORTS REQUIRED:
 """
@@ -89,7 +90,7 @@ class HBProductionModel:
         population_paths: dict[int, os.PathLike],
         pop_trans_path: os.PathLike,
         trip_rates_path: os.PathLike,
-        hb_fr_adjustment_path: os.PathLike,
+        trip_rate_adjustment_path: os.PathLike,
         mts_path: os.PathLike,
         mts_adjustment_path: os.PathLike,
         tem_segmentation: cb.Segmentation,
@@ -102,7 +103,7 @@ class HBProductionModel:
         self.years = list(self.population_paths.keys())
         self.tem_segmentation = tem_segmentation
         self.path_years = self.years
-        self.hb_fr_adjustment_path = hb_fr_adjustment_path
+        self.trip_rate_adjustment_path = trip_rate_adjustment_path
         self.pop_trans = pd.read_csv(pop_trans_path) if pop_trans_path is not None else None
         self.mts_adjust_path = mts_adjustment_path
 
@@ -129,7 +130,7 @@ class HBProductionModel:
             raise FileNotFoundError(f"{trip_rates_path} not a valid file.")
         if not mts_path.is_file():
             raise FileNotFoundError(f"{mts_path} is not a valid file.")
-        # TODO test hb_fr_adjustment_path
+        # TODO test trip_rate_adjustment_path
 
         return population_paths, trip_rates_path, mts_path
     
@@ -194,31 +195,38 @@ class HBProductionModel:
         start_time = ctk.timing.current_milli_time()
         self._logger.info("Starting HB Production Model")
 
+        # If all exports are False, then the function is redundant
+        if not (export_pure_production or export_tem_segmentation or export_mts_production or export_reports):
+            # End timing TODO move to a function rather than have here, similarly at end of run() method
+            self._logger.info("All exports set to False. Run not executed.") # TODO consider running anyway in case user wants to debug.
+            end_time = ctk.timing.current_milli_time()
+            time_taken = ctk.timing.time_taken(start_time, end_time)
+            self._logger.info("HB Production Model took:%s" % time_taken)
+            self._logger.info("HB Production Model Finished")
+            return None
+        
         # ## READ INPUTS ## #
         # Read in the trip rates DVector file. Trip rates are not year dependent.
         trip_rates: cb.DVector = self._read_trip_rates()
         # Read in the MTS dvec file. MTS is not year dependent.
         mts: cb.DVector = self._read_mts()
         # Read in the adjustment factors, if passed
-        adj_factors: cb.DVector = self._read_adj_factors()
-        mts_adj_factors: cb.DVector = self._read_mts_adj_factors()
-
-        # If all exports are False, then the function is redundant
-        if not (export_pure_production or export_tem_segmentation or export_reports):
-            return None
+        adj_factors: cb.DVector = self._read_trip_rate_adjustment()
+        mts_adj_factors: cb.DVector = self._read_mts_adjustment()
 
         # Generate the productions for each year
         for year in self.population_paths.keys():
             year_start_time = ctk.timing.current_milli_time()
+            
             # ## READ INPUTS ## #
             # Read in the population land use for the given year
-            population = self._read_population(year)
+            population = self._read_population_landuse(year)
 
             # ## PURE PRODUCTION ## #
             # Creat pure productions
             pure_production = self._create_pure_production(population, trip_rates)
             # Adjust rate
-            pure_production_adj = self._adjust_production(pure_production, adj_factors)
+            pure_production_adj = self._adjust_production(pure_production, trip_rate_adj_factors)
             # Export pure productions
             if export_pure_production:
                 pure_production.save(self.model.export_paths.pure_demand[year])
@@ -237,7 +245,7 @@ class HBProductionModel:
             # ## TEM SEGMENTATION ## #
             tem_production = self._create_tem_production(mts_production_adj)
             # Adjust rate
-            #tem_production_adj = self._adjust_production(tem_production, adj_factors)
+            #tem_production_adj = self._adjust_production(tem_production, trip_rate_adj_factors)
             # Export tem productions
             if export_tem_segmentation:
                 tem_production.save(self.model.export_paths.tem_segmented[year])
@@ -277,14 +285,14 @@ class HBProductionModel:
         
         return mts
     
-    def _read_adj_factors(self):
+    def _read_trip_rate_adjustment(self):
         """Reads in trip rates adjustment factors
         """
-        if self.hb_fr_adjustment_path is None:
+        if self.trip_rate_adjustment_path is None:
             return None
         
         self._logger.info("Loading the trip rates adjustment factors")
-        adj_factors = cb.DVector.load(self.hb_fr_adjustment_path)
+        adj_factors = cb.DVector.load(self.trip_rate_adjustment_path)
         # Ensure zoning system of mts matches the TEM Model zoning system
         zoning_system = cb.ZoningSystem.get_zoning(self.model._zoning_system)
         adj_factors = adj_factors.translate_zoning(zoning_system, check_totals=False, no_factors=True)
@@ -292,7 +300,7 @@ class HBProductionModel:
         return adj_factors
     
 
-    def _read_mts_adj_factors(self):
+    def _read_mts_adjustment(self):
         """Reads in MTS adjustment factors
         """
         if self.mts_adjust_path is None:
@@ -307,7 +315,7 @@ class HBProductionModel:
         return adj_factors
     
 
-    def _read_population(self, year: int):
+    def _read_population_landuse(self, year: int):
         """Reads in the Population Landuse DVector
         - Reads the population land use DVector, for one given year, from the path given in the constructor
         - Translates the population landuse DVector zoning system to the TEM Model zoning system
@@ -336,11 +344,11 @@ class HBProductionModel:
         """Adjusts the Pure Production
         - 
         """
-        self._logger.info(" Calculating pure production")
-        if adj_factors is not None:
-            production_adj = production * adj_factors
-        else:
-            production_adj = production
+        if adj_factors is None: 
+            return production
+        
+        self._logger.info(" Adjusting pure production given trip rate adjustments") # TODO adjust trip rates in the first place? - easier/ faster, i.e. trip rates * trip rates adjustment before expansion to model zoning.
+        production_adj = production * adj_factors
         
         return production_adj
         
@@ -355,20 +363,21 @@ class HBProductionModel:
         return mts_production
     
 
-    def _adjust_mts_production(self, mts_production: cb.DVector, adj_factors: cb.DVector) -> dict[int, cb.DVector]:
-        if adj_factors is not None:
-            self._logger.info(" Adjusting mode time split")
-            mts = mts_production
-            #if "total" not in mts.segmentation.names:
-            #    mts = mts.add_segments([cb.segmentation.SegmentsSuper("total").get_segment()])
-            adj_factors.fill(0,1)
-            adj = mts * adj_factors
-            numerator = mts.aggregate(["p"]).translate_zoning(cb.ZoningSystem.get_zoning("gor")).translate_zoning(cb.ZoningSystem.get_zoning(self.model._zoning_system), check_totals=False, no_factors=True)
-            denomenator = adj.aggregate(["p"]).translate_zoning(cb.ZoningSystem.get_zoning("gor")).translate_zoning(cb.ZoningSystem.get_zoning(self.model._zoning_system), check_totals=False, no_factors=True)
-            adj = adj * (numerator/denomenator)
-            mts_production_adj = adj
-        else:
-            mts_production_adj = mts_production
+    def _adjust_mts_production(self, mts_production: cb.DVector, adj_factors: cb.DVector) -> cb.DVector:
+        """
+        """
+        if adj_factors is None:
+            return mts_production
+        
+        self._logger.info(" Adjusting mode time split")
+        mts = mts_production
+        adj_factors.fill(0,1)
+        adj = mts * adj_factors
+        # TODO currently balances with gor -> may want to use normits / optional / other zoning instead...
+        numerator = mts.aggregate(["p"]).translate_zoning(cb.ZoningSystem.get_zoning("gor")).translate_zoning(cb.ZoningSystem.get_zoning(self.model._zoning_system), check_totals=False, no_factors=True)
+        denomenator = adj.aggregate(["p"]).translate_zoning(cb.ZoningSystem.get_zoning("gor")).translate_zoning(cb.ZoningSystem.get_zoning(self.model._zoning_system), check_totals=False, no_factors=True)
+        adj = adj * (numerator/denomenator)
+        mts_production_adj = adj
         
         return mts_production_adj
 
@@ -547,7 +556,7 @@ class NHBProductionModel_TP:
         # Generate the nhb productions for each year
         for year in self.years:
 
-            # ## GENERATE PURE DEMAND ## #
+            # ## READ HB ATTRACTION ## #
             # TODO
             hbattr = self._read_HB_attraction(year)
 

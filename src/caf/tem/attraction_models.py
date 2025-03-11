@@ -396,9 +396,11 @@ class AttractionModel:
                 mts = mts_dict[p]
                 if "total" not in mts.segmentation.names:
                     mts = mts.add_segments([cb.segmentation.SegmentsSuper("total").get_segment()])
+                adj_factors.fill(0, 1)
+                adj_factors.fillna(1)
                 adj = mts * adj_factors.filter_segment_value("p", [p])
-                numerator = mts.aggregate(["total"]).translate_zoning(cb.ZoningSystem.get_zoning("gor")).translate_zoning(cb.ZoningSystem.get_zoning(self.model._zoning_system), check_totals=False, no_factors=True)
-                denomenator = adj.aggregate(["total"]).translate_zoning(cb.ZoningSystem.get_zoning("gor")).translate_zoning(cb.ZoningSystem.get_zoning(self.model._zoning_system), check_totals=False, no_factors=True)
+                numerator = mts.aggregate(["p"]).translate_zoning(cb.ZoningSystem.get_zoning("gor")).translate_zoning(cb.ZoningSystem.get_zoning(self.model._zoning_system), check_totals=False, no_factors=True)
+                denomenator = adj.aggregate(["p"]).translate_zoning(cb.ZoningSystem.get_zoning("gor")).translate_zoning(cb.ZoningSystem.get_zoning(self.model._zoning_system), check_totals=False, no_factors=True)
                 adj = adj * (numerator/denomenator)
                 mts_dict_adj[p] = adj
 
@@ -415,9 +417,9 @@ class AttractionModel:
         """
         # Concatonate the (optionally balanced) Pure Attraction by purpose
         for p in attr_dict.keys():
-            try: output_pure = output_pure.concat(attr_dict[p].aggregate(["p"]))
-            except NameError: output_pure = attr_dict[p].aggregate(["p"]) # Initialises the output object
-        # Write Pure Attractions
+            try: output_pure = output_pure.concat(attr_dict[p].aggregate(["p", "m", "tp"]))
+            except NameError: output_pure = attr_dict[p].aggregate(["p", "m", "tp"]) # Initialises the output object
+        # Write MTS Attractions
         out_path = self.model.export_paths.mts_demand[year]
         if adj: out_path = self.model.export_paths.mts_demand_adj[year]
         output_pure.save(out_path)

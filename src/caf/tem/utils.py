@@ -52,18 +52,6 @@ LAD_REPORT_SEG: cb.SegmentationInput = cb.SegmentationInput(
         subsets={"tp": [1, 2, 3, 4, 5, 6]},
     )
 
-sic_to_ecode = {
-    1: [],  # commuting
-    2: [],  # e.bussiness
-    3: [85],  # education
-    4: [46, 47],  # Shopping: retail
-    5: [86, 64, 65, 66, 68, 69, 75, 77, 79, 80, 95, 96, 56], # has some specific sic by e_code - needs revision TODO
-    6: [90, 91, 92, 93, 94],  # Social
-    7: [],  # visit friend
-    8: [55, 2, 3],
-}
-
-
 # # # CLASSES # # #
 
 # # # FUNCTIONS # # #
