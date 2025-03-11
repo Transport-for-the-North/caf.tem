@@ -216,18 +216,25 @@ class HBProductionModel_TP:
             pure_production = self._create_pure_production(population, trip_rates)
             # Adjust rate
             pure_production_adj = self._adjust_production(pure_production, adj_factors)
-            # Export pure productions
-            if export_pure_production:
+            # Export pure productions DVectors
+            if export_pure_production:  # TODO tidier to put in function - probably one for both reports and pure
                 pure_production.save(self.model.export_paths.pure_demand[year])
                 pure_production_adj.save(self.model.export_paths.pure_demand_adj[year])
+            #Export pure productions reports
+            if export_reports: # TODO tidier to put in function
+                utils.write_reports(pure_production, self.model.report_paths.pure_demand, year)
+                utils.write_reports(pure_production_adj, self.model.report_paths.pure_demand_adj, year)
 
             # ## MODE TIME SPLIT ## #
             mts_production = self._create_mts_production(pure_production_adj, mts) # Only carry on adj from here TODO confirm w Isaac
             mts_production_adj = self._adjust_mts_production(mts_production, mts_adj_factors) # TODO check if HB Prod has mts adj. -> create function for this
-            # Export mts production
+            # Export mts production TODO tidier to put in function - probably one for both reports and pure - combine to one function, don't need duplicate func for pure and mts etc.
             if export_mts_production:
                 mts_production.save(self.model.export_paths.mts_demand[year])
                 mts_production_adj.save(self.model.export_paths.mts_demand_adj[year])
+            if export_reports: # TODO tidier to put in function
+                utils.write_reports(mts_production, self.model.report_paths.mts_demand, year)
+                utils.write_reports(mts_production_adj, self.model.report_paths.mts_demand_adj, year)
             # No longer need Pure Production
             del pure_production, pure_production_adj
 

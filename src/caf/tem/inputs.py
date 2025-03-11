@@ -167,7 +167,7 @@ class TEMModelPaths:
             tem_segmented=tem_segmented_paths,
         )
 
-    def _create_report_paths(self) -> None:
+    def _create_report_paths(self) -> None: 
         """
         Creates self.report_paths
         """
@@ -180,7 +180,7 @@ class TEMModelPaths:
             tem_segmented=self._generate_report_paths(self._tem_segmented),
         )
 
-    def _generate_report_paths( # TODO should this be a class, rather than function? 
+    def _generate_report_paths( # TODO should this be a class, rather than function?
         self,
         report_name: str,
     ) -> tuple[dict[int, str], dict[int, str], dict[int, str]]:
