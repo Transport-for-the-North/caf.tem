@@ -211,7 +211,7 @@ class HBProductionModel:
         # Read in the MTS dvec file. MTS is not year dependent.
         mts: cb.DVector = self._read_mts()
         # Read in the adjustment factors, if passed
-        adj_factors: cb.DVector = self._read_trip_rate_adjustment()
+        trip_rate_adj_factors: cb.DVector = self._read_trip_rate_adjustment()
         mts_adj_factors: cb.DVector = self._read_mts_adjustment()
 
         # Generate the productions for each year
