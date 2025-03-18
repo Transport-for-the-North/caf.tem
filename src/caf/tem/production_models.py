@@ -70,14 +70,14 @@ class HBProductionModel:
         Trip rates data should be in DVector format with either .dvec or .hdf extension.
 
     trip_rates_adjustment_path : os.PathLike
-        TODO
+        TODO description
 
     mts_path : os.PathLike
         The path to HB production mode-time splits (MTS).
         MTS data should be in DVector format with either .dvec or .hdf extension.
 
     mts_adjustment_path : os.PathLike
-        TODO
+        TODO description
 
     tem_segmentation : list[str]
         TODO
@@ -293,6 +293,7 @@ class HBProductionModel:
         
         return mts
     
+    
     def _read_trip_rate_adjustment(self):
         """Reads in trip rates adjustment factors
         """
@@ -485,7 +486,7 @@ class NHBProductionModel_TP:
 
         ## Assign
         self.hb_attraction_model = hb_attraction_model
-        self.hb_attraction_paths = hb_attraction_model.export_paths.fully_segmented
+        self.hb_attraction_paths = hb_attraction_model.export_paths.tem_segmented
         self.trip_rates_path = trip_rates_path
         self.mts_path = mts_path
         self.balance_production = balance_production

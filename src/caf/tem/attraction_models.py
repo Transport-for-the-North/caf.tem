@@ -34,7 +34,8 @@ class AttractionModel:
         hh_trans_path: os.PathLike,
         mts_path: os.PathLike,
         mts_adjustment_path: os.PathLike,
-        tem_segmentation: cb.Segmentation
+        tem_segmentation: cb.Segmentation,
+        mts_uni_path: os.PathLike
     ):
         self.production_model = production_model
         self.model = model
@@ -47,6 +48,7 @@ class AttractionModel:
         self.emp_trans = pd.read_csv(emp_trans_path) if emp_trans_path is not None else None
         self.hh_trans = pd.read_csv(hh_trans_path) if hh_trans_path is not None else None
         self.mts_adjustment_path = mts_adjustment_path
+        self.mts_uni_path = mts_uni_path
 
 
     def _format_init_paths(self, trip_rates_paths: dict[int, os.PathLike], emp_landuse_paths: dict[int, os.PathLike], hh_landuse_dirs: dict[int, os.PathLike], hh_landuse_prefix: str, mts_path: os.PathLike) -> tuple[dict[int, Path], dict[int, Path], dict[int, dict[str, Path]], Path]:
@@ -126,8 +128,8 @@ class AttractionModel:
 
         # Ensure production balance file exists... (if balance_production is True)
         for year in self.model.path_years:
-            if not os.path.exists(self.production_model.export_paths.pure_demand[year]):
-                raise FileNotFoundError("The Pure Productions file is not found. Run the Home Based Production Model to create this file first.")
+            if not os.path.exists(self.production_model.export_paths.tem_segmented[year]):
+                raise FileNotFoundError("The TEM Segmented Productions file is not found. Run the Home Based Production Model to create this file first.")
 
         # ## CONSTANTS ## #
         report_paths = self.model.report_paths
@@ -141,13 +143,14 @@ class AttractionModel:
         mts: cb.DVector = self._read_mts()
          # Read in the adjustment factors, if passed
         adj_factors_dict: dict[str, cb.DVector] = self._read_adj_factors() # TODO move to utils bc. both attraction and production use this?
-
+        mts_uni = cb.DVector.load(self.mts_uni_path)
+        mts_uni = mts_uni.translate_zoning(cb.ZoningSystem.get_zoning(self.model._zoning_system))
 
         # For each year the model is running for...
         for year in self.emp_landuse_paths.keys(): # -> TODO is this the correct iterable, path_years or keys of emp landuse? - or check path_years = dict keys of emp_landuse and hh_landuse. What if p7 isn't being tested, wouldn't need hh_landuse...
             
             # Read in the landuses dvec files specific to the year.
-            landuses: dict[str, cb.DVector] = {"emp": self._read_emp_lu(year), "hh": self._read_hh_lu(year)}
+            landuses: dict[str, cb.DVector | dict[str, cb.DVector]] = {"emp": self._read_emp_lu(year), "hh": self._read_hh_lu(year)}
             
             # ## PURE ATTRACTION ## #
             # Create a dictionary of attractions by purpose
@@ -163,7 +166,7 @@ class AttractionModel:
 
             # ## MODE TIME SPLIT ## #
             # Create a dictionary of attractions, with mode time split applied, by purpose
-            mts_dict = self._create_mts_dict(attr_dict_adj, mts)
+            mts_dict = self._create_mts_dict(attr_dict_adj, mts, mts_uni)
             # Tests to the MTS dict created - TODO confirm rel/abs tolerance w Isaac for this test.
             self._check_mts_dict(attr_dict_adj, mts_dict)
             # Apply mts adjustment
@@ -271,17 +274,49 @@ class AttractionModel:
     def _read_emp_lu(self, year):
         """
         - Reads the employment land use DVector, for one given year, from the path given in the constructor
-        - Translates the employment landuse DVector zoning system to the TEM Model zoning system
+        - Checks if "uni" is a column in the translation vector
+            - 
+        - Translates the employment landuse DVector(s) zoning system to the TEM Model zoning system
+        - Returns a dictionary of landuses, one for employment, one for education (non-uni), one for education (uni)
         """
         # Read the employment landuse DVector for the given year
         emp_landuse = cb.DVector.load(self.emp_landuse_paths[year]).add_segments([cb.segmentation.SegmentsSuper("total").get_segment()])
         # Rename Segmentation
         emp_landuse = cb.DVector(segmentation=emp_landuse.segmentation, import_data=emp_landuse.data, zoning_system=cb.ZoningSystem.get_zoning("lsoa_2021"))
+        emp_landuse = emp_landuse.aggregate(["total", "sic_2_digit", "soc"])
+        d = {}
+        d["emp"] = emp_landuse
+        d["edu"] = emp_landuse.filter_segment_value("sic_2_digit", [86])
+        d["uni"] = None
+        if self.emp_trans is not None and "uni" in self.emp_trans.columns:
+            di = cb.ZoningSystem.get_zoning("lsoa_2021").id_to_name
+            di = {val: key for key, val in di.items()} # TODO will this will only be the case for Nhan's lsoa trans?
+            trans = self.emp_trans
+            emp_zones = trans.loc[trans["uni"]==0]["lsoa_2021_id"]
+            uni_zones = trans.loc[trans["uni"]>0]["lsoa_2021_id"]
+            uni_zones = uni_zones.apply(lambda x: di[x])
+            emp_zones = emp_zones.apply(lambda x: di[x])
+            uni = d["edu"].select_zone(list(uni_zones.values))#.data NB. Isaac may have fixed s/t the select_zone function returns DVec with Zoning.
+            edu = d["edu"].select_zone(list(emp_zones.values))#.data
+
+            #cols = di.values()
+            #empty = pd.DataFrame(columns=cols, index=edu.index).fillna(0)
+            #uni = (uni+empty).fillna(0) # TODO - seems not to work... not sure why
+            #edu = (edu+empty).fillna(0)
+            #uni = cb.DVector(segmentation=d["edu"].segmentation, import_data=uni, zoning_system=cb.ZoningSystem.get_zoning("lsoa_2021"))
+            #edu = cb.DVector(segmentation=d["edu"].segmentation, import_data=edu, zoning_system=cb.ZoningSystem.get_zoning("lsoa_2021"))
+            d["edu"] = edu
+            d["uni"] = uni
+
+
         # Translate the employment landuse to the TEM Model zoning system
         zoning_system = cb.ZoningSystem.get_zoning(self.model._zoning_system)
-        emp_landuse = emp_landuse.translate_zoning(zoning_system, trans_vector=self.emp_trans, check_totals=True, no_factors=False)
+        d["emp"] = d["emp"].translate_zoning(zoning_system, trans_vector=self.emp_trans, check_totals=True, no_factors=False)
+        d["edu"] = d["edu"].translate_zoning(zoning_system, trans_vector=self.emp_trans, check_totals=True, no_factors=False)
+        if d["uni"] is not None:
+            d["uni"] = d["uni"].translate_zoning(zoning_system, trans_vector=self.emp_trans, check_totals=True, no_factors=False)
 
-        return emp_landuse
+        return d
 
 
     def _read_hh_lu(self, year):
@@ -310,7 +345,7 @@ class AttractionModel:
 
 
     # Returns a year-specific dictionary of pure demand, for each purpose as the key
-    def _create_attr_dict(self, landuses: dict[str, cb.DVector], trip_rates: dict[int, cb.DVector]) -> dict[int, cb.DVector]:
+    def _create_attr_dict(self, landuses: dict[str, cb.DVector | dict], trip_rates: dict[int, cb.DVector]) -> dict[int, cb.DVector]:
         """Creates the dictionary of pure attractions by purpose
         - Multiplies the purpose-specific landuse by the purpose-specific trip rates, creating attraction
         - Adds purpose segmentation to each DVector, based on the trip rates key
@@ -323,16 +358,24 @@ class AttractionModel:
             # Access the purpose's trip rate dvec
             trip_rate = trip_rates[p]
             # Access the landuse dvec (employment or household) with respect to travel purpose
-            if p!=7: landuse = landuses["emp"]
+            if p!=7: landuse = landuses["emp"]["emp"]
             else: landuse = landuses["hh"]
-            # Create the attraction DVector for the given purpose
-            attr = landuse * trip_rate
-            # Add the purpose segmentat to the DVector segmentation
-            attr = attr.add_segments([cb.segmentation.SegmentsSuper("p").get_segment(subset=[p])])
-            # Aggregate the attraction DVector to p and soc if soc is in the trip rate segmentation, p segmentation otherwise
-            if "soc" in trip_rate.segmentation.names: attr = attr.aggregate(["total", "p", "soc"])
-            else: attr = attr.aggregate(["total", "p"])
-            attr_dict[p] = attr
+            if (p==3) and (landuses["emp"]["uni"] is not None):
+                landuse0 = landuses["emp"]["edu"]
+                landuse1 = landuses["emp"]["uni"]
+                attr0 = landuse0 * trip_rate
+                attr1 = landuse1 * trip_rate
+                attr_dict[30] = attr0
+                attr_dict[31] = attr1
+            else:
+                # Create the attraction DVector for the given purpose
+                attr = landuse * trip_rate
+                # Add the purpose segmentat to the DVector segmentation
+                attr = attr.add_segments([cb.segmentation.SegmentsSuper("p").get_segment(subset=[p])])
+                # Aggregate the attraction DVector to p and soc if soc is in the trip rate segmentation, p segmentation otherwise
+                if "soc" in trip_rate.segmentation.names: attr = attr.aggregate(["total", "p", "soc"])
+                else: attr = attr.aggregate(["total", "p"])
+                attr_dict[p] = attr
 
         return attr_dict
     
@@ -344,7 +387,10 @@ class AttractionModel:
         attr_dict_adj: dict[int, cb.DVector] = {}
         if adj_factors is not None:
             for p in attr_dict.keys():
-                attr_dict_adj[p] = attr_dict[p] * adj_factors.filter_segment_value("p", [p])
+                if p in [30, 31]:
+                    attr_dict_adj[p] = attr_dict[p] * adj_factors.filter_segment_value("p", [3])
+                else:
+                    attr_dict_adj[p] = attr_dict[p] * adj_factors.filter_segment_value("p", [p])
         else:
             attr_dict_adj = attr_dict
 
@@ -368,13 +414,27 @@ class AttractionModel:
         return None
     
 
-    def _create_mts_dict(self, attr_dict: dict[int, cb.DVector], mts: cb.DVector) -> dict[int, cb.DVector]:
+    def _create_mts_dict(self, attr_dict: dict[int, cb.DVector], mts: cb.DVector, mts_uni: cb.DVector) -> dict[int, cb.DVector]:
         """
         - Multiplies the attraction DVector with the mts DVector, as read from the path given in the constructor
         """
         mts_dict: dict[int, cb.DVector] = {}
         for p in attr_dict.keys():
-            mts_dict[p] = attr_dict[p] * mts.filter_segment_value("p", [p]) # TODO NB. to Isaac - error thrown if mts not filtered. Should look into this... Issue with order of operation?
+            if p in [30, 31]:
+                if p==30:
+                    mts_dict[p] = attr_dict[p] * mts.filter_segment_value("p", [3])
+                else:
+                    if mts_uni is not None:
+                        mts_dict[p] = attr_dict[p] * mts_uni.filter_segment_value("p", [3])
+                    else:
+                        mts_dict[p] = attr_dict[p] * mts.filter_segment_value("p", [3])
+            else:
+                mts_dict[p] = attr_dict[p] * mts.filter_segment_value("p", [p]) 
+                # TODO NB. to Isaac - error thrown if mts not filtered. Should look into this... Issue with order of operation?
+        
+        if 30 in mts_dict:
+            mts_dict[3] = mts_dict[30] + mts_dict[31]
+            del mts_dict[30], mts_dict[31]
 
         return mts_dict
     
@@ -471,7 +531,7 @@ class AttractionModel:
         """
         # If balancing_zones is True
         if self.balance_production == True:
-            tem_dvec.fill(0, 1e-6)
+            tem_dvec.fill(0, 1e-16)
             gb_factors = tem_production.remove_zoning() / tem_dvec.remove_zoning()
             balanced_dvec = tem_dvec * gb_factors # TODO check here that sums for productions and attractions do match.
         # If soning is specified for balancing

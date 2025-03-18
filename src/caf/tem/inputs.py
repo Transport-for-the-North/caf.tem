@@ -15,10 +15,6 @@ from dataclasses import dataclass
 import caf.toolkit as ctk
 import caf.base as cb
 
-#class NHBProdInput(ctk.BaseConfig):
-#    constraint_paths: dict[int, os.PathLike] = None TODO understand what this is and if it's needed
-#    process_count: int = 1 TODO include if needed
-
 
 # # # CLASSES # # #
 @enum.unique

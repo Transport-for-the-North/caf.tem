@@ -148,7 +148,8 @@ class TEM:
         trip_rate_adjustment_path: os.PathLike=None,
         emp_translation_path: os.PathLike=None,
         hh_translation_path: os.PathLike=None,
-        mode_time_splits_adjustment_path: os.PathLike=None
+        mode_time_splits_adjustment_path: os.PathLike=None,
+        mts_uni_path: os.PathLike = None
     ) -> AttractionModel:
         """
         The Home Based (HB) Attraction Model of caf.tem
@@ -198,6 +199,7 @@ class TEM:
             mode_time_splits_path,
             mode_time_splits_adjustment_path,
             self.return_segmentation,
+            mts_uni_path
         )
 
         # User Input Test
