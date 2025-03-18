@@ -3,7 +3,7 @@ requires = ["setuptools>=64.0.0", "versioningit"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "caf.{package_name}"
+name = "caf.tem"
 dynamic = ["version"]
 description = "Package Description"
 readme = "README.md"
@@ -20,7 +20,7 @@ classifiers = [
 ]
 dependencies = [
     "numpy>=1.19.0",
-    "pandas>=1.4.0, <2.0.0" ,
+    "pandas>=1.4.0, <3.0.0" ,
 ]
 
 [project.optional-dependencies]
@@ -33,13 +33,13 @@ lint = [
 ]
 
 test = [
-    "pytest>=7.4.0, <8.0.0",
-    "pytest-cov>=4.1.0, < 5.0.0",
+    "pytest>=7.4.0, <9.0.0",
+    "pytest-cov>=4.1.0, < 6.0.0",
     "pytest-xdist>=3.3.1, <4.0.0",
 ]
 
 edit_install = [
-    "versioningit>=2.2.0, < 3.0.0"
+    "versioningit>= 2.2.0, < 4.0.0"
 ]
 
 [project.urls]
@@ -52,7 +52,7 @@ Source = "https://github.com/Transport-for-the-North/caf.toolkit"
 where = ["src"]
 
 [tool.setuptools.package-data]
-"caf.{package_name}" = ["py.typed"]
+"caf.tem" = ["py.typed"]
 
 # Linters
 [tool.black]
@@ -80,10 +80,16 @@ max-attributes = 15
 max-statements = 100
 
 [tool.mypy]
-packages = ["caf.{package_name}"]
+packages = ["caf.tem"]
 namespace_packages = true
 ignore_missing_imports = true
 allow_redefinition = true
+
+[[tool.mypy.overrides]]
+module = [
+  "caf.tem._version",
+]
+ignore_errors = true
 
 [tool.pydocstyle]
 convention = "numpy"
@@ -106,8 +112,8 @@ match = ["v*"]
 default-tag = "0.0.1"
 
 [tool.versioningit.onbuild]
-source-file = "src/caf/toolkit/_version.py"
-build-file = "caf/toolkit/_version.py"
+source-file = "src/caf/tem/_version.py"
+build-file = "caf/tem/_version.py"
 
 [tool.versioningit.format]
 distance = "{base_version}+{distance}.{vcs}{rev}"
