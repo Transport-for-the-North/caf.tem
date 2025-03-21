@@ -55,6 +55,20 @@ LAD_REPORT_SEG: cb.SegmentationInput = cb.SegmentationInput(
 # # # CLASSES # # #
 
 # # # FUNCTIONS # # #
+def lu_to_tt(dvec: cb.DVector):
+    out_dvec = dvec.aggregate(
+        ["age_9", "g", "ns_sec", "soc", "pop_emp", "adults", "adult_nssec", "car_availability"]
+    )
+    out_dvec = out_dvec.trans_seg_from_lookup("ag_g")
+    out_dvec = out_dvec.trans_seg_from_lookup("apopemp_aws", drop_old=True)
+
+    out_dvec = out_dvec.add_segments(['hh_type']).aggregate(["adult_nssec", "gender_3", "ns_sec", "soc", "aws", "hh_type"])
+
+    if not math.isclose(out_dvec.sum(), dvec.sum()):
+        warnings.warn(f"The total has changed during conversion. Sum before = {dvec.sum()}, "
+                      f"sum after = {out_dvec.sum()}.")
+
+    return out_dvec
 
 def write_reports(dvec: cb.DVector, report_path, year: int) -> None:
     """

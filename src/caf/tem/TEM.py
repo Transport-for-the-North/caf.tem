@@ -65,6 +65,7 @@ class TEM:
         model_years: list[int], # TODO should this be an input, if so - do we want checks that all model_years are in path keys for other models?
         scenario: str, # TODO - should this be an input, assume that scenario would be core? Scenario could go in Iteration Name?
         output_zoning: str,
+        agg_zoning: str,
         iteration_name: str,
         export_home: os.PathLike, # TODO should this be /Export as default within the directory of the terminal when run is called?
         return_segmentation: list[str]
@@ -72,8 +73,9 @@ class TEM:
         self.years = model_years
         self.scenario = Scenarios(scenario)
         self.output_zoning = output_zoning
+        self.agg_zoning = agg_zoning
         self.iteration_name = iteration_name
-        self.export_paths = TEMExportPaths(model_years, self.scenario, iteration_name, export_home)
+        self.export_paths = TEMExportPaths(model_years, self.scenario, iteration_name, export_home, output_zoning, agg_zoning)
         self.return_segmentation = cb.Segmentation(cb.SegmentationInput(enum_segments=return_segmentation, naming_order=return_segmentation))
         self.hb_production_model: HBProductionModel = None
         self.hb_attraction_model: AttractionModel = None
@@ -88,7 +90,8 @@ class TEM:
         mode_time_splits_path: os.PathLike,
         adjustment_path: os.PathLike=None,
         mts_adj_path: os.PathLike=None,
-        population_translation_path=None
+        population_translation_path=None,
+        pop_zoning=None
     ) -> HBProductionModel:
         """
         The Home-Based (HB) Production Model of caf.tem
@@ -127,6 +130,7 @@ class TEM:
             self.export_paths.hb_production,
             population_paths,
             population_translation_path,
+            pop_zoning,
             trip_rates_path,
             adjustment_path,
             mode_time_splits_path,

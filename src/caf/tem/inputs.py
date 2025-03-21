@@ -81,7 +81,8 @@ class TEMModelPaths:
         path_years: list[int],
         export_home: os.PathLike,
         report_home: os.PathLike,
-        zoning_system: str,
+        model_zoning: str,
+        agg_zoning: str,
         _trip_origin,
     ):
         """Validates input attributes and builds class
@@ -102,7 +103,8 @@ class TEMModelPaths:
         self.export_home = pathlib.Path(export_home)
         self.report_home = pathlib.Path(report_home)
         self._trip_origin = _trip_origin
-        self._zoning_system = zoning_system
+        self.model_zoning = model_zoning
+        self.agg_zoning = agg_zoning
 
         # Make sure paths exist
         if not self.export_home.is_dir():
@@ -124,7 +126,7 @@ class TEMModelPaths:
         """
         # Init
         base_fname = self._base_output_fname
-        fname_parts = [self._trip_origin, self._zoning_system]
+        fname_parts = [self._trip_origin, self.model_zoning]
 
         pure_demand_paths: dict[int, os.PathLike] = dict()
         pure_demand_adj_paths: dict[int, os.PathLike] = dict()
@@ -378,6 +380,8 @@ class TEMExportPaths:
         scenario: Scenarios,
         iteration_name: str,
         export_home: os.PathLike,
+        model_zoning: str,
+        agg_zoning: str
     ):
         """
         Builds the export paths for all the TEM sub-models
@@ -421,7 +425,8 @@ class TEMExportPaths:
             export_home=hb_p_export_home,
             report_home=hb_p_report_home,
             _trip_origin="hb",
-            zoning_system="normits",
+            model_zoning=model_zoning,
+            agg_zoning=agg_zoning
         )
 
         # nhb productions
@@ -435,7 +440,8 @@ class TEMExportPaths:
             export_home=nhb_p_export_home,
             report_home=nhb_p_report_home,
             _trip_origin="nhb",
-            zoning_system="normits",
+            model_zoning=model_zoning,
+            agg_zoning=agg_zoning
         )
 
         # hb attractions
@@ -449,7 +455,8 @@ class TEMExportPaths:
             export_home=hb_a_export_home,
             report_home=hb_a_report_home,
             _trip_origin="hb",
-            zoning_system="normits",
+            model_zoning=model_zoning,
+            agg_zoning=agg_zoning,
         )
 
         # nhb attractions
@@ -463,7 +470,8 @@ class TEMExportPaths:
             export_home=nhb_a_export_home,
             report_home=nhb_a_report_home,
             _trip_origin="nhb",
-            zoning_system="normits",
+            model_zoning=model_zoning,
+            agg_zoning=agg_zoning,
         )
 
 # # # FUNCTIONS # # #

@@ -89,6 +89,7 @@ class HBProductionModel:
         model: ProductionModelPaths,
         population_paths: dict[int, os.PathLike],
         pop_trans_path: os.PathLike,
+        pop_zoning: str,
         trip_rates_path: os.PathLike,
         trip_rate_adjustment_path: os.PathLike,
         mts_path: os.PathLike,
@@ -104,8 +105,17 @@ class HBProductionModel:
         self.tem_segmentation = tem_segmentation
         self.path_years = self.years
         self.trip_rate_adjustment_path = trip_rate_adjustment_path
+        self.pop_zoning = cb.ZoningSystem.get_zoning(pop_zoning)
+        self.model_zoning = cb.ZoningSystem.get_zoning(self.model.model_zoning)
+        self.agg_zoning = cb.ZoningSystem.get_zoning(self.model.agg_zoning)
         self.pop_trans = pd.read_csv(pop_trans_path) if pop_trans_path is not None else None
+        # self.lsoa_trans = self.pop_trans[['lsoa_2021_id', f'{self.model.model_zoning}_id', f'lsoa_2021_to_{self.model.model_zoning}_pop']]
+        # self.lsoa_trans.rename(columns={f'lsoa_2021_to_{self.model.model_zoning}_pop': f'lsoa_2021_to_{self.model.model_zoning}'}, inplace=True)
+        # self.at_trans = self.pop_trans.groupby([f'{self.model.model_zoning}_id', self.model.agg_zoning])[f'{self.model.model_zoning}_to_lsoa_2021_pop'].sum()
+        # self.at_trans.name = f'{self.model.model_zoning}_to_lsoa_2021'
         self.mts_adjust_path = mts_adjustment_path
+
+
 
         _log_fname = "HBProductionModel_log.log"
         logger_name = "%s.%s" % ("placeholder", self.__class__.__name__)
@@ -274,10 +284,7 @@ class HBProductionModel:
     # # # FUNCTIONS # # #
 
     def _read_trip_rates(self) -> cb.DVector:
-        trip_rates = cb.DVector.load(self.trip_rates_path)
-        zoning_system = cb.ZoningSystem.get_zoning(self.model._zoning_system) # TODO - have as global var / pass as zoning so it doesn't get read multiple times. Not urgent.
-        trip_rates = trip_rates.translate_zoning(zoning_system, check_totals=False, no_factors=True)
-
+        trip_rates = cb.DVector.load(self.trip_rates_path) # TODO - have as global var / pass as zoning so it doesn't get read multiple times. Not urgent.
         return trip_rates
     
 
@@ -288,8 +295,8 @@ class HBProductionModel:
         """
         mts = cb.DVector.load(self.mts_path)
         # Ensure zoning system of mts matches the TEM Model zoning system
-        zoning_system = cb.ZoningSystem.get_zoning(self.model._zoning_system)
-        mts = mts.translate_zoning(zoning_system, check_totals=False, no_factors=True)
+        # zoning_system = cb.ZoningSystem.get_zoning(self.model._zoning_system)
+        # mts = mts.translate_zoning(zoning_system, check_totals=False, no_factors=True)
         
         return mts
     
@@ -303,8 +310,7 @@ class HBProductionModel:
         self._logger.info("Loading the trip rates adjustment factors")
         adj_factors = cb.DVector.load(self.trip_rate_adjustment_path)
         # Ensure zoning system of mts matches the TEM Model zoning system
-        zoning_system = cb.ZoningSystem.get_zoning(self.model._zoning_system)
-        adj_factors = adj_factors.translate_zoning(zoning_system, check_totals=False, no_factors=True)
+        adj_factors = adj_factors.translate_zoning(self.model_zoning, check_totals=False, no_factors=True)
 
         return adj_factors
     
@@ -318,8 +324,7 @@ class HBProductionModel:
         self._logger.info("Loading the MTS adjustment factors")
         adj_factors = cb.DVector.load(self.mts_adjust_path)
         # Ensure zoning system of mts matches the TEM Model zoning system
-        zoning_system = cb.ZoningSystem.get_zoning(self.model._zoning_system)
-        adj_factors = adj_factors.translate_zoning(zoning_system, check_totals=False, no_factors=True)
+        adj_factors = adj_factors.translate_zoning(self.model_zoning, check_totals=False, no_factors=True)
 
         return adj_factors
     
@@ -331,10 +336,12 @@ class HBProductionModel:
         """
 
         self._logger.info(f"Year {year}:\n  Loading the population data")
-        population = cb.DVector.load(self.population_paths[year])
+        if self.population_paths[year].is_dir():
+            population = utils.read_pop_lu(self.population_paths[year], "Output P11_{}.hdf", self.model_zoning)
+        else:
+            population = cb.DVector.load(self.population_paths[year])
         # Ensure zoning system of mts matches the TEM Model zoning system
-        zoning_system = cb.ZoningSystem.get_zoning(self.model._zoning_system)
-        population = population.translate_zoning(zoning_system, trans_vector=self.pop_trans, check_totals=True, no_factors=False)
+        population = population.trans_and_comp([self.model_zoning, self.agg_zoning], self.pop_trans, "lsoa_2021_to_normits_pop")
         
         return population
 
