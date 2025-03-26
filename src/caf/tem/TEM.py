@@ -201,10 +201,10 @@ class TEM:
         )
 
         # User Input Test
-        for p in trip_rates_paths.keys():
-            vals = cb.segmentation.SegmentsSuper("p_hb").get_segment().int_values
-            if p not in vals:
-                raise KeyError(f"Trip rates key {p} was passed.\nTrip rates keys must be in {vals}")
+        # for p in trip_rates_paths.keys():
+        #     vals = cb.segmentation.SegmentsSuper("p_hb").get_segment().int_values
+        #     if p not in vals:
+        #         raise KeyError(f"Trip rates key {p} was passed.\nTrip rates keys must be in {vals}")
 
         return self.hb_attraction_model
 

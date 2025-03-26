@@ -278,6 +278,7 @@ class HBProductionModel_TP:
         # Ensure zoning system of mts matches the TEM Model zoning system
         zoning_system = cb.ZoningSystem.get_zoning(self.model._zoning_system)
         mts = mts.translate_zoning(zoning_system, check_totals=False, no_factors=True)
+        mts = mts.add_segments(['adult_nssec'])
         
         return mts
     
@@ -292,6 +293,7 @@ class HBProductionModel_TP:
         # Ensure zoning system of mts matches the TEM Model zoning system
         zoning_system = cb.ZoningSystem.get_zoning(self.model._zoning_system)
         adj_factors = adj_factors.translate_zoning(zoning_system, check_totals=False, no_factors=True)
+        # adj_factors = adj_factors.add_segments(['adult_nssec'])
 
         return adj_factors
     
@@ -307,6 +309,7 @@ class HBProductionModel_TP:
         # Ensure zoning system of mts matches the TEM Model zoning system
         zoning_system = cb.ZoningSystem.get_zoning(self.model._zoning_system)
         adj_factors = adj_factors.translate_zoning(zoning_system, check_totals=False, no_factors=True)
+        # adj_factors = adj_factors.add_segments(['adult_nssec'])
 
         return adj_factors
     
@@ -582,7 +585,7 @@ class NHBProductionModel_TP:
         """
         - TODO
         """
-        self._logger.info("Loading the trip rates data")
+        # self._logger.info("Loading the trip rates data")
         trip_rates = cb.DVector.load(self.trip_rates_path)
         zoning_system = cb.ZoningSystem.get_zoning(self.model._zoning_system) # TODO - have as global var / pass as zoning so it doesn't get read multiple times. Not urgent. - possibly change to utils func "read dvec" from path input
         trip_rates = trip_rates.translate_zoning(zoning_system, check_totals=False, no_factors=True)

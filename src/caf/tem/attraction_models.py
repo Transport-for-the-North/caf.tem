@@ -56,9 +56,7 @@ class AttractionModel:
         # TODO add in trip rates adj and mts adj
         trip_rates_paths: dict[int, Path] = {p: Path(path) for p, path in trip_rates_paths.items()}
         emp_landuse_paths = {year: Path(file) for year, file in emp_landuse_paths.items()}
-        hh_landuse_paths: dict[int, dict[str, Path]] = {year: {f"{gor}": Path(hh_landuse_dirs[year]) / f"{hh_landuse_prefix}_{gor}.hdf" 
-                                                               for gor in utils.GOR} 
-                                                               for year in hh_landuse_dirs.keys()}
+        hh_landuse_paths =  {year: Path(file) for year, file in hh_landuse_dirs.items()}
         mts_path = Path(mts_path)
 
         for p, trip_rates_path in trip_rates_paths.items():
@@ -68,11 +66,10 @@ class AttractionModel:
             if not emp_landuse_path.is_file():
                 raise FileNotFoundError(f"{emp_landuse_path} is not a valid file.")
         for year, hh_landuse_dir in hh_landuse_paths.items():
-            for gor, hh_landuse_path in hh_landuse_dir.items():
-                if not hh_landuse_path.is_file():
-                    raise FileNotFoundError(f"{hh_landuse_path} is not a valid file.")
-        if not mts_path.is_file():
-                raise FileNotFoundError(f"{hh_landuse_path} is not a valid file.")
+            if not hh_landuse_dir.is_file():
+                raise FileNotFoundError(f"{hh_landuse_paths} is not a valid file.")
+        # if not mts_path.is_file():
+        #         raise FileNotFoundError(f"{hh_landuse_path} is not a valid file.")
         
         return trip_rates_paths, emp_landuse_paths, hh_landuse_paths, mts_path
 
@@ -276,10 +273,10 @@ class AttractionModel:
         # Read the employment landuse DVector for the given year
         emp_landuse = cb.DVector.load(self.emp_landuse_paths[year]).add_segments([cb.segmentation.SegmentsSuper("total").get_segment()])
         # Rename Segmentation
-        emp_landuse = cb.DVector(segmentation=emp_landuse.segmentation, import_data=emp_landuse.data, zoning_system=cb.ZoningSystem.get_zoning("lsoa_2021"))
-        # Translate the employment landuse to the TEM Model zoning system
-        zoning_system = cb.ZoningSystem.get_zoning(self.model._zoning_system)
-        emp_landuse = emp_landuse.translate_zoning(zoning_system, trans_vector=self.emp_trans, check_totals=True, no_factors=False)
+        # emp_landuse = cb.DVector(segmentation=emp_landuse.segmentation, import_data=emp_landuse.data, zoning_system=cb.ZoningSystem.get_zoning("lsoa_2021"))
+        # # Translate the employment landuse to the TEM Model zoning system
+        # zoning_system = cb.ZoningSystem.get_zoning(self.model._zoning_system)
+        # emp_landuse = emp_landuse.translate_zoning(zoning_system, trans_vector=self.emp_trans, check_totals=True, no_factors=False)
 
         return emp_landuse
 
@@ -294,19 +291,18 @@ class AttractionModel:
         # Create an empty list of DVectors which will contain household landuse for each Government Office Region (GOR)
         hh_list: list[cb.DVector] = []
         # For each GOR...
-        for gor in self.hh_landuse_paths[year].keys():
-            dvec = cb.DVector.load(pathlib.Path(self.hh_landuse_paths[year][gor]))
-            if "total" not in dvec.segmentation.names:
+        dvec = cb.DVector.load(pathlib.Path(self.hh_landuse_paths[year]))
+        if "total" not in dvec.segmentation.names:
                 dvec = dvec.add_segments([cb.segmentation.SegmentsSuper("total").get_segment()])
-            hh_list.append(dvec)
+        # hh_list.append(dvec)
         # Horizontally concatonate each GOR's household landuse DVector
-        data = pd.concat([d.data for d in hh_list], axis=1)
-        hh_landuse = cb.DVector(import_data=data, segmentation=hh_list[0].segmentation, zoning_system=cb.ZoningSystem.get_zoning("lsoa_2021"))
+        # data = pd.concat([d.data for d in hh_list], axis=1)
+        # hh_landuse = cb.DVector(import_data=data, segmentation=hh_list[0].segmentation, zoning_system=cb.ZoningSystem.get_zoning("lsoa_2021"))
         # Translate the household landuse to the TEM Model zoning system
-        zoning_system = cb.ZoningSystem.get_zoning(self.model._zoning_system)
-        hh_landuse = hh_landuse.translate_zoning(zoning_system, trans_vector=self.hh_trans, check_totals=True, no_factors=False)
+        # zoning_system = cb.ZoningSystem.get_zoning(self.model._zoning_system)
+        # hh_landuse = dvec.translate_zoning(zoning_system, trans_vector=self.hh_trans, check_totals=True, no_factors=False)
 
-        return hh_landuse
+        return dvec
 
 
     # Returns a year-specific dictionary of pure demand, for each purpose as the key
@@ -318,6 +314,8 @@ class AttractionModel:
         """
         # Create an empty dict to store attraction by purpose
         attr_dict: dict[int, cb.DVector] = {}
+
+        # output_path = Path(r"T:\Yan_Kavana\TEM DLOG\Outputs\test_run_KGK")
         # For each purpose...
         for p in trip_rates.keys():
             # Access the purpose's trip rate dvec
@@ -326,7 +324,17 @@ class AttractionModel:
             if p!=7: landuse = landuses["emp"]
             else: landuse = landuses["hh"]
             # Create the attraction DVector for the given purpose
+            
+            # # Save the trip_rate DVector
+            # trip_rate_file = output_path / f"trip_rate_purpose_{p}.dvec"
+            # trip_rate.save(trip_rate_file)
+
+            # # Save the landuse DVector
+            # landuse_file = output_path / f"landuse_purpose_{p}.dvec"
+            # landuse.save(landuse_file)
+
             attr = landuse * trip_rate
+            # attr = landuse.__mul__(trip_rate, how= 'outer')
             # Add the purpose segmentat to the DVector segmentation
             attr = attr.add_segments([cb.segmentation.SegmentsSuper("p").get_segment(subset=[p])])
             # Aggregate the attraction DVector to p and soc if soc is in the trip rate segmentation, p segmentation otherwise

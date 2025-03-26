@@ -3,44 +3,63 @@ from pathlib import Path
 from DLOG_create_input import create_hb_production_input, create_hb_attraction_input
 
 my_tem_model = ct.TEM(
-    model_years=[2023], # Yan to input - these need to match keys of dicts below
+    model_years=[2024, 2025, 2026, 2027, 2028, 2029, 2030], 
     scenario="Core",
     output_zoning="normits",
-    iteration_name="test_run_TP",
+    iteration_name="25032025_small",
     export_home=r"T:\Yan_Kavana\TEM DLOG\Outputs",
     return_segmentation=["p", "m", "tp", "hh_type"]
 )
 
-path_dict = create_hb_production_input()
-input_dir_TP = Path(r"T:\ThomasPrince\TEM I-Drive Comparison\Inputs\01-HBProduction")
+input_dir = Path(r"T:\ThomasPrince\TEM I-Drive Comparison\Inputs\01-HBProduction")
 HBProd = my_tem_model.HBProductionModel(
-    population_paths={2023: input_dir_TP / "lu_pop_2023.hdf"}, # Yan to input - path to DVector for each modelled year
-    trip_rates_path=path_dict["trip_rates"],
-    mode_time_splits_path=path_dict["mode_time_splits"],
-    adjustment_path=path_dict["adjustment"],
-    mts_adj_path=path_dict["mode_time_splits_adjustment"],
-    population_translation_path=r"T:\Yan_Kavana\TEM DLOG\Inputs\translations\normits_lsoa_2021_pop.csv" # Yan to input / change (optional)
-)
+    population_paths={2024: input_dir / "dlog_tt_pop_2024_small.dvec",
+                      2025: input_dir / "dlog_tt_pop_2025_small.dvec",
+                      2026: input_dir / "dlog_tt_pop_2026_small.dvec",
+                      2027: input_dir / "dlog_tt_pop_2027_small.dvec",
+                      2028: input_dir / "dlog_tt_pop_2028_small.dvec",
+                      2029: input_dir / "dlog_tt_pop_2029_small.dvec",
+                      2030: input_dir / "dlog_tt_pop_2030_small.dvec"},
+        trip_rates_path=input_dir / "triprates.dvec",
+        mode_time_splits_path=input_dir / "mts.dvec",
+        adjustment_path=input_dir / "trip_rate_adjustments_production_hb_fr.hdf",
+        mts_adj_path=r"T:\ThomasPrince\TEM I-Drive Comparison\Inputs\01-HBProduction\mode_time_split_adjustments.hdf"      
+    )
+
 
 HBProd.run()
 
-path_dict = create_hb_attraction_input()
-HBAttr = my_tem_model.HBAttractionModel(
-    trip_rates_paths=path_dict["trip_rates"],
-    emp_landuse_paths = {2023: r"F:\Deliverables\Land-Use\241213_Employment\02_Final Outputs\Output E6.hdf"}, # Yan to input / change
-    hh_landuse_dirs = {2023: r"F:\Deliverables\Land-Use\241220_Populationv2\02_Final Outputs"}, # Yan to input / change
-    hh_landuse_prefix = "Output P13.3", # Yan to input / change
-    mode_time_splits_path=path_dict["mts"],
-    balance_production=True,
-    trip_rate_adjustment_path=path_dict["tr_adj"],
-    emp_translation_path=None,
-    hh_translation_path=None,
-    mode_time_splits_adjustment_path=path_dict["mts_adj"]
-)
+# path_dict = create_hb_attraction_input()
+# HBAttr = my_tem_model.HBAttractionModel(
+#     trip_rates_paths={
+#         1: r"T:\ThomasPrince\TEM Input\comparison\02_HBAttraction\input\trip_rates_p1.hdf",
+#         2: r"T:\ThomasPrince\TEM Input\comparison\02_HBAttraction\input\trip_rates_p2.hdf",
+#         3: r"T:\ThomasPrince\TEM Input\comparison\02_HBAttraction\input\trip_rates_p3.hdf",
+#         4: r"T:\ThomasPrince\TEM Input\comparison\02_HBAttraction\input\trip_rates_p4.hdf",
+#         5: r"T:\ThomasPrince\TEM Input\comparison\02_HBAttraction\input\trip_rates_p5.hdf",
+#         6: r"T:\ThomasPrince\TEM Input\comparison\02_HBAttraction\input\trip_rates_p6.hdf",
+#         7: r"T:\ThomasPrince\TEM Input\comparison\02_HBAttraction\input\trip_rates_p7.hdf",
+#         8: r"T:\ThomasPrince\TEM Input\comparison\02_HBAttraction\input\trip_rates_p8.hdf"
+#     },
+#     emp_landuse_paths = {2024: r"I:\Data\D-Log\DLIT\Outputs\Test17_DLog24_v0.13_rnn\07_tripend\dlog_soc_sic_emp\soc_sic_emp\dlog_soc_sic_emp_2024.dvec"}, # Yan to input / change
+#     hh_landuse_dirs = {2024: r"I:\Data\D-Log\DLIT\Outputs\Test17_DLog24_v0.13_rnn\07_tripend\dlog_hh\hh\dlog_hh_2024.dvec"}, # Yan to input / change
+#     hh_landuse_prefix = "dlog_hh_2024", # Yan to input / change
+#     mode_time_splits_path=r"T:\ThomasPrince\TEM Input\comparison\02_HBAttraction\input\mode_time_split_attraction_hb_fr_reg.hdf",
+#     balance_production=True,
+#     trip_rate_adjustment_path=r"T:\ThomasPrince\TEM Input\comparison\02_HBAttraction\input\trip_rate_adjustments_attractions_hb_fr.hdf",
+#     emp_translation_path=None,
+#     hh_translation_path=None,
+#     mode_time_splits_adjustment_path=r"T:\ThomasPrince\TEM Input\comparison\02_HBAttraction\input\mode_time_split_adjustments.hdf"
+# )
 
-HBAttr.run()
+# HBAttr.run()
 
-#NHBProd = my_tem_model.NHBProductionModel()
+# NHBProd = my_tem_model.NHBProductionModel(
+#     trip_rates_path=r"T:\ThomasPrince\TEM Input\03_NHBProductionModel\nhb_trip_rates_production.hdf",
+#     mode_time_splits_path=r"T:\ThomasPrince\TEM Input\03_NHBProductionModel\nhb_mode_time_split_production.dvec"
+# )
+
+# NHBProd.run()
 
 #NHBAttr = my_tem_model.NHBAttractionModel()
 
