@@ -475,7 +475,7 @@ class NHBProductionModel_TP:
 
         ## Assign
         self.hb_attraction_model = hb_attraction_model
-        self.hb_attraction_paths = hb_attraction_model.export_paths.fully_segmented
+        self.hb_attraction_paths = hb_attraction_model.export_paths.tem_segmented
         self.trip_rates_path = trip_rates_path
         self.mts_path = mts_path
         self.balance_production = balance_production
@@ -598,7 +598,7 @@ class NHBProductionModel_TP:
         - Reads the mode-time split (MTS) DVector, from the path given in the constructor
         - Translates the MTS DVector zoning system to the TEM Model zoning system
         """
-        self._logger.info("Loading the mode time split data")
+        #self._logger.info("Loading the mode time split data")
         mts = cb.DVector.load(self.mts_path)
         # Ensure zoning system of mts matches the TEM Model zoning system
         zoning_system = cb.ZoningSystem.get_zoning(self.model._zoning_system)
@@ -643,22 +643,25 @@ class NHBProductionModel_TP:
     
 
     def _create_mts_production(self, pure_production: cb.DVector, mts: cb.DVector) -> cb.DVector:
-        mts_production = pure_production * mts
-        segs = mts_production.segmentation.names
+       
+        
+        segs = pure_production.segmentation.names
         segs.remove("p_hb")
         segs.remove("m_hb")
-        mts_production = mts_production.aggregate(segs)
-        mts_production_data = mts_production.data.reset_index().rename(columns={"m_nhb": "m", "p_nhb": "p"})
+        pure_production = pure_production.aggregate(segs)
+        pure_production_data = pure_production.data.reset_index().rename(columns={"m_nhb": "m", "p_nhb": "p"})
         segs.remove("p_nhb")
         segs.remove("m_nhb")
         segs.append("p")
         segs.append("m")
-        mts_production_data = mts_production_data.set_index(segs)
-        mts_production = cb.DVector(segmentation = cb.Segmentation(cb.SegmentationInput(enum_segments=segs,
+        pure_production_data = pure_production_data.set_index(segs)
+        pure_production = cb.DVector(segmentation = cb.Segmentation(cb.SegmentationInput(enum_segments=segs,
                                                                     naming_order=segs)),
-            import_data=mts_production_data,
-            zoning_system=mts_production.zoning_system)
+            import_data=pure_production_data,
+            zoning_system=pure_production.zoning_system)
         
+        mts_production = pure_production * mts
+
         return mts_production
     
 
@@ -668,6 +671,7 @@ class NHBProductionModel_TP:
         """
         tem_production = mts_production.aggregate(self.return_segmentation)
         
+        return tem_production
 
     def _generate_nhb_productions(
         self,

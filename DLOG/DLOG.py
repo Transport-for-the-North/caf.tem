@@ -3,33 +3,27 @@ from pathlib import Path
 from DLOG_create_input import create_hb_production_input, create_hb_attraction_input
 
 my_tem_model = ct.TEM(
-    model_years=[2024, 2025, 2026, 2027, 2028, 2029, 2030], 
+    model_years=[2024], 
     scenario="Core",
     output_zoning="normits",
-    iteration_name="25032025_small",
+    iteration_name="26032025_nhb",
     export_home=r"T:\Yan_Kavana\TEM DLOG\Outputs",
     return_segmentation=["p", "m", "tp", "hh_type"]
 )
 
 input_dir = Path(r"T:\ThomasPrince\TEM I-Drive Comparison\Inputs\01-HBProduction")
-HBProd = my_tem_model.HBProductionModel(
-    population_paths={2024: input_dir / "dlog_tt_pop_2024_small.dvec",
-                      2025: input_dir / "dlog_tt_pop_2025_small.dvec",
-                      2026: input_dir / "dlog_tt_pop_2026_small.dvec",
-                      2027: input_dir / "dlog_tt_pop_2027_small.dvec",
-                      2028: input_dir / "dlog_tt_pop_2028_small.dvec",
-                      2029: input_dir / "dlog_tt_pop_2029_small.dvec",
-                      2030: input_dir / "dlog_tt_pop_2030_small.dvec"},
-        trip_rates_path=input_dir / "triprates.dvec",
-        mode_time_splits_path=input_dir / "mts.dvec",
-        adjustment_path=input_dir / "trip_rate_adjustments_production_hb_fr.hdf",
-        mts_adj_path=r"T:\ThomasPrince\TEM I-Drive Comparison\Inputs\01-HBProduction\mode_time_split_adjustments.hdf"      
-    )
+# HBProd = my_tem_model.HBProductionModel(
+#         population_paths={2024: input_dir / "dlog_tt_pop_2024_small.dvec"},
+#         trip_rates_path=input_dir / "triprates.dvec",
+#         mode_time_splits_path=input_dir / "mts.dvec",
+#         adjustment_path=input_dir / "trip_rate_adjustments_production_hb_fr.hdf",
+#         mts_adj_path=r"T:\ThomasPrince\TEM I-Drive Comparison\Inputs\01-HBProduction\mode_time_split_adjustments.hdf"      
+#     )
 
 
-HBProd.run()
+# HBProd.run()
 
-# path_dict = create_hb_attraction_input()
+# # path_dict = create_hb_attraction_input()
 # HBAttr = my_tem_model.HBAttractionModel(
 #     trip_rates_paths={
 #         1: r"T:\ThomasPrince\TEM Input\comparison\02_HBAttraction\input\trip_rates_p1.hdf",
@@ -54,12 +48,12 @@ HBProd.run()
 
 # HBAttr.run()
 
-# NHBProd = my_tem_model.NHBProductionModel(
-#     trip_rates_path=r"T:\ThomasPrince\TEM Input\03_NHBProductionModel\nhb_trip_rates_production.hdf",
-#     mode_time_splits_path=r"T:\ThomasPrince\TEM Input\03_NHBProductionModel\nhb_mode_time_split_production.dvec"
-# )
+NHBProd = my_tem_model.NHBProductionModel(
+    trip_rates_path=r"T:\ThomasPrince\TEM I-Drive Comparison\Inputs\03-NHBProduction\nhb_trip_rates_production.hdf",
+    mode_time_splits_path=r"T:\ThomasPrince\TEM I-Drive Comparison\Inputs\03-NHBProduction\mts_fixed.dvec"
+)
 
-# NHBProd.run()
+NHBProd.run()
 
 #NHBAttr = my_tem_model.NHBAttractionModel()
 
