@@ -22,48 +22,8 @@ class TEM:
             population_paths={
                 2024: input_dir / "dlog_tt_pop_2024.dvec",
                 2025: input_dir / "dlog_tt_pop_2025.dvec",
-                2026: input_dir / "dlog_tt_pop_2026.dvec",
-                2027: input_dir / "dlog_tt_pop_2027.dvec",
-                2028: input_dir / "dlog_tt_pop_2028.dvec",
-                2029: input_dir / "dlog_tt_pop_2029.dvec",
-                2030: input_dir / "dlog_tt_pop_2030.dvec",
-                2031: input_dir / "dlog_tt_pop_2031.dvec",
-                2032: input_dir / "dlog_tt_pop_2032.dvec",
-                2033: input_dir / "dlog_tt_pop_2033.dvec",
-                2034: input_dir / "dlog_tt_pop_2034.dvec",
                 2035: input_dir / "dlog_tt_pop_2035.dvec",
-                2036: input_dir / "dlog_tt_pop_2036.dvec",
-                2037: input_dir / "dlog_tt_pop_2037.dvec",
-                2038: input_dir / "dlog_tt_pop_2038.dvec",
-                2039: input_dir / "dlog_tt_pop_2039.dvec",
-                2040: input_dir / "dlog_tt_pop_2040.dvec",
-                2041: input_dir / "dlog_tt_pop_2041.dvec",
-                2042: input_dir / "dlog_tt_pop_2042.dvec",
-                2043: input_dir / "dlog_tt_pop_2043.dvec",
-                2044: input_dir / "dlog_tt_pop_2044.dvec",
-                2045: input_dir / "dlog_tt_pop_2045.dvec",
-                2046: input_dir / "dlog_tt_pop_2046.dvec",
-                2047: input_dir / "dlog_tt_pop_2047.dvec",
-                2048: input_dir / "dlog_tt_pop_2048.dvec",
-                2049: input_dir / "dlog_tt_pop_2049.dvec",
-                2050: input_dir / "dlog_tt_pop_2050.dvec",
-                2051: input_dir / "dlog_tt_pop_2051.dvec",
-                2052: input_dir / "dlog_tt_pop_2052.dvec",
-                2053: input_dir / "dlog_tt_pop_2053.dvec",
-                2054: input_dir / "dlog_tt_pop_2054.dvec",
-                2055: input_dir / "dlog_tt_pop_2055.dvec",
-                2056: input_dir / "dlog_tt_pop_2056.dvec",
-                2057: input_dir / "dlog_tt_pop_2057.dvec",
-                2058: input_dir / "dlog_tt_pop_2058.dvec",
-                2059: input_dir / "dlog_tt_pop_2059.dvec",
-                2060: input_dir / "dlog_tt_pop_2060.dvec",
-                2061: input_dir / "dlog_tt_pop_2061.dvec",
-                2062: input_dir / "dlog_tt_pop_2062.dvec",
-                2063: input_dir / "dlog_tt_pop_2063.dvec",
-                2064: input_dir / "dlog_tt_pop_2064.dvec",
-                2065: input_dir / "dlog_tt_pop_2065.dvec",
-                2066: input_dir / "dlog_tt_pop_2066.dvec",
-            },
+                2045: input_dir / "dlog_tt_pop_2045.dvec"},
             trip_rates_path=input_dir / "triprates.dvec",
             mode_time_splits_path=input_dir / "mts.dvec",
             adjustment_path=input_dir / "trip_rate_adjustments_production_hb_fr.hdf",
@@ -77,19 +37,69 @@ class TEM:
             return self.hb_production_model
         else:
             raise RuntimeError("HB Production Model is not set up.")
+        
+    def hb_attr(self, input_dir):
+        self.hb_attracttion_model = self.tem_model.HBAttractionModel(
+            trip_rates_paths={
+                1: input_dir / "trip_rates_p1.hdf",
+                2: input_dir / "trip_rates_p2.hdf",
+                3: input_dir / "trip_rates_p3.hdf",
+                4: input_dir / "trip_rates_p4.hdf",
+                5: input_dir / "trip_rates_p5.hdf",
+                6: input_dir / "trip_rates_p6.hdf",
+                7: input_dir / "trip_rates_p7.hdf",
+                8: input_dir / "trip_rates_p8.hdf"
+                },
+            emp_landuse_paths = {2024: input_dir / "dlog_soc_sic_emp_2024.dvec",
+                                 2025: input_dir / "dlog_soc_sic_emp_2025.dvec",
+                                 2035: input_dir / "dlog_soc_sic_emp_2035.dvec",
+                                 2045: input_dir / "dlog_soc_sic_emp_2045.dvec"}, 
+            hh_landuse_dirs = {2024: input_dir / "dlog_hh_2024.dvec",
+                               2025: input_dir / "dlog_hh_2025.dvec",
+                               2035: input_dir / "dlog_hh_2035.dvec",
+                               2045: input_dir / "dlog_hh_2045.dvec"}, 
+            hh_landuse_prefix = "dlog_hh", 
+            mode_time_splits_path=input_dir / "mode_time_split_attraction_hb_fr_reg.hdf",
+            balance_production=True,
+            trip_rate_adjustment_path=input_dir / "trip_rate_adjustments_attractions_hb_fr.hdf",
+            emp_translation_path=None,
+            hh_translation_path=None,
+            mode_time_splits_adjustment_path=input_dir / "mode_time_split_adjustments.hdf"
+            )
+        
+        return self.hb_attracttion_model
+
+    def run_hb_attracttion_model(self):
+        if self.hb_attracttion_model:
+            self.hb_attracttion_model.run()
+            return self.hb_attracttion_model
+        else:
+            raise RuntimeError("HB Attraction Model is not set up.")
+        
+    def nhb_prod(self, input_dir):
+        self.nhb_production_model = self.tem_model.NHBProductionModel(
+            trip_rates_path= input_dir / "nhb_trip_rates_production.hdf",
+            mode_time_splits_path= input_dir / "mts_fixed.dvec"
+            )
+        
+        return self.nhb_production_model
+
+    def run_nhb_production_model(self):
+        if self.nhb_production_model:
+            self.nhb_production_model.run()
+            return self.nhb_production_model
+        else:
+            raise RuntimeError("NHB Production Model is not set up.")
 
 class TEMProcessing:
-    def __init__(self, hb_production_model, export_home):
-        self.hb_production_model = hb_production_model
+    def __init__(self, hb_model, export_home):
+        self.hb_model = hb_model
         self.export_home = export_home
 
     def process_output(self):
-        years = [2024, 2025, 2026, 2027, 2028, 2029, 2030, 2031, 2032, 2033, 2034, 2035, 2036,
-                2037, 2038, 2039, 2040, 2041, 2042, 2043, 2044, 2045, 2046, 2047, 2048, 2049,
-                2050, 2051, 2052, 2053, 2054, 2055, 2056, 2057, 2058, 2059, 2060, 2061, 2062,
-                2063, 2064, 2065, 2066]
+        years = [2024, 2025, 2035, 2045]
         
-        file_template = "hb_normits_tem_segmented_{}_dvec.h5"
+        file_template = "nhb_normits_tem_segmented_{}_dvec.h5"
         
         processed_dataframes = []
 
@@ -114,7 +124,6 @@ class TEMProcessing:
             
             df = df.drop(columns=['tp'])
 
-
             id_vars = ['p', 'm']
             value_vars = [col for col in df.columns if col not in id_vars]
             df = df.melt(id_vars=id_vars, value_vars=value_vars, var_name='zone', value_name='value')
@@ -127,7 +136,7 @@ class TEMProcessing:
 
         combined_df = combined_df.pivot_table(index=['zone', 'p', 'm'], columns='year', values='value').reset_index()
 
-        combined_file_path = os.path.join(self.export_home, "hb_normits_tem_segmented.csv.bz2")
+        combined_file_path = os.path.join(self.export_home, "nhb_normits_tem_segmented.csv.bz2")
         combined_df.to_csv(combined_file_path, index=False, compression='bz2')
 
         print(f"Processed data saved to {combined_file_path}")
@@ -136,22 +145,35 @@ class TEMProcessing:
 if __name__ == "__main__":
 
     tem = TEM(
-        model_years=[2024, 2025, 2026, 2027, 2028, 2029, 2030, 2031, 2032, 2033, 2034, 2035, 2036,
-                    2037, 2038, 2039, 2040, 2041, 2042, 2043, 2044, 2045, 2046, 2047, 2048, 2049,
-                    2050, 2051, 2052, 2053, 2054, 2055, 2056, 2057, 2058, 2059, 2060, 2061, 2062,
-                    2063, 2064, 2065, 2066],
+        model_years= [2024, 2025, 2035, 2045],
         scenario="Core",
         output_zoning="normits",
-        iteration_name="25032025_test_3",
+        iteration_name="27032025_All",
         export_home=r"T:\Yan_Kavana\TEM DLOG\Outputs",
         return_segmentation=["p", "m", "tp", "hh_type"]
     )
 
-    input_dir = Path(r"T:\ThomasPrince\TEM I-Drive Comparison\Inputs\01-HBProduction")
-    hb_production_model = tem.hb_prod(input_dir)
+    input_dir_prod = Path(r"T:\ThomasPrince\TEM I-Drive Comparison\Inputs\01-HBProduction")
+    input_dir_attr = Path(r"T:\ThomasPrince\TEM I-Drive Comparison\Inputs\02-HBAttraction")
+    input_dir_prod_nhb = Path(r"T:\ThomasPrince\TEM I-Drive Comparison\Inputs\03-NHBProduction")
+
+    hb_production_model = tem.hb_prod(input_dir_prod)
     tem.run_hb_production_model()
 
-    output = r"T:\Yan_Kavana\TEM DLOG\Outputs\25032025_test_2\Core\hb_productions"
+    hb_attraction_model = tem.hb_attr(input_dir_attr)
+    tem.run_hb_attracttion_model()
 
-    tem_processing = TEMProcessing(hb_production_model, output)
+    nhb_production_model = tem.nhb_prod(input_dir_prod_nhb)
+    tem.run_nhb_production_model()
+  
+    output = Path(r"T:\Yan_Kavana\TEM DLOG\Outputs\27032025_All\Core")
+
+    out_prod = output / "hb_productions"
+    out_attr = output / "hb_attractions"
+    out_prod_nhb = output / "nhb_productions"
+    
+    tem_processing = TEMProcessing(hb_production_model, out_prod)
+    tem_processing.process_output()
+
+    tem_processing = TEMProcessing(nhb_production_model, out_prod_nhb)
     tem_processing.process_output()
