@@ -18,22 +18,19 @@ HBProd = tem.HBProductionModel(
     trip_rates_path=dvec_fldr / "hb_trip_rates_production_dvector.dvec",
     mode_time_splits_path=dvec_fldr / "hb_mode_time_split_production_hb_fr.dvec")
 
-HBAttr = tem.HBAttractionModel(
-    trip_rates_paths={
-        1: r"T:\ThomasPrince\hb_attraction_triprates_p1.dvec",
-        2: r"T:\ThomasPrince\hb_attraction_triprates_p2.dvec",
-        3: r"T:\ThomasPrince\hb_attraction_triprates_p3.dvec",
-        4: r"T:\ThomasPrince\hb_attraction_triprates_p4.dvec",
-        5: r"T:\ThomasPrince\hb_attraction_triprates_p5.dvec",
-        6: r"T:\ThomasPrince\hb_attraction_triprates_p6.dvec",
-        8: r"T:\ThomasPrince\hb_attraction_triprates_p8.dvec"
-    },
-    balance_production=True,
-    emp_landuse_paths = {2023: r"C:\Users\Spiral\Documents\Thomas Prince\Common Analytical Framework\NoTEM\Inputs\Land Use\employment\normits\Output E6.hdf"},
-    hh_landuse_dirs = {2023: r"C:\Users\Spiral\Documents\Thomas Prince\Common Analytical Framework\NoTEM\Inputs\Land Use\population\normits"},
-    hh_landuse_prefix = "Output P14.1",
-    hb_mts_path=r"C:\Users\Spiral\Documents\Thomas Prince\NTS Processing DVec\outputs_is\attractions\hb\mode_time_splits\hb_mode_time_split_attraction_hb_fr.dvec"
-)
+HBAttr = tem.HBAttractionModel(trip_rates_paths={
+    1: r"T:\ThomasPrince\hb_attraction_triprates_p1.dvec",
+    2: r"T:\ThomasPrince\hb_attraction_triprates_p2.dvec",
+    3: r"T:\ThomasPrince\hb_attraction_triprates_p3.dvec",
+    4: r"T:\ThomasPrince\hb_attraction_triprates_p4.dvec",
+    5: r"T:\ThomasPrince\hb_attraction_triprates_p5.dvec",
+    6: r"T:\ThomasPrince\hb_attraction_triprates_p6.dvec",
+    8: r"T:\ThomasPrince\hb_attraction_triprates_p8.dvec"
+}, emp_landuse={
+    2023: r"C:\Users\Spiral\Documents\Thomas Prince\Common Analytical Framework\NoTEM\Inputs\Land Use\employment\normits\Output E6.hdf"},
+    hh_landuse={
+        2023: r"C:\Users\Spiral\Documents\Thomas Prince\Common Analytical Framework\NoTEM\Inputs\Land Use\population\normits"},
+    mode_time_splits_path=, balance_production=True)
 
 NHBProd = tem.NHBProductionModel(
     trip_rates_path=r"C:\Users\Spiral\Documents\Thomas Prince\Common Analytical Framework\NoTEM\NTS Output\productions\nhb\trip_rates\nhb_trip_rates_production.hdf",

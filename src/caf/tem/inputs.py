@@ -3,6 +3,7 @@
 Module containing input classes for trip-end models, mainly around imports and 
 exports.
 """
+from __future__ import annotations
 
 # Built-Ins TODO tidy this file
 import enum
@@ -10,13 +11,67 @@ import os
 import pathlib
 import collections
 from dataclasses import dataclass
+from typing import Literal
 
 # Third Party
 import caf.toolkit as ctk
 import caf.base as cb
+import pandas as pd
 
 
 # # # CLASSES # # #
+@dataclass
+class Landuse:
+
+    type: Literal["pop", "emp", "hh"]
+    land_use: os.PathLike | cb.DVector
+    trans_tag: str = None
+    prefix: str = None
+    segmentation: cb.Segmentation = None
+    geographies: str = None
+    out_zoning: cb.ZoningSystem | str | list[cb.ZoningSystem | str] | None = None
+
+    def read_landuse(
+        self, translation: pd.DataFrame | None = None, model_zoning: cb.ZoningSystem = None
+    ):
+        source_path = pathlib.Path(self.land_use)
+        if isinstance(self.segmentation, list):
+            self.segmentation = cb.Segmentation(
+                cb.SegmentationInput(
+                    enum_segments=self.segmentation, naming_order=self.segmentation
+                )
+            )
+        if source_path.is_file():
+            lu = cb.DVector.load(source_path)
+            lu = lu.aggregate(self.segmentation)
+        else:
+            dvecs = []
+            segmentation = self.segmentation
+            for geo in self.geographies:
+                dvec = cb.DVector.load(source_path / self.prefix.format(geo))
+                if segmentation is None:
+                    segmentation = dvec.segmentation
+                dvecs.append(dvec.aggregate(segmentation))
+            lu_data = pd.concat([dvec.data for dvec in dvecs], axis=1)
+            lu = cb.DVector(
+                segmentation=segmentation,
+                zoning_system=dvecs[0].zoning_system,
+                import_data=lu_data,
+            )
+        if self.out_zoning is not None:
+            if isinstance(self.out_zoning, list):
+                factor_col = (
+                    f"{lu.zoning_system.translation_column_name(model_zoning)}_{self.type}"
+                )
+                lu = lu.trans_and_comp(self.out_zoning, translation, factor_col)
+            else:
+                if isinstance(self.out_zoning, str):
+                    self.out_zoning = cb.ZoningSystem.get_zoning(self.out_zoning)
+                lu = lu.translate_zoning(self.out_zoning, trans_vector=translation)
+        self.land_use = lu
+        return lu
+
+
 @enum.unique
 class Scenarios(enum.Enum):
 
@@ -178,7 +233,7 @@ class TEMModelPaths:
             tem_segmented=self._generate_report_paths(self._tem_segmented),
         )
 
-    def _generate_report_paths( # TODO should this be a class, rather than function? 
+    def _generate_report_paths(  # TODO should this be a class, rather than function?
         self,
         report_name: str,
     ) -> tuple[dict[int, str], dict[int, str], dict[int, str]]:
@@ -381,7 +436,7 @@ class TEMExportPaths:
         iteration_name: str,
         export_home: os.PathLike,
         model_zoning: str,
-        agg_zoning: str
+        agg_zoning: str,
     ):
         """
         Builds the export paths for all the TEM sub-models
@@ -426,7 +481,7 @@ class TEMExportPaths:
             report_home=hb_p_report_home,
             _trip_origin="hb",
             model_zoning=model_zoning,
-            agg_zoning=agg_zoning
+            agg_zoning=agg_zoning,
         )
 
         # nhb productions
@@ -441,7 +496,7 @@ class TEMExportPaths:
             report_home=nhb_p_report_home,
             _trip_origin="nhb",
             model_zoning=model_zoning,
-            agg_zoning=agg_zoning
+            agg_zoning=agg_zoning,
         )
 
         # hb attractions
@@ -473,5 +528,6 @@ class TEMExportPaths:
             model_zoning=model_zoning,
             agg_zoning=agg_zoning,
         )
+
 
 # # # FUNCTIONS # # #

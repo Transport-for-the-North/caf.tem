@@ -26,7 +26,6 @@ import math
 # Local Imports
 # pylint: disable=import-error,wrong-import-position
 # Local imports here
-# from inputs import TT
 # pylint: enable=import-error,wrong-import-position
 
 # # # CONSTANTS # # #
@@ -47,12 +46,13 @@ TT_EMP = cb.SegmentationInput(enum_segments=SEG_EMP, naming_order=SEG_EMP)
 TT_HH = cb.SegmentationInput(enum_segments=SEG_HH, naming_order=SEG_HH)
 
 LAD_REPORT_SEG: cb.SegmentationInput = cb.SegmentationInput(
-        enum_segments=["p", "m", "tp"],
-        naming_order=["p", "m", "tp"],
-        subsets={"tp": [1, 2, 3, 4, 5, 6]},
-    )
+    enum_segments=["p", "m", "tp"],
+    naming_order=["p", "m", "tp"],
+    subsets={"tp": [1, 2, 3, 4, 5, 6]},
+)
 
 # # # CLASSES # # #
+
 
 # # # FUNCTIONS # # #
 def lu_to_tt(dvec: cb.DVector):
@@ -62,13 +62,18 @@ def lu_to_tt(dvec: cb.DVector):
     out_dvec = out_dvec.trans_seg_from_lookup("ag_g")
     out_dvec = out_dvec.trans_seg_from_lookup("apopemp_aws", drop_old=True)
 
-    out_dvec = out_dvec.add_segments(['hh_type']).aggregate(["adult_nssec", "gender_3", "ns_sec", "soc", "aws", "hh_type"])
+    out_dvec = out_dvec.add_segments(["hh_type"]).aggregate(
+        ["adult_nssec", "gender_3", "ns_sec", "soc", "aws", "hh_type"]
+    )
 
     if not math.isclose(out_dvec.sum(), dvec.sum()):
-        warnings.warn(f"The total has changed during conversion. Sum before = {dvec.sum()}, "
-                      f"sum after = {out_dvec.sum()}.")
+        warnings.warn(
+            f"The total has changed during conversion. Sum before = {dvec.sum()}, "
+            f"sum after = {out_dvec.sum()}."
+        )
 
     return out_dvec
+
 
 def write_reports(dvec: cb.DVector, report_path, year: int) -> None:
     """
@@ -76,13 +81,13 @@ def write_reports(dvec: cb.DVector, report_path, year: int) -> None:
     - Writes reports given the report path to output to.
     """
     dvec.write_sector_reports(
-                     segment_totals_path=report_path.segment_total[year],
-                     ca_sector_path=report_path.ca_sector[year],
-                     ie_sector_path=report_path.ie_sector[year],
-                     lad_report_path=report_path.lad_report[year],
-                     lad_report_seg=cb.Segmentation(LAD_REPORT_SEG),
-                 )
-    
+        segment_totals_path=report_path.segment_total[year],
+        ca_sector_path=report_path.ca_sector[year],
+        ie_sector_path=report_path.ie_sector[year],
+        lad_report_path=report_path.lad_report[year],
+        lad_report_seg=cb.Segmentation(LAD_REPORT_SEG),
+    )
+
     return None
 
 
@@ -136,171 +141,92 @@ def check_file_exists(
         raise FileNotFoundError("Cannot find a path to: %s" % str(file_path))
 
 
-
-#if __name__ == "__main__":
-#    normits = cb.ZoningSystem.get_zoning("normits")
-#    pop = read_pop_lu(
-#        pathlib.Path(r"F:\Working\Land-Use\OUTPUTS_full run_final"),
-#        "Output P11_{}.hdf",
-#        out_zoning=normits,
-#    )
-#    pop_vector = pop.data.sum().T
-#    pop_vector.to_csv(r"C:\Users\IsaacScott\projects\tem\pop_2021.csv")
-#    pop.save(
-#        r"F:\Working\Land-Use\OUTPUTS_revised exclusions age status_seeded\final_combined.hdf"
-#    )
-#    print("debugging")
-# TODO check if this function is what creates the input to HB Production i.e. pop_2023.dvec
-
-### Old Utils ###
-""'''def file_exists(file_path: os.PathLike) -> bool:
-    """
-    Checks if a file exists at the given path.
-
-    Parameters
-    ----------
-    file_path:
-        path to the file to check.
-
-    Returns
-    -------
-    file_exists:
-        True if a file exists, else False
-    """
-    if not os.path.exists(file_path):
-        return False
-
-    if not os.path.isfile(file_path):
-        raise IOError(
-            "The given path exists, but does not point to a file. "
-            "Given path: %s" % str(file_path)
-        )
-
-    return True
-
-
-def check_file_exists(
-    file_path: os.PathLike,
-) -> None:
-    """
-    Checks if a file exists at the given path. Throws an error if not.
-
-    Parameters
-    ----------
-    file_path:
-        path to the file to check.
-
-    find_similar:
-        Whether to look for files with the same name, but a different file
-        type extension. If True, this will call find_filename() using the
-        default alternate file types: ['.pbz2', '.csv']
-
-    Returns
-    -------
-    None
-    """
-    if not file_exists(file_path):
-        raise IOError("Cannot find a path to: %s" % str(file_path))
-
-
-def lu_to_tt(dvec: cb.DVector):
-    out_dvec = dvec.aggregate(
-        ["age_9", "g", "ns_sec", "soc", "pop_emp", "adults", "adult_nssec", "car_availability"]
-    )
-    out_dvec = out_dvec.trans_seg_from_lookup("ag_g")
-    out_dvec = out_dvec.trans_seg_from_lookup("apopemp_aws", drop_old=True)
-
-    out_dvec = out_dvec.add_segments(['hh_type']).aggregate(["adult_nssec", "gender_3", "ns_sec", "soc", "aws", "hh_type"])
-
-    if not math.isclose(out_dvec.sum(), dvec.sum()):
-        warnings.warn(f"The total has changed during conversion. Sum before = {dvec.sum()}, "
-                      f"sum after = {out_dvec.sum()}.")
-
-    return out_dvec'''""
-
-
-
-def read_pop_lu(dir: pathlib.Path,
-                file_name: str,
-                out_zoning: cb.ZoningSystem | None = None,
-                geographies=('EM', 'EoE', 'Lon', 'NE', 'NW', 'SE', 'SW', 'Wales', 'WM', 'YH', 'Scotland')):
+def read_pop_lu(
+    dir: pathlib.Path,
+    file_name: str,
+    out_zoning: cb.ZoningSystem | None = None,
+    geographies=("EM", "EoE", "Lon", "NE", "NW", "SE", "SW", "Wales", "WM", "YH", "Scotland"),
+):
     dvecs = []
     for region in geographies:
         dvec = cb.DVector.load(pathlib.Path(dir) / file_name.format(region))
         dvec_tt = lu_to_tt(dvec)
         dvecs.append(dvec_tt)
     overall_data = pd.concat([d.data for d in dvecs], axis=1)
-    zoning = cb.ZoningSystem.get_zoning('lsoa_2021')
+    zoning = cb.ZoningSystem.get_zoning("lsoa_2021")
     overall_data.rename(columns=zoning.name_to_id, inplace=True)
-    dvec = cb.DVector(import_data=overall_data,
-                            segmentation=cb.Segmentation(TT),
-                            zoning_system=zoning)
+    dvec = cb.DVector(
+        import_data=overall_data, segmentation=cb.Segmentation(TT), zoning_system=zoning
+    )
     trans = None
     if out_zoning is not None:
         trans = dvec.zoning_system.translate(out_zoning)
-        dvec = dvec.translate_zoning(
-            out_zoning,
-            trans_vector=trans
-        )
+        dvec = dvec.translate_zoning(out_zoning, trans_vector=trans)
     return dvec, trans
 
-if __name__ == "__main__":
-    normits = cb.ZoningSystem.get_zoning('normits')
-    pop = read_pop_lu(pathlib.Path(r"F:\Working\Land-Use\OUTPUTS_full run_final"),
-                "Output P11_{}.hdf",
-                      out_zoning=normits)
-    pop_vector = pop.data.sum().T
-    pop_vector.to_csv(r"C:\Users\IsaacScott\projects\tem\pop_2021.csv")
-    pop.save(r"F:\Working\Land-Use\OUTPUTS_revised exclusions age status_seeded\final_combined.hdf")
-    print('debugging')
 
-def read_lu_hh(dir: pathlib.Path | str,
-                file_name: str,
-                out_zoning: cb.ZoningSystem | None = None,
-                geographies=GOR):
+def read_hh_lu(
+    dir: pathlib.Path | str, file_name: str, out_seg: cb.Segmentation = SEG_HH, geographies=GOR
+):
     dvecs = []
     for region in geographies:
         dvec = cb.DVector.load(pathlib.Path(dir) / file_name.format(region))
-        dvec = dvec.aggregate(SEG_HH)
-        print(f'    {region:8}: lu {dvec.data.sum(axis=1).sum():.2f}')
+        dvec = dvec.aggregate(out_seg)
+        print(f"    {region:8}: lu {dvec.data.sum(axis=1).sum():.2f}")
         dvecs.append(dvec)
     overall_data = pd.concat([d.data for d in dvecs], axis=1)
-    zoning = cb.ZoningSystem.get_zoning('lsoa_2021')
+    zoning = cb.ZoningSystem.get_zoning("lsoa_2021")
     overall_data.rename(columns=zoning.name_to_id, inplace=True)
-    dvec = cb.DVector(import_data=overall_data,
-                            segmentation=cb.Segmentation(TT_HH),
-                            zoning_system=zoning)
-    trans = None
-    if out_zoning is not None:
-        trans = dvec.zoning_system.translate(out_zoning)
-        dvec = dvec.translate_zoning(
-            out_zoning,
-            trans_vector=trans
-        )
-    return dvec, trans
+    dvec = cb.DVector(import_data=overall_data, segmentation=out_seg, zoning_system=zoning)
+    return dvec
 
-def read_lu_emp(dir: pathlib.Path | str,
-                file_name: str,
-                out_zoning: cb.ZoningSystem | None = None
-                ):
+
+def read_lu_emp(dir: pathlib.Path | str, file_name: str, out_seg: cb.Segmentation):
 
     dvec = cb.DVector.load(pathlib.Path(dir) / file_name)
     dvec = dvec.aggregate(SEG_EMP).data
-    out = pd.DataFrame(dvec.groupby(level='soc').sum().sum(axis=1)).rename(columns={0: 'emp'})
-    out['prop'] = out['emp'].div(out['emp'].sum()) * 100
+    out = pd.DataFrame(dvec.groupby(level="soc").sum().sum(axis=1)).rename(columns={0: "emp"})
+    out["prop"] = out["emp"].div(out["emp"].sum()) * 100
     print(f'    GB: lu {out["emp"].sum():.2f}')
     print(out)
 
-    zoning = cb.ZoningSystem.get_zoning('lsoa_2021')
+    zoning = cb.ZoningSystem.get_zoning("lsoa_2021")
     dvec.rename(columns=zoning.name_to_id, inplace=True)
-    dvec = cb.DVector(import_data=dvec,
-                            segmentation=cb.Segmentation(TT_EMP),
-                            zoning_system=zoning)
-    trans = None
-    if out_zoning is not None:
-        trans = dvec.zoning_system.translate(out_zoning)
-        dvec = dvec.translate_zoning(
-            out_zoning,
-            trans_vector=trans
+    dvec = cb.DVector(
+        import_data=dvec, segmentation=cb.Segmentation(TT_EMP), zoning_system=zoning
+    )
+    return dvec
+
+
+def return_home(pa: cb.DVector, phi_factors: cb.DVector, mode_split: cb.DVector | None = None):
+    pa_seg = pa.segmentation.naming_order
+    temp_seg = list(map(lambda x: x + "_to" if x in ["p", "tp"] else x, pa_seg))
+    hb_to = (pa * phi_factors).aggregate(temp_seg)
+    hb_to_data = (
+        hb_to.data.reset_index().rename(columns={"p_to": "p", "tp_to": "tp"}).set_index(pa_seg)
+    )
+    hb_to = cb.DVector(
+        import_data=hb_to_data, segmentation=pa_seg, zoning_system=pa.zoning_system
+    )
+    if mode_split is not None:
+        if "m" in pa_seg:
+            pa_seg.remove("m")
+            hb_to = hb_to.aggregate(pa_seg)
+        hb_to = hb_to * mode_split
+    if not math.isclose(pa.sum(), hb_to.sum()):
+        warnings.warn(
+            f"Return trips don't match outbound trips. Out = {pa.sum()}, return = {hb_to.sum()}"
         )
-    return dvec, trans
+
+    return hb_to
+
+
+def read_phi_factors(phi_path: pathlib.Path):
+    if phi_path.is_file():
+        phi_factors = cb.DVector.load(phi_path)
+    else:
+        phi_factors = cb.DVector.concat_from_dir(phi_path)
+    agg_phi = phi_factors.aggregate(["p", "tp"])
+    if not math.isclose(agg_phi.sum(), len(phi_factors)):
+        phi_factors /= agg_phi
+    return phi_factors
