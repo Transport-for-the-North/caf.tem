@@ -146,8 +146,6 @@ class TEMProcessing:
             df = pd.read_hdf(file_path, key="data")
 
             df.reset_index(inplace=True)
-            
-           
             cols_after_m = df.columns[df.columns.get_loc('m') + 1:]
             sum_of_cols_after_m = df[cols_after_m].sum()
             total_sum = sum_of_cols_after_m.sum()
@@ -155,32 +153,11 @@ class TEMProcessing:
 
             df = df[~df['tp'].isin([5, 6])]
             df = df[df['m'] != 7]
-
-            cols_after_m = df.columns[df.columns.get_loc('m') + 1:]
-            sum_of_cols_after_m = df[cols_after_m].sum()
-            total_sum = sum_of_cols_after_m.sum()
-            print(total_sum)
-
             df['m'] = df['m'].replace(4, 3)
-
-            cols_after_m = df.columns[df.columns.get_loc('m') + 1:]
-            sum_of_cols_after_m = df[cols_after_m].sum()
-            total_sum = sum_of_cols_after_m.sum()
-            print(total_sum)
-
-             
             df = df.drop(columns=['hh_type' , 'tp'])
+
             df = df.groupby(['p', 'm']).sum().reset_index()
             
-            cols_after_m = df.columns[df.columns.get_loc('m') + 1:]
-            sum_of_cols_after_m = df[cols_after_m].sum()
-            total_sum = sum_of_cols_after_m.sum()
-            print(total_sum)
-
-            # df = df.groupby(['p', 'm']).sum().reset_index()
-            
-            df = df.drop(columns=['tp', 'hh_type'])
-
             cols_after_m = df.columns[df.columns.get_loc('m') + 1:]
             sum_of_cols_after_m = df[cols_after_m].sum()
             total_sum = sum_of_cols_after_m.sum()
@@ -216,20 +193,13 @@ class TEMProcessing:
             df = pd.read_hdf(file_path, key="data")
 
             df.reset_index(inplace=True)
-            
-            df = df.drop(columns=['hh_type'])
 
             df = df[~df['tp'].isin([5, 6])]
-
-            df['tp'] = df['tp'].replace([1, 2, 3, 4], 7)
-            df = df.groupby(['p', 'm', 'tp']).sum().reset_index()
-  
             df = df[df['m'] != 7]
- 
             df['m'] = df['m'].replace(4, 3)
+            df = df.drop(columns=['hh_type' , 'tp'])
+
             df = df.groupby(['p', 'm']).sum().reset_index()
-            
-            df = df.drop(columns=['tp'])
 
             id_vars = ['p', 'm']
             value_vars = [col for col in df.columns if col not in id_vars]
@@ -269,17 +239,17 @@ if __name__ == "__main__":
     dlog_soc_sic = Path(r"I:\Data\D-Log\DLIT\Outputs\Test18_DLog24_v0.15_rnn\05_normits\dlog_soc_sic_emp\soc_sic_emp")
     dlog_hh = Path(r"I:\Data\D-Log\DLIT\Outputs\Test18_DLog24_v0.15_rnn\05_normits\dlog_hh\hh")
 
-    # hb_production_model = tem.hb_prod(input_dir_prod)
-    # tem.run_hb_production_model()
+    hb_production_model = tem.hb_prod(input_dir_prod)
+    tem.run_hb_production_model()
 
-    # hb_attraction_model = tem.hb_attr(input_dir_attr)
-    # tem.run_hb_attracttion_model()
+    hb_attraction_model = tem.hb_attr(input_dir_attr)
+    tem.run_hb_attracttion_model()
 
-    # nhb_production_model = tem.nhb_prod(input_dir_prod_nhb)
-    # tem.run_nhb_production_model()
+    nhb_production_model = tem.nhb_prod(input_dir_prod_nhb)
+    tem.run_nhb_production_model()
 
-    # nhb_attracttion_model = tem.nhb_attr(input_dir_attr_nhb)
-    # tem.run_nhb_attracttion_model()
+    nhb_attracttion_model = tem.nhb_attr(input_dir_attr_nhb)
+    tem.run_nhb_attracttion_model()
   
     output = Path(r"T:\Yan_Kavana\TEM DLOG\Outputs\14042025_All\dlog")
 
@@ -287,8 +257,6 @@ if __name__ == "__main__":
     out_attr = output / "hb_attractions"
     out_prod_nhb = output / "nhb_productions"
     out_attr_nhb = output / "nhb_attractions"
-
-    hb_production_model = r"T:\Yan_Kavana\TEM DLOG\Outputs\14042025_All\dlog\hb_productions\hb_normits_tem_segmented_2023_dvec.h5"
 
     tem_processing = TEMProcessing(hb_production_model, out_prod )
     tem_processing.process_output_hb('prod')
