@@ -29,6 +29,7 @@ class Scenarios(enum.Enum):
     LOW = "Low"
     REGIONAL = "Regional"
     TECHNOLOGY = "Technology"
+    DLOG = "dlog"
 
 
 class TEMModelPaths:
