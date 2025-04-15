@@ -147,19 +147,44 @@ class TEMProcessing:
 
             df.reset_index(inplace=True)
             
-            # df = df.drop(columns=['hh_type'])
+           
+            cols_after_m = df.columns[df.columns.get_loc('m') + 1:]
+            sum_of_cols_after_m = df[cols_after_m].sum()
+            total_sum = sum_of_cols_after_m.sum()
+            print(total_sum)
 
             df = df[~df['tp'].isin([5, 6])]
             df = df[df['m'] != 7]
 
-            # df['tp'] = df['tp'].replace([1, 2, 3, 4], 7) 
-            df = df.groupby(['p', 'm']).sum().reset_index()
+            cols_after_m = df.columns[df.columns.get_loc('m') + 1:]
+            sum_of_cols_after_m = df[cols_after_m].sum()
+            total_sum = sum_of_cols_after_m.sum()
+            print(total_sum)
 
- 
             df['m'] = df['m'].replace(4, 3)
+
+            cols_after_m = df.columns[df.columns.get_loc('m') + 1:]
+            sum_of_cols_after_m = df[cols_after_m].sum()
+            total_sum = sum_of_cols_after_m.sum()
+            print(total_sum)
+
+             
+            df = df.drop(columns=['hh_type' , 'tp'])
             df = df.groupby(['p', 'm']).sum().reset_index()
             
-            df = df.drop(columns=['tp'])
+            cols_after_m = df.columns[df.columns.get_loc('m') + 1:]
+            sum_of_cols_after_m = df[cols_after_m].sum()
+            total_sum = sum_of_cols_after_m.sum()
+            print(total_sum)
+
+            # df = df.groupby(['p', 'm']).sum().reset_index()
+            
+            df = df.drop(columns=['tp', 'hh_type'])
+
+            cols_after_m = df.columns[df.columns.get_loc('m') + 1:]
+            sum_of_cols_after_m = df[cols_after_m].sum()
+            total_sum = sum_of_cols_after_m.sum()
+            print(total_sum)
 
             id_vars = ['p', 'm']
             value_vars = [col for col in df.columns if col not in id_vars]
