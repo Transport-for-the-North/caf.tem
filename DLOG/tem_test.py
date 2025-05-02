@@ -17,14 +17,9 @@ class TEM:
         self.iteration_name = iteration_name
         self.scenario = scenario
 
-    def hb_prod(self, input_dir):
+    def hb_prod(self, input_dir, population_paths):
         self.hb_production_model = self.tem_model.HBProductionModel(
-            population_paths={
-                2024: dlog_pop / "dlog_tt_pop_2024_large.dvec",
-                2025: dlog_pop / "dlog_tt_pop_2025_large.dvec",
-                2035: dlog_pop / "dlog_tt_pop_2035_large.dvec",
-                2045: dlog_pop / "dlog_tt_pop_2045_large.dvec",
-            },
+            population_paths=population_paths,
             trip_rates_path=input_dir / "triprates.dvec",
             mode_time_splits_path=input_dir / "mts.dvec",
             adjustment_path=input_dir / "trip_rate_adjustments_production_hb_fr.hdf",
@@ -39,7 +34,7 @@ class TEM:
         else:
             raise RuntimeError("HB Production Model is not set up.")
         
-    def hb_attr(self, input_dir):
+    def hb_attr(self, input_dir, emp_landuse_paths, hh_landuse_dirs):
         self.hb_attracttion_model = self.tem_model.HBAttractionModel(
             trip_rates_paths={
                 1: input_dir / "trip_rates_p1.hdf",
@@ -51,15 +46,9 @@ class TEM:
                 7: input_dir / "trip_rates_p7.hdf",
                 8: input_dir / "trip_rates_p8.hdf"
                 },
-            emp_landuse_paths = {2024: dlog_soc_sic / "dlog_soc_sic_emp_2024_large.dvec",
-                                 2025: dlog_soc_sic / "dlog_soc_sic_emp_2025_large.dvec",
-                                 2035: dlog_soc_sic / "dlog_soc_sic_emp_2035_large.dvec",
-                                 2045: dlog_soc_sic / "dlog_soc_sic_emp_2045_large.dvec"}, 
-            hh_landuse_dirs = {2024: dlog_hh / "dlog_hh_2024_large.dvec",
-                               2025: dlog_hh / "dlog_hh_2025_large.dvec",
-                               2035: dlog_hh / "dlog_hh_2035_large.dvec",
-                               2045: dlog_hh / "dlog_hh_2045_large.dvec"}, 
-            hh_landuse_prefix = "dlog_hh", 
+            emp_landuse_paths=emp_landuse_paths,
+            hh_landuse_dirs=hh_landuse_dirs,
+            hh_landuse_prefix="dlog_hh", 
             mode_time_splits_path=input_dir / "mode_time_split_attraction_hb_fr_reg.hdf",
             balance_production=True,
             trip_rate_adjustment_path=input_dir / "trip_rate_adjustments_attractions_hb_fr.hdf",
@@ -92,7 +81,7 @@ class TEM:
         else:
             raise RuntimeError("NHB Production Model is not set up.")
         
-    def nhb_attr(self, input_dir):
+    def nhb_attr(self, input_dir, emp_landuse_paths, hh_landuse_dirs):
         self.nhb_attracttion_model = self.tem_model.NHBAttractionModel(
             trip_rates_paths={
                     11: input_dir / "nhb_attraction_triprates_p11.dvec",
@@ -102,17 +91,12 @@ class TEM:
                     15: input_dir / "nhb_attraction_triprates_p15.dvec",
                     16: input_dir / "nhb_attraction_triprates_p16.dvec",
                     18: input_dir / "nhb_attraction_triprates_p18.dvec"},
-            balance_production=True,
-            emp_landuse_paths = {2024: dlog_soc_sic / "dlog_soc_sic_emp_2024_large.dvec",
-                                 2025: dlog_soc_sic / "dlog_soc_sic_emp_2025_large.dvec",
-                                 2035: dlog_soc_sic / "dlog_soc_sic_emp_2035_large.dvec",
-                                 2045: dlog_soc_sic / "dlog_soc_sic_emp_2045_large.dvec"},
-            hh_landuse_dirs = {2024: dlog_hh / "dlog_hh_2024_large.dvec",
-                               2025: dlog_hh / "dlog_hh_2025_large.dvec",
-                               2035: dlog_hh / "dlog_hh_2035_large.dvec",
-                               2045: dlog_hh / "dlog_hh_2045_large.dvec"},
-            hh_landuse_prefix = "dlog_hh", 
-            nhb_mode_time_splits_path = input_dir / "nhb_mode_time_split_attraction.dvec")
+            emp_landuse_paths=emp_landuse_paths,
+            hh_landuse_dirs=hh_landuse_dirs,
+            hh_landuse_prefix="dlog_hh", 
+            nhb_mode_time_splits_path=input_dir / "nhb_mode_time_split_attraction.dvec",
+            balance_production=True
+            )
         
         return self.nhb_attracttion_model
     
@@ -128,9 +112,7 @@ class TEMProcessing:
         self.hb_model = hb_model
         self.export_home = export_home
 
-    def process_output_hb(self, model):
-        years = [2024, 2025, 2035, 2045]
-        
+    def process_output_hb(self, model, years):
         file_template = "hb_normits_tem_segmented_{}_dvec.h5"
         
         processed_dataframes = []
@@ -162,14 +144,12 @@ class TEMProcessing:
 
         combined_df = combined_df.pivot_table(index=['zone', 'p', 'm'], columns='year', values='value').reset_index()
 
-        combined_file_path = os.path.join(self.export_home, f"{model}_hb_normits_tem_segmented_large.csv.bz2")
-        combined_df.to_csv(combined_file_path, index=False, compression='bz2')
+        combined_file_path = os.path.join(self.export_home, f"{model}_hb_normits_tem_segmented.csv")
+        combined_df.to_csv(combined_file_path, index=False)
 
         print(f"Processed data saved to {combined_file_path}")
 
-    def process_output_nhb(self, model):
-        years = [2024, 2025, 2035, 2045]
-        
+    def process_output_nhb(self, model, years):
         file_template = "nhb_normits_tem_segmented_{}_dvec.h5"
         
         processed_dataframes = []
@@ -201,59 +181,82 @@ class TEMProcessing:
 
         combined_df = combined_df.pivot_table(index=['zone', 'p', 'm'], columns='year', values='value').reset_index()
 
-        combined_file_path = os.path.join(self.export_home, f"{model}_nhb_normits_tem_segmented_large.csv.bz2")
-        combined_df.to_csv(combined_file_path, index=False, compression='bz2')
+        combined_file_path = os.path.join(self.export_home, f"{model}_nhb_normits_tem_segmented.csv")
+        combined_df.to_csv(combined_file_path, index=False)
 
         print(f"Processed data saved to {combined_file_path}")
 
-
 if __name__ == "__main__":
+    scenarios = {
+        "All": {
+            "model_years": [2023],
+            "iteration_name": "01052025_All",
+            "population_paths": {2023: "dlog_tt_pop_2023.dvec"},
+            "emp_landuse_paths": {2023: "dlog_soc_sic_emp_2023.dvec"},
+            "hh_landuse_dirs": {2023: "dlog_hh_2023.dvec"},
+            "years": [2023]
+        },
+        "Large": {
+            "model_years": [2023],
+            "iteration_name": "01052025_Large",
+            "population_paths": {2023: "dlog_tt_pop_2023_large.dvec"},
+            "emp_landuse_paths": {2023: "dlog_soc_sic_emp_2023_large.dvec"},
+            "hh_landuse_dirs": {2023: "dlog_hh_2023_large.dvec"},
+            "years": [2023]
+        }
+    }
 
-    tem = TEM(
-        model_years= [2024, 2025, 2035, 2045],
-        scenario="dlog",
-        output_zoning="normits",
-        iteration_name="11042025_Large",
-        export_home=r"T:\Yan_Kavana\TEM DLOG\Outputs",
-        return_segmentation=["p", "m", "tp", "hh_type"]
-    )
+    for scenario_name, config in scenarios.items():
+        tem = TEM(
+            model_years=config["model_years"],
+            scenario="dlog",
+            output_zoning="normits",
+            iteration_name=config["iteration_name"],
+            export_home=r"T:\Yan_Kavana\TEM DLOG\Outputs",
+            return_segmentation=["p", "m", "tp", "hh_type"]
+        )
 
-    input_dir_prod = Path(r"T:\ThomasPrince\TEM I-Drive Comparison\Inputs\01-HBProduction")
-    input_dir_attr = Path(r"T:\ThomasPrince\TEM I-Drive Comparison\Inputs\02-HBAttraction")
-    input_dir_prod_nhb = Path(r"T:\ThomasPrince\TEM I-Drive Comparison\Inputs\03-NHBProduction")
-    input_dir_attr_nhb = Path(r"T:\ThomasPrince\TEM I-Drive Comparison\Inputs\04_NHBAttractionModel")
+        input_dir_prod = Path(r"T:\ThomasPrince\TEM I-Drive Comparison\Inputs\01-HBProduction")
+        input_dir_attr = Path(r"T:\ThomasPrince\TEM I-Drive Comparison\Inputs\02-HBAttraction")
+        input_dir_prod_nhb = Path(r"T:\ThomasPrince\TEM I-Drive Comparison\Inputs\03-NHBProduction")
+        input_dir_attr_nhb = Path(r"T:\ThomasPrince\TEM I-Drive Comparison\Inputs\04_NHBAttractionModel")
 
-    dlog_pop = Path(r"I:\Data\D-Log\DLIT\Outputs\Test18_DLog24_v0.15_rnn\05_normits\dlog_tt_pop\tt_pop")
-    dlog_soc_sic = Path(r"I:\Data\D-Log\DLIT\Outputs\Test18_DLog24_v0.15_rnn\05_normits\dlog_soc_sic_emp\soc_sic_emp")
-    dlog_hh = Path(r"I:\Data\D-Log\DLIT\Outputs\Test18_DLog24_v0.15_rnn\05_normits\dlog_hh\hh")
+        dlog_pop = Path(r"I:\Data\D-Log\DLIT\Outputs\Test18_DLog24_v0.15_rnn\05_normits\dlog_tt_pop\tt_pop")
+        dlog_soc_sic = Path(r"I:\Data\D-Log\DLIT\Outputs\Test18_DLog24_v0.15_rnn\05_normits\dlog_soc_sic_emp\soc_sic_emp")
+        dlog_hh = Path(r"I:\Data\D-Log\DLIT\Outputs\Test18_DLog24_v0.15_rnn\05_normits\dlog_hh\hh")
 
-    hb_production_model = tem.hb_prod(input_dir_prod)
-    tem.run_hb_production_model()
+        # Update paths with full paths
+        population_paths = {year: dlog_pop / path for year, path in config["population_paths"].items()}
+        emp_landuse_paths = {year: dlog_soc_sic / path for year, path in config["emp_landuse_paths"].items()}
+        hh_landuse_dirs = {year: dlog_hh / path for year, path in config["hh_landuse_dirs"].items()}
 
-    hb_attraction_model = tem.hb_attr(input_dir_attr)
-    tem.run_hb_attracttion_model()
+        hb_production_model = tem.hb_prod(input_dir_prod, population_paths)
+        tem.run_hb_production_model()
 
-    nhb_production_model = tem.nhb_prod(input_dir_prod_nhb)
-    tem.run_nhb_production_model()
+        hb_attraction_model = tem.hb_attr(input_dir_attr, emp_landuse_paths, hh_landuse_dirs)
+        tem.run_hb_attracttion_model()
 
-    nhb_attracttion_model = tem.nhb_attr(input_dir_attr_nhb)
-    tem.run_nhb_attracttion_model()
-  
-    output = Path(r"T:\Yan_Kavana\TEM DLOG\Outputs\11042025_Large\dlog")
+        nhb_production_model = tem.nhb_prod(input_dir_prod_nhb)
+        tem.run_nhb_production_model()
 
-    out_prod = output / "hb_productions"
-    out_attr = output / "hb_attractions"
-    out_prod_nhb = output / "nhb_productions"
-    out_attr_nhb = output / "nhb_attractions"
-    
-    tem_processing = TEMProcessing(hb_production_model, out_prod)
-    tem_processing.process_output_hb('prod')
+        nhb_attracttion_model = tem.nhb_attr(input_dir_attr_nhb, emp_landuse_paths, hh_landuse_dirs)
+        tem.run_nhb_attracttion_model()
+      
+        output = Path(r"T:\Yan_Kavana\TEM DLOG\Outputs") / config["iteration_name"] / "dlog"
 
-    tem_processing = TEMProcessing(hb_attraction_model, out_attr)
-    tem_processing.process_output_hb('attr')
+        out_prod = output / "hb_productions"
+        out_attr = output / "hb_attractions"
+        out_prod_nhb = output / "nhb_productions"
+        out_attr_nhb = output / "nhb_attractions"
 
-    tem_processing = TEMProcessing(nhb_production_model, out_prod_nhb)
-    tem_processing.process_output_nhb('prod')
+        tem_processing = TEMProcessing(hb_production_model, out_prod)
+        tem_processing.process_output_hb('prod', config["years"])
 
-    tem_processing = TEMProcessing(nhb_attracttion_model, out_attr_nhb)
-    tem_processing.process_output_nhb('attr')
+        tem_processing = TEMProcessing(hb_attraction_model, out_attr)
+        tem_processing.process_output_hb('attr', config["years"])
+
+        tem_processing = TEMProcessing(nhb_production_model, out_prod_nhb)
+        tem_processing.process_output_nhb('prod', config["years"])
+
+        tem_processing = TEMProcessing(nhb_attracttion_model, out_attr_nhb)
+        tem_processing.process_output_nhb('attr', config["years"])

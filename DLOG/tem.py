@@ -134,7 +134,7 @@ class TEMProcessing:
         self.export_home = export_home
 
     def process_output_hb(self, model):
-        years = [2023]
+        years = [2024]
         
         file_template = "hb_normits_tem_segmented_{}_dvec.h5"
         
@@ -166,6 +166,9 @@ class TEMProcessing:
             id_vars = ['p', 'm']
             value_vars = [col for col in df.columns if col not in id_vars]
             df = df.melt(id_vars=id_vars, value_vars=value_vars, var_name='zone', value_name='value')
+            df = df.groupby(['zone', 'p', 'm']).sum().reset_index()
+
+            df['value'] = df['value']/5
 
             df['year'] = year
 
@@ -204,6 +207,7 @@ class TEMProcessing:
             id_vars = ['p', 'm']
             value_vars = [col for col in df.columns if col not in id_vars]
             df = df.melt(id_vars=id_vars, value_vars=value_vars, var_name='zone', value_name='value')
+            df['value'] = df['value']/5
 
             df['year'] = year
 
@@ -222,10 +226,10 @@ class TEMProcessing:
 if __name__ == "__main__":
 
     tem = TEM(
-        model_years= [2023],
+        model_years= [2024],
         scenario="dlog",
         output_zoning="normits",
-        iteration_name="14042025_All",
+        iteration_name="11042025_All",
         export_home=r"T:\Yan_Kavana\TEM DLOG\Outputs",
         return_segmentation=["p", "m", "tp", "hh_type"]
     )
@@ -239,33 +243,35 @@ if __name__ == "__main__":
     dlog_soc_sic = Path(r"I:\Data\D-Log\DLIT\Outputs\Test18_DLog24_v0.15_rnn\05_normits\dlog_soc_sic_emp\soc_sic_emp")
     dlog_hh = Path(r"I:\Data\D-Log\DLIT\Outputs\Test18_DLog24_v0.15_rnn\05_normits\dlog_hh\hh")
 
-    hb_production_model = tem.hb_prod(input_dir_prod)
-    tem.run_hb_production_model()
+    # hb_production_model = tem.hb_prod(input_dir_prod)
+    # tem.run_hb_production_model()
 
-    hb_attraction_model = tem.hb_attr(input_dir_attr)
-    tem.run_hb_attracttion_model()
+    # hb_attraction_model = tem.hb_attr(input_dir_attr)
+    # tem.run_hb_attracttion_model()
 
-    nhb_production_model = tem.nhb_prod(input_dir_prod_nhb)
-    tem.run_nhb_production_model()
+    # nhb_production_model = tem.nhb_prod(input_dir_prod_nhb)
+    # tem.run_nhb_production_model()
 
-    nhb_attracttion_model = tem.nhb_attr(input_dir_attr_nhb)
-    tem.run_nhb_attracttion_model()
+    # nhb_attracttion_model = tem.nhb_attr(input_dir_attr_nhb)
+    # tem.run_nhb_attracttion_model()
   
-    output = Path(r"T:\Yan_Kavana\TEM DLOG\Outputs\14042025_All\dlog")
+    output = Path(r"T:\Yan_Kavana\TEM DLOG\Outputs\11042025_All\dlog")
 
     out_prod = output / "hb_productions"
     out_attr = output / "hb_attractions"
     out_prod_nhb = output / "nhb_productions"
     out_attr_nhb = output / "nhb_attractions"
 
+    hb_production_model = Path(r"T:\Yan_Kavana\TEM DLOG\Outputs\11042025_All\dlog\hb_productions")
+
     tem_processing = TEMProcessing(hb_production_model, out_prod )
     tem_processing.process_output_hb('prod')
 
-    tem_processing = TEMProcessing(hb_attraction_model, out_attr)
-    tem_processing.process_output_hb('attr')
+    # tem_processing = TEMProcessing(hb_attraction_model, out_attr)
+    # tem_processing.process_output_hb('attr')
 
-    tem_processing = TEMProcessing(nhb_production_model, out_prod_nhb)
-    tem_processing.process_output_nhb('prod')
+    # tem_processing = TEMProcessing(nhb_production_model, out_prod_nhb)
+    # tem_processing.process_output_nhb('prod')
 
-    tem_processing = TEMProcessing(nhb_attracttion_model, out_attr_nhb)
-    tem_processing.process_output_nhb('attr')
+    # tem_processing = TEMProcessing(nhb_attracttion_model, out_attr_nhb)
+    # tem_processing.process_output_nhb('attr')
