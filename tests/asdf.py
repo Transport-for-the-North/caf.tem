@@ -18,7 +18,7 @@ HBProd = tem.HBProductionModel(
     trip_rates_path=dvec_fldr / "hb_trip_rates_production_dvector.dvec",
     mode_time_splits_path=dvec_fldr / "hb_mode_time_split_production_hb_fr.dvec")
 
-HBAttr = tem.HBAttractionModel(trip_rates_paths={
+HBAttr = tem.AttractionModel(trip_rates_paths={
     1: r"T:\ThomasPrince\hb_attraction_triprates_p1.dvec",
     2: r"T:\ThomasPrince\hb_attraction_triprates_p2.dvec",
     3: r"T:\ThomasPrince\hb_attraction_triprates_p3.dvec",

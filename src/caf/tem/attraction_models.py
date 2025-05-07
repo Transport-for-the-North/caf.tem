@@ -100,6 +100,7 @@ class AttractionModel:
         export_pure_attractions: bool = True,
         export_tem_segmentation: bool = True,
         export_reports: bool = True,
+        mts_geo_constraint: cb.ZoningSystem | None = None,
     ) -> None:
         """
         Runs the HB/NHB Attraction Model.
@@ -178,6 +179,8 @@ class AttractionModel:
                 },
                 "uni",
             )
+        else:
+            mts_uni = None
 
         # For each year the model is running for...
         for (
@@ -215,7 +218,7 @@ class AttractionModel:
             self._check_mts_dict(attr_dict_adj, mts_dict)
             # Apply mts adjustment
             mts_dict_adj = self._adjust_mts_dict(
-                mts_dict, adj_factors_dict["mts"]
+                mts_dict, adj_factors_dict["mts"], geo_constraint=mts_geo_constraint
             )  # TODO do I want an mts_dict_adj variable and/or output? To ask Isaac
             if export_pure_attractions:
                 self._export_mts_attractions(mts_dict, year)
@@ -225,13 +228,19 @@ class AttractionModel:
 
             # ## SPLIT PRODUCTION SEGMENTATION ## #
             # Load the Adjusted TEM Production from the HB/NHB Production Model Output
+
             tem_production = cb.DVector.load(
-                self.production_model.export_paths.mts_demand_adj[year]
+                self.production_model.export_paths.tem_segmented[year]
             )  # TODO confirm not tem_segmented_adj i.e. are ==
+            if (
+                mts_dict_adj.keys()
+                != tem_production.segmentation.get_segment("p").values.keys()
+            ):
+                mts_dict_adj = {i + 10: j for i, j in mts_dict_adj.items()}
             # Apply the split_by_other method to the mts DVectors, given the tem_production
-            seg_dict = self._create_seg_dict(mts_dict, tem_production)
+            seg_dict = self._create_seg_dict(mts_dict_adj, tem_production)
             # Test all mts_dict DVectors match sum of attr_dict DVectors - TODO confirm rel/abs tolerance w Isaac for this test.
-            self._check_seg_dict(mts_dict, seg_dict)
+            self._check_seg_dict(mts_dict_adj, seg_dict)
             # No longer need dictionary of mts attraction by purpose
             del mts_dict
 
@@ -252,11 +261,15 @@ class AttractionModel:
 
             # ## BALANCE TO PRODUCTIONS ## #
             balanced_dvec = self._balance_to_production(tem_dvec, tem_production)
-            del tem_dvec
+            del tem_dvec, mts_dict_adj, tem_production, mts
 
             # ## TEM SEGMENTATION EXPORT ## #
             if export_reports:
-                utils.write_reports(balanced_dvec, report_paths.tem_segmented, year)
+                utils.write_reports(
+                    balanced_dvec.aggregate_comp_zones(self.model_zoning),
+                    report_paths.tem_segmented,
+                    year,
+                )
             if export_tem_segmentation:
                 balanced_dvec.save(export_paths.tem_segmented[year])
 
@@ -271,7 +284,11 @@ class AttractionModel:
         - Translates the trip rates DVector zoning system to the TEM Model zoning system
         """
         # Each trip rate file is explicitly defined in the input dictionary by purpose HB Attraction Model, similar assumption for NHB
-        trip_rate = cb.DVector.load(self.trip_rates_paths[p])
+        if self.trip_rates_paths[p].endswith("csv"):
+            trip_rate = pd.read_csv(self.trip_rates_paths[p], index_col=0).squeeze()
+            trip_rate.index.name = self.agg_zoning.column_name
+        else:
+            trip_rate = cb.DVector.load(self.trip_rates_paths[p])
 
         return trip_rate
 
@@ -413,11 +430,9 @@ class AttractionModel:
         # Create an empty dict to store attraction by purpose
         attr_dict: dict[int, cb.DVector] = {}
         # For each purpose...
-        for p in trip_rates.keys():
-            # Access the purpose's trip rate dvec
-            trip_rate = trip_rates[p]
+        for p, trip_rate in trip_rates.items():
             # Access the landuse dvec (employment or household) with respect to travel purpose
-            if p != 7:
+            if (p != 7) and (p != 17):
                 landuse = landuses["emp"]
             else:
                 landuse = landuses["hh"]
@@ -428,8 +443,11 @@ class AttractionModel:
                 [cb.segmentation.SegmentsSuper("p").get_segment(subset=[p])]
             )
             # Aggregate the attraction DVector to p and soc if soc is in the trip rate segmentation, p segmentation otherwise
-            if "soc" in trip_rate.segmentation.names:
-                attr = attr.aggregate(["total", "p", "soc"])
+            if isinstance(trip_rate, cb.DVector):
+                if "soc" in trip_rate.segmentation.names:
+                    attr = attr.aggregate(["total", "p", "soc"])
+                else:
+                    attr = attr.aggregate(["total", "p"])
             else:
                 attr = attr.aggregate(["total", "p"])
             attr_dict[p] = attr
@@ -481,11 +499,13 @@ class AttractionModel:
         """
         mts_dict: dict[int, cb.DVector] = {}
         for p, trips in attr_dict.items():
-            if mts_uni is not None:
+            if mts_uni is None:
+                mts_dict[p] = trips * mts
+            else:
                 if p in mts_uni.segmentation.input.subsets["p"]:
                     mts_dict[p] = trips * mts_uni
-            else:
-                mts_dict[p] = trips * mts
+                else:
+                    mts_dict[p] = trips * mts
 
         return mts_dict
 
@@ -503,7 +523,10 @@ class AttractionModel:
         return None
 
     def _adjust_mts_dict(
-        self, mts_dict: dict[int, cb.DVector], adj_factors: cb.DVector
+        self,
+        mts_dict: dict[int, cb.DVector],
+        adj_factors: cb.DVector,
+        geo_constraint: cb.ZoningSystem | None = None,
     ) -> dict[int, cb.DVector]:
         mts_dict_adj: dict[int, cb.DVector] = (
             {}
@@ -522,13 +545,12 @@ class AttractionModel:
                 adj_factors.fill(0, 1)
                 adj_factors.fillna(1)
                 adj = mts * adj_factors
-                numerator = mts.aggregate(
-                    ["p"]
-                )  # .translate_zoning(cb.ZoningSystem.get_zoning("gor")).translate_zoning(cb.ZoningSystem.get_zoning(self.model._zoning_system), check_totals=False, no_factors=True)
-                denomenator = adj.aggregate(
-                    ["p"]
-                )  # .translate_zoning(cb.ZoningSystem.get_zoning("gor")).translate_zoning(cb.ZoningSystem.get_zoning(self.model._zoning_system), check_totals=False, no_factors=True)
-                adj = adj * (numerator / denomenator)
+                numerator = mts.aggregate(["p"])
+                denominator = adj.aggregate(["p"])
+                if geo_constraint is not None:
+                    numerator = numerator.aggregate_comp_zones(geo_constraint)
+                    denominator = denominator.aggregate_comp_zones(geo_constraint)
+                adj = adj * (numerator / denominator)
                 mts_dict_adj[p] = adj
 
         else:
@@ -567,6 +589,9 @@ class AttractionModel:
         """
         seg_dict: dict[int, cb.DVector] = {}
         for p, mts in mts_dict.items():
+            agg_seg = list(self.tem_segmentation.overlap(mts.segmentation))
+            agg_seg.remove("p")
+            mts = mts.aggregate(agg_seg)
             seg_dict[p] = mts.split_by_other(
                 tem_production.filter_segment_value("p", [p]),
                 agg_zone=cb.ZoningSystem.get_zoning("gor"),
@@ -615,10 +640,8 @@ class AttractionModel:
         if self.balance_production == True:
             tem_dvec.fill(0, 1e-16)
             gb_factors = tem_production.remove_zoning() / tem_dvec.remove_zoning()
-            balanced_dvec = (
-                tem_dvec * gb_factors
-            )  # TODO check here that sums for productions and attractions do match.
-        # If soning is specified for balancing
+            balanced_dvec = tem_dvec * gb_factors
+        # If zoning is specified for balancing
         elif isinstance(self.balance_production, (cb.BalancingZones, cb.ZoningSystem)):
             balanced_dvec = tem_dvec.balance_by_segments(
                 tem_production, self.balance_production
@@ -662,4 +685,4 @@ class AttractionModel:
             warnings.warn(
                 f"Return trips don't match outbound trips. Out = {pa.sum()}, return = {hb_to.sum()}"
             )
-        return hb_to
+        return hb_

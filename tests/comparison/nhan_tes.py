@@ -9,7 +9,7 @@ tem = ct.TEM(
     return_segmentation=["p", "m", "tp", "ns_sec", "soc"]
 )
 
-HBAttr = tem.HBAttractionModel(trip_rates_paths={
+HBAttr = tem.AttractionModel(trip_rates_paths={
     1: r"T:\ThomasPrince\TEM I-Drive Comparison\Inputs\02-HBAttraction\trip_rates_p1.hdf",
     2: r"T:\ThomasPrince\TEM I-Drive Comparison\Inputs\02-HBAttraction\trip_rates_p2.hdf",
     3: r"T:\ThomasPrince\TEM I-Drive Comparison\Inputs\02-HBAttraction\trip_rates_p3.hdf",
@@ -24,8 +24,6 @@ HBAttr = tem.HBAttractionModel(trip_rates_paths={
     mode_time_splits_path=r"T:\ThomasPrince\TEM I-Drive Comparison\Inputs\02-HBAttraction\mode_time_split_attraction_hb_fr_reg.hdf",
     balance_production=True,
     trip_rate_adjustment_path=r"T:\ThomasPrince\TEM I-Drive Comparison\Inputs\02-HBAttraction\trip_rate_adjustments_attractions_hb_fr.hdf",
-    emp_translation_path=r"T:\ThomasPrince\TEM I-Drive Comparison\Inputs\normits_lsoa_2021_emp.csv",
-    hh_translation_path=r"T:\ThomasPrince\TEM I-Drive Comparison\Inputs\normits_lsoa_2021_pop.csv",
     mode_time_splits_adjustment_path=r"T:\ThomasPrince\TEM I-Drive Comparison\Inputs\02-HBAttraction\mode_time_split_adjustments.hdf",
     mts_uni_path=r"T:\ThomasPrince\TEM I-Drive Comparison\Inputs\02-HBAttraction\mode_time_split_attraction_hb_fr_reg_uni.hdf")
 

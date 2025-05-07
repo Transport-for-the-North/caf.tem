@@ -147,9 +147,9 @@ class HBProductionModel:
         mts_path = Path(mts_path)
 
         # Raises error if paths given in the constructor are invalid. # TODO use utils and add mts_adj + tr_adj
-        for key, pop_path in population_paths.items():
-            if not pop_path.is_file():
-                raise FileNotFoundError(f"{pop_path} is not a valid file.")
+        # for key, pop_path in population_paths.items():
+        #     if not pop_path.is_file():
+        #         raise FileNotFoundError(f"{pop_path} is not a valid file.")
         if not trip_rates_path.is_file():
             raise FileNotFoundError(f"{trip_rates_path} not a valid file.")
         if not mts_path.is_file():
@@ -162,8 +162,9 @@ class HBProductionModel:
         self,
         export_pure_production: bool = True,
         export_mts_production: bool = True,
-        export_tem_segmentation: bool = False,
+        export_tem_segmentation: bool = True,
         export_reports: bool = True,
+        mts_geo_constraint: cb.ZoningSystem = None,
     ) -> None:
         """
         Runs the HB Production model.
@@ -284,7 +285,7 @@ class HBProductionModel:
                 tem_seged, mts
             )  # Only carry on adj from here TODO confirm w Isaac
             mts_production_adj = self._adjust_mts_production(
-                mts_production, mts_adj_factors
+                mts_production, mts_adj_factors, geo_constraint=mts_geo_constraint
             )  # TODO check if HB Prod has mts adj. -> create function for this
             # Export mts production
             if export_mts_production:
@@ -373,9 +374,7 @@ class HBProductionModel:
 
         self._logger.info(f"Year {year}:\n  Loading the population data")
         if self.population_paths[year].is_dir():
-            population = utils.read_pop_lu(
-                self.population_paths[year], "Output P11_{}.hdf", self.model_zoning
-            )
+            population = utils.read_pop_lu(self.population_paths[year], "Output P11_{}.hdf")[0]
         else:
             population = cb.DVector.load(self.population_paths[year])
         # Ensure zoning system of mts matches the TEM Model zoning system
@@ -424,7 +423,10 @@ class HBProductionModel:
         return mts_production
 
     def _adjust_mts_production(
-        self, mts_production: cb.DVector, adj_factors: cb.DVector
+        self,
+        mts_production: cb.DVector,
+        adj_factors: cb.DVector,
+        geo_constraint: cb.ZoningSystem = None,
     ) -> cb.DVector:
         """ """
         if adj_factors is None:
@@ -434,12 +436,13 @@ class HBProductionModel:
         adj_factors.fill(0, 1)
         adj = mts_production * adj_factors
         # TODO currently balances with gor -> may want to use normits / optional / other zoning instead...
-        numerator = mts_production.aggregate(
-            ["p"]
-        )  # .translate_zoning(cb.ZoningSystem.get_zoning("gor")).translate_zoning(cb.ZoningSystem.get_zoning(self.model._zoning_system), check_totals=False, no_factors=True)
-        denominator = adj.aggregate(
-            ["p"]
-        )  # .translate_zoning(cb.ZoningSystem.get_zoning("gor")).translate_zoning(cb.ZoningSystem.get_zoning(self.model._zoning_system), check_totals=False, no_factors=True)
+        numerator = mts_production.aggregate(["p"])
+        denominator = adj.aggregate(["p"])
+        if geo_constraint is not None:
+            if geo_constraint not in mts_production.zoning_system:
+                raise ValueError("Geo constraint must be contained in the zoning system")
+            numerator = numerator.aggregate_comp_zones(geo_constraint)
+            denominator = denominator.aggregate_comp_zones(geo_constraint)
         adj = adj * (numerator / denominator)
         mts_production_adj = adj
 
@@ -710,29 +713,37 @@ class NHBProductionModel_TP:
         """
         - TODO
         """
-        pure_production = hbattr * trip_rates
+        pure_prod = None
+        for p in hbattr.segmentation.get_segment("p_hb").int_values:
+            pure_prod_p = hbattr.filter_segment_value(
+                "p_hb", p, keep_filtered=True
+            ) * trip_rates.filter_segment_value("p_hb", p)
 
-        segs = pure_production.segmentation.names
-        segs.remove("p_hb")
-        segs.remove("m_hb")
-        pure_production = pure_production.aggregate(segs)
-        pure_production_data = pure_production.data.reset_index().rename(
-            columns={"m_nhb": "m", "p_nhb": "p"}
-        )
-        segs.remove("p_nhb")
-        segs.remove("m_nhb")
-        segs.append("p")
-        segs.append("m")
-        pure_production_data = pure_production_data.set_index(segs)
-        pure_production = cb.DVector(
-            segmentation=cb.Segmentation(
-                cb.SegmentationInput(enum_segments=segs, naming_order=segs)
-            ),
-            import_data=pure_production_data,
-            zoning_system=pure_production.zoning_system,
-        )
+            segs = pure_prod_p.segmentation.names
+            segs.remove("p_hb")
+            segs.remove("m_hb")
+            pure_prod_p = pure_prod_p.aggregate(segs)
+            pure_production_data = pure_prod_p.data.reset_index().rename(
+                columns={"m_nhb": "m", "p_nhb": "p"}
+            )
+            segs.remove("p_nhb")
+            segs.remove("m_nhb")
+            segs.append("p")
+            segs.append("m")
+            pure_production_data = pure_production_data.set_index(segs)
+            pure_prod_p = cb.DVector(
+                segmentation=cb.Segmentation(
+                    cb.SegmentationInput(enum_segments=segs, naming_order=segs)
+                ),
+                import_data=pure_production_data,
+                zoning_system=pure_prod_p.zoning_system,
+            )
+            if pure_prod is None:
+                pure_prod = pure_prod_p
+            else:
+                pure_prod += pure_prod_p
 
-        return pure_production
+        return pure_prod
 
     def _create_mts_production(
         self, pure_production: cb.DVector, mts: cb.DVector

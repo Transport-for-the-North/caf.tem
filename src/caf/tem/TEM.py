@@ -7,6 +7,7 @@
 import os
 import caf.base as cb
 import pandas as pd
+from typing import Literal
 
 from .inputs import TEMExportPaths, Scenarios, Landuse
 from .attraction_models import AttractionModel
@@ -23,6 +24,7 @@ from .production_models import HBProductionModel, NHBProductionModel_TP
 
 """EXECUTION OF CODE:
 """
+from caf.toolkit import BaseConfig
 
 
 class TEM:
@@ -152,7 +154,7 @@ class TEM:
 
         return self.hb_production_model
 
-    def HBAttractionModel(
+    def AttractionModel(
         self,
         trip_rates_paths: dict[int, os.PathLike],
         emp_landuse: dict[int, Landuse],
@@ -162,6 +164,7 @@ class TEM:
         trip_rate_adjustment_path: os.PathLike = None,
         mode_time_splits_adjustment_path: os.PathLike = None,
         mts_uni_path: os.PathLike = None,
+        origin: Literal["hb", "nhb"] = "hb",
     ) -> AttractionModel:
         """
         The Home Based (HB) Attraction Model of caf.tem
@@ -196,23 +199,40 @@ class TEM:
         See HBAttractionModelPaths for documentation on:
             "path_years, export_home, report_home, export_paths, report_paths"
         """
-
-        self.hb_attraction_model = AttractionModel(
-            self.export_paths.hb_production,
-            self.export_paths.hb_attraction,
-            trip_rates_paths,
-            trip_rate_adjustment_path,
-            balance_production,
-            emp_landuse,
-            hh_landuse,
-            mode_time_splits_path,
-            mode_time_splits_adjustment_path,
-            self.return_segmentation,
-            mts_uni_path,
-            self.output_zoning,
-            self.agg_zoning,
-            self.zone_trans,
-        )
+        if origin == "hb":
+            self.attraction_model = AttractionModel(
+                self.export_paths.hb_production,
+                self.export_paths.hb_attraction,
+                trip_rates_paths,
+                trip_rate_adjustment_path,
+                balance_production,
+                emp_landuse,
+                hh_landuse,
+                mode_time_splits_path,
+                mode_time_splits_adjustment_path,
+                self.return_segmentation,
+                mts_uni_path,
+                self.output_zoning,
+                self.agg_zoning,
+                self.zone_trans,
+            )
+        else:
+            self.attraction_model = AttractionModel(
+                self.export_paths.nhb_production,
+                self.export_paths.nhb_attraction,
+                trip_rates_paths,
+                trip_rate_adjustment_path,
+                balance_production,
+                emp_landuse,
+                hh_landuse,
+                mode_time_splits_path,
+                mode_time_splits_adjustment_path,
+                self.return_segmentation,
+                mts_uni_path,
+                self.output_zoning,
+                self.agg_zoning,
+                self.zone_trans,
+            )
 
         # User Input Test
         for p in trip_rates_paths.keys():
@@ -222,7 +242,7 @@ class TEM:
                     f"Trip rates key {p} was passed.\nTrip rates keys must be in {vals}"
                 )
 
-        return self.hb_attraction_model
+        return self.attraction_model
 
     def NHBProductionModel(
         self,
@@ -325,3 +345,19 @@ class TEM:
 
 """SAVE OUTPUT:
 """
+
+# class TEMInput(BaseConfig):
+#     model_years: list[int]
+#     scenario: str
+#     output_zoning: str
+#     agg_zoning: str
+#     iteration_name: str
+#     export_home: os.PathLike
+#     return_segmentation: list[str]
+#     trans_file: os.PathLike
+#     population_paths: dict[int, Landuse]
+#     pop_zoning: str
+#     hb_prod_trip_rates_path: os.PathLike
+#     hb_prod_mode_time_splits_path: os.PathLike
+#     hb_prod_adjustment_path: os.PathLike
+#     hb_prod_mts_adj_path: os.PathLike

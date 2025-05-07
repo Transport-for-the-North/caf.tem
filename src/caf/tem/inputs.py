@@ -34,6 +34,8 @@ class Landuse:
     def read_landuse(
         self, translation: pd.DataFrame | None = None, model_zoning: cb.ZoningSystem = None
     ):
+        if isinstance(self.land_use, cb.DVector):
+            return self.land_use
         source_path = pathlib.Path(self.land_use)
         if isinstance(self.segmentation, list):
             self.segmentation = cb.Segmentation(

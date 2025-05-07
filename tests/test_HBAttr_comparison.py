@@ -29,7 +29,7 @@ tem = ct.TEM(
     return_segmentation=["hh_type", "p", "m", "tp"]
 )
 
-HBAttr = tem.HBAttractionModel(trip_rates_paths={
+HBAttr = tem.AttractionModel(trip_rates_paths={
     1: r"T:\ThomasPrince\TEM Input\comparison\02_HBAttraction\input\trip_rates_p1.hdf",
     2: r"T:\ThomasPrince\TEM Input\comparison\02_HBAttraction\input\trip_rates_p2.hdf",
     3: r"T:\ThomasPrince\TEM Input\comparison\02_HBAttraction\input\trip_rates_p3.hdf",
