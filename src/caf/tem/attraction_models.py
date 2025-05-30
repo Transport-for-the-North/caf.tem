@@ -261,7 +261,7 @@ class AttractionModel:
 
             # ## BALANCE TO PRODUCTIONS ## #
             balanced_dvec = self._balance_to_production(tem_dvec, tem_production)
-            del tem_dvec, mts_dict_adj, tem_production, mts
+            del tem_dvec, mts_dict_adj, tem_production
 
             # ## TEM SEGMENTATION EXPORT ## #
             if export_reports:
