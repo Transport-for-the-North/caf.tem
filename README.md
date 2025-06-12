@@ -21,11 +21,6 @@
 <a href="https://github.com/psf/black"><img alt="code style: black" src="https://img.shields.io/badge/code%20format-black-000000.svg"></a>
 </p>
 
-
-A template repo for caf modules.
-
-For an example implementation of this template please see [caf.toolkit](https://github.com/Transport-for-the-North/caf.toolkit)
-
 > [!WARNING]  
 > This package is in an early stage of development so features may change or be removed. 
 > If using this package it is recommended to set a specific version and check before 
