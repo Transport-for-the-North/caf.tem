@@ -143,29 +143,40 @@ for entity in entities:
             for i in range(1, 9)
         }
 
-        if entity == "total":
-            HBAttr = model.AttractionModel(
-                trip_rates_paths=trip_rate_paths_hb_attr,
-                emp_landuse=emp_landuse,
-                hh_landuse=hh_landuse,
-                mode_time_splits_path=r"T:\Yan_Kavana\tem_inputs_isaac\TEM I-Drive Comparison\Inputs\02-HBAttraction\mode_time_split_attraction_hb_fr_reg.hdf",
-                balance_production=False,
-                trip_rate_adjustment_path=r"T:\Yan_Kavana\tem_inputs_isaac\TEM I-Drive Comparison\Inputs\02-HBAttraction\trip_rate_adjustments_attractions_hb_fr.hdf",
-                mode_time_splits_adjustment_path=r"T:\Yan_Kavana\tem_inputs_isaac\TEM I-Drive Comparison\Inputs\02-HBAttraction\mode_time_split_adjustments.hdf",
-                mts_uni_path=r"T:\Yan_Kavana\tem_inputs_isaac\TEM I-Drive Comparison\Inputs\02-HBAttraction\mode_time_split_attraction_hb_fr_reg_uni.hdf",
-            )
+        HBAttr = model.AttractionModel(
+            trip_rates_paths=trip_rate_paths_hb_attr,
+            emp_landuse=emp_landuse,
+            hh_landuse=hh_landuse,
+            mode_time_splits_path=r"T:\Yan_Kavana\tem_inputs_isaac\TEM I-Drive Comparison\Inputs\02-HBAttraction\mode_time_split_attraction_hb_fr_reg.hdf",
+            balance_production=False,
+            trip_rate_adjustment_path=r"T:\Yan_Kavana\tem_inputs_isaac\TEM I-Drive Comparison\Inputs\02-HBAttraction\trip_rate_adjustments_attractions_hb_fr.hdf",
+            mode_time_splits_adjustment_path=r"T:\Yan_Kavana\tem_inputs_isaac\TEM I-Drive Comparison\Inputs\02-HBAttraction\mode_time_split_adjustments.hdf",
+            mts_uni_path=r"T:\Yan_Kavana\tem_inputs_isaac\TEM I-Drive Comparison\Inputs\02-HBAttraction\mode_time_split_attraction_hb_fr_reg_uni.hdf",
+        )
 
-        else:
-            HBAttr = model.AttractionModel(
-                trip_rates_paths=trip_rate_paths_hb_attr,
-                emp_landuse=emp_landuse,
-                hh_landuse=hh_landuse,
-                mode_time_splits_path=r"T:\Yan_Kavana\tem_inputs_isaac\TEM I-Drive Comparison\Inputs\02-HBAttraction\mode_time_split_attraction_hb_fr_reg.hdf",
-                balance_production=False,
-                trip_rate_adjustment_path=r"T:\Yan_Kavana\tem_inputs_isaac\TEM I-Drive Comparison\Inputs\02-HBAttraction\trip_rate_adjustments_attractions_hb_fr.hdf",
-                mode_time_splits_adjustment_path=r"T:\Yan_Kavana\tem_inputs_isaac\TEM I-Drive Comparison\Inputs\02-HBAttraction\mode_time_split_adjustments.hdf",
-                mts_uni_path=r"T:\Yan_Kavana\tem_inputs_isaac\TEM I-Drive Comparison\Inputs\02-HBAttraction\mode_time_split_attraction_hb_fr_reg_uni.hdf",
-            )
+        # if entity == "total":
+        #     HBAttr = model.AttractionModel(
+        #         trip_rates_paths=trip_rate_paths_hb_attr,
+        #         emp_landuse=emp_landuse,
+        #         hh_landuse=hh_landuse,
+        #         mode_time_splits_path=r"T:\Yan_Kavana\tem_inputs_isaac\TEM I-Drive Comparison\Inputs\02-HBAttraction\mode_time_split_attraction_hb_fr_reg.hdf",
+        #         balance_production=False,
+        #         trip_rate_adjustment_path=r"T:\Yan_Kavana\tem_inputs_isaac\TEM I-Drive Comparison\Inputs\02-HBAttraction\trip_rate_adjustments_attractions_hb_fr.hdf",
+        #         mode_time_splits_adjustment_path=r"T:\Yan_Kavana\tem_inputs_isaac\TEM I-Drive Comparison\Inputs\02-HBAttraction\mode_time_split_adjustments.hdf",
+        #         mts_uni_path=r"T:\Yan_Kavana\tem_inputs_isaac\TEM I-Drive Comparison\Inputs\02-HBAttraction\mode_time_split_attraction_hb_fr_reg_uni.hdf",
+        #     )
+
+        # else:
+        #     HBAttr = model.AttractionModel(
+        #         trip_rates_paths=trip_rate_paths_hb_attr,
+        #         emp_landuse=emp_landuse,
+        #         hh_landuse=hh_landuse,
+        #         mode_time_splits_path=r"T:\Yan_Kavana\tem_inputs_isaac\TEM I-Drive Comparison\Inputs\02-HBAttraction\mode_time_split_attraction_hb_fr_reg.hdf",
+        #         balance_production=False,
+        #         trip_rate_adjustment_path=r"T:\Yan_Kavana\tem_inputs_isaac\TEM I-Drive Comparison\Inputs\02-HBAttraction\trip_rate_adjustments_attractions_hb_fr.hdf",
+        #         mode_time_splits_adjustment_path=r"T:\Yan_Kavana\tem_inputs_isaac\TEM I-Drive Comparison\Inputs\02-HBAttraction\mode_time_split_adjustments.hdf",
+        #         mts_uni_path=r"T:\Yan_Kavana\tem_inputs_isaac\TEM I-Drive Comparison\Inputs\02-HBAttraction\mode_time_split_attraction_hb_fr_reg_uni.hdf",
+        #     )
 
         HBAttr.run(export_pure_attractions=True, mts_geo_constraint=gor, export_reports=False)
 
@@ -189,30 +200,42 @@ for entity in entities:
             8: r"T:\Yan_Kavana\tem_inputs_isaac\TEM I-Drive Comparison\Inputs\04_NHBAttractionModel\nhb_attraction_triprates_p18.dvec",
         }
 
-        if entity == "total":
-            NHBAttr = model.AttractionModel(
-                trip_rates_paths=trip_rate_paths_nhb_attr,
-                emp_landuse=emp_landuse,
-                hh_landuse=hh_landuse,
-                balance_production=False,
-                mode_time_splits_path=r"T:\Yan_Kavana\tem_inputs_isaac\nhb_attr_mts_new.dvec",
-                trip_rate_adjustment_path=r"T:\Yan_Kavana\tem_inputs_isaac\nhb_tr_adj.dvec",
-                mode_time_splits_adjustment_path=r"T:\Yan_Kavana\tem_inputs_isaac\nhb_attr_mts_adj.dvec",
-                mts_uni_path=r"T:\Yan_Kavana\tem_inputs_isaac\nhb_attr_mts_uni.dvec",
-                origin="nhb",
-            )
+        NHBAttr = model.AttractionModel(
+            trip_rates_paths=trip_rate_paths_nhb_attr,
+            emp_landuse=emp_landuse,
+            hh_landuse=hh_landuse,
+            balance_production=False,
+            mode_time_splits_path=r"T:\Yan_Kavana\tem_inputs_isaac\nhb_attr_mts_new.dvec",
+            trip_rate_adjustment_path=r"T:\Yan_Kavana\tem_inputs_isaac\nhb_tr_adj.dvec",
+            mode_time_splits_adjustment_path=r"T:\Yan_Kavana\tem_inputs_isaac\nhb_attr_mts_adj.dvec",
+            mts_uni_path=r"T:\Yan_Kavana\tem_inputs_isaac\nhb_attr_mts_uni.dvec",
+            origin="nhb",
+        )
 
-        else:
-            NHBAttr = model.AttractionModel(
-                trip_rates_paths=trip_rate_paths_nhb_attr,
-                emp_landuse=emp_landuse,
-                hh_landuse=hh_landuse,
-                balance_production=False,
-                mode_time_splits_path=r"T:\Yan_Kavana\tem_inputs_isaac\nhb_attr_mts_new.dvec",
-                trip_rate_adjustment_path=r"T:\Yan_Kavana\tem_inputs_isaac\nhb_tr_adj.dvec",
-                mode_time_splits_adjustment_path=r"T:\Yan_Kavana\tem_inputs_isaac\nhb_attr_mts_adj.dvec",
-                mts_uni_path=r"T:\Yan_Kavana\tem_inputs_isaac\nhb_attr_mts_uni.dvec",
-                origin="nhb",
-            )
+        # if entity == "total":
+        #     NHBAttr = model.AttractionModel(
+        #         trip_rates_paths=trip_rate_paths_nhb_attr,
+        #         emp_landuse=emp_landuse,
+        #         hh_landuse=hh_landuse,
+        #         balance_production=False,
+        #         mode_time_splits_path=r"T:\Yan_Kavana\tem_inputs_isaac\nhb_attr_mts_new.dvec",
+        #         trip_rate_adjustment_path=r"T:\Yan_Kavana\tem_inputs_isaac\nhb_tr_adj.dvec",
+        #         mode_time_splits_adjustment_path=r"T:\Yan_Kavana\tem_inputs_isaac\nhb_attr_mts_adj.dvec",
+        #         mts_uni_path=r"T:\Yan_Kavana\tem_inputs_isaac\nhb_attr_mts_uni.dvec",
+        #         origin="nhb",
+        #     )
+
+        # else:
+        #     NHBAttr = model.AttractionModel(
+        #         trip_rates_paths=trip_rate_paths_nhb_attr,
+        #         emp_landuse=emp_landuse,
+        #         hh_landuse=hh_landuse,
+        #         balance_production=False,
+        #         mode_time_splits_path=r"T:\Yan_Kavana\tem_inputs_isaac\nhb_attr_mts_new.dvec",
+        #         trip_rate_adjustment_path=r"T:\Yan_Kavana\tem_inputs_isaac\nhb_tr_adj.dvec",
+        #         mode_time_splits_adjustment_path=r"T:\Yan_Kavana\tem_inputs_isaac\nhb_attr_mts_adj.dvec",
+        #         mts_uni_path=r"T:\Yan_Kavana\tem_inputs_isaac\nhb_attr_mts_uni.dvec",
+        #         origin="nhb",
+        #     )
 
         NHBAttr.run(export_reports=False)
