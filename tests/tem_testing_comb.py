@@ -5,11 +5,14 @@ from pathlib import Path
 import pandas as pd
 
 # === Define your entities and model years ===
-entities = ["total", "ls_growth"]  # , "ls_growth" # Add more if needed ["total", "ls_growth"]
-model_years = [2023]  # 2042 , 2052
+entities = [
+    "total",
+    "ls_growth",
+]  # , "ls_growth" # Add more if needed ["total", "ls_growth"] for future year, ["total"] for base year 2023
+model_years = [2052]  # 2042 , 2052
 
 # === Define root path for LU inputs ===
-lu_inputs_root = Path(r"I:\Data\D-Log\DLIT\Outputs\test21_v0.20")
+lu_inputs_root = Path(r"I:\Data\D-Log\DLIT\Outputs\test22_v0.21")
 
 # === File naming rules based on entity ===
 pop_file = lambda year, entity: (
@@ -42,7 +45,7 @@ hh_file = lambda year, entity: (
 
 # === Loop through entities ===
 for entity in entities:
-    iteration_name = f"Dlog_test21_{entity}"
+    iteration_name = f"Dlog_test22_{entity}"
 
     print(f"\n=== Running for entity: {entity} | Iteration: {iteration_name} ===")
 
