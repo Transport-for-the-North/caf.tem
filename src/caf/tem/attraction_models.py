@@ -15,6 +15,8 @@ from pathlib import Path
 import pandas as pd
 
 import caf.base as cb
+from caf.base.segmentation import SegmentationWarning
+
 from .inputs import ProductionModelPaths, AttractionModelPaths, Landuse
 
 import caf.tem.utils as utils
@@ -163,24 +165,26 @@ class AttractionModel:
             p: self._read_trip_rate(p) for p in self.trip_rates_paths
         }
         # Read in the MTS dvec file. MTS is not year dependent.
-        mts: cb.DVector = cb.DVector.load(self.mts_path)
-        # Read in the adjustment factors, if passed
-        adj_factors_dict: dict[str, cb.DVector] = (
-            self._read_adj_factors()
-        )  # TODO move to utils bc. both attraction and production use this?
-        if self.mts_uni_path is not None:
-            mts_uni = cb.DVector.load(self.mts_uni_path)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=SegmentationWarning)
+            mts: cb.DVector = cb.DVector.load(self.mts_path)
+            # Read in the adjustment factors, if passed
+            adj_factors_dict: dict[str, cb.DVector] = (
+                self._read_adj_factors()
+            )  # TODO move to utils bc. both attraction and production use this?
+            if self.mts_uni_path is not None:
+                mts_uni = cb.DVector.load(self.mts_uni_path)
 
-            mts_uni = cb.DVector.concat_to_comp_zoning(
-                {
-                    0: mts.filter_segment_value("p", 3, keep_filtered=True),
-                    1: mts_uni,
-                    2: mts_uni,
-                },
-                "uni",
-            )
-        else:
-            mts_uni = None
+                mts_uni = cb.DVector.concat_to_comp_zoning(
+                    {
+                        0: mts.filter_segment_value("p", 3, keep_filtered=True),
+                        1: mts_uni,
+                        2: mts_uni,
+                    },
+                    "uni",
+                )
+            else:
+                mts_uni = None
 
         # For each year the model is running for...
         for (
@@ -288,7 +292,9 @@ class AttractionModel:
             trip_rate = pd.read_csv(self.trip_rates_paths[p], index_col=0).squeeze()
             trip_rate.index.name = self.agg_zoning.column_name
         else:
-            trip_rate = cb.DVector.load(self.trip_rates_paths[p])
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", category=SegmentationWarning)
+                trip_rate = cb.DVector.load(self.trip_rates_paths[p])
 
         return trip_rate
 
@@ -308,7 +314,9 @@ class AttractionModel:
         """ """
         adj_factors_dict: dict[str, cb.DVector] = {"tr": None, "mts": None}
         if self.tr_adjustment_path is not None:
-            tr = cb.DVector.load(self.tr_adjustment_path)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", category=UserWarning)
+                tr = cb.DVector.load(self.tr_adjustment_path)
             # Ensure zoning system of mts matches the TEM Model zoning system
             tr = tr.translate_zoning(self.model_zoning, check_totals=False, no_factors=True)
             tr.fill(0, 1)

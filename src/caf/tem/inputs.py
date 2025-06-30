@@ -10,6 +10,7 @@ import enum
 import os
 import pathlib
 import collections
+import warnings
 from dataclasses import dataclass
 from typing import Literal
 
@@ -50,10 +51,12 @@ class Landuse:
             dvecs = []
             segmentation = self.segmentation
             for geo in self.geographies:
-                dvec = cb.DVector.load(source_path / self.prefix.format(geo))
-                if segmentation is None:
-                    segmentation = dvec.segmentation
-                dvecs.append(dvec.aggregate(segmentation))
+                with warnings.catch_warnings():
+                    warnings.filterwarnings("ignore", category=UserWarning)
+                    dvec = cb.DVector.load(source_path / self.prefix.format(geo))
+                    if segmentation is None:
+                        segmentation = dvec.segmentation
+                    dvecs.append(dvec.aggregate(segmentation))
             lu_data = pd.concat([dvec.data for dvec in dvecs], axis=1)
             lu = cb.DVector(
                 segmentation=segmentation,
