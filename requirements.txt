@@ -1,7 +1,4 @@
 # Required libraries
-
-# Example
-numpy>=1.19.0
-pandas
-caf.core
+caf.base #editable import from isaac_changes branch
+caf.toolkit>=0.10
 
