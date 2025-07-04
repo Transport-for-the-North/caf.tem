@@ -139,6 +139,8 @@ A_dvec = cb.DVector.load(r"C:\Users\Kephale\Desktop\Alok\TFN\tem\Outputs\full_te
 return_trip_ends_attraction = return_home_trip_ends(A_dvec,'A',['p_hb','tp_return','hh_type','adult_nssec','soc','ns_sec'])
 return_trip_ends_production = return_home_trip_ends(P_dvec,'P',['p_hb','tp_return','hh_type','adult_nssec','soc','ns_sec'])
 
+return_trip_ends_attraction.save(r"C:\Users\Kephale\Desktop\Alok\TFN\tem\attraction_return_home_phi_applied.dvec")
+return_trip_ends_production.save(r"C:\Users\Kephale\Desktop\Alok\TFN\tem\production_return_home_phi_applied.dvec")
 
 return_trip_ends_production.sum()-P_dvec.sum()
 return_trip_ends_attraction.sum()-A_dvec.sum()
@@ -175,25 +177,27 @@ for p_val in range(1, 9):
 mode_time_split_production = pd.read_csv(r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\productions\hb\mode_time_splits\mode_time_split_production_hb_to_reg.csv")
 mode_time_split_attraction = pd.read_csv(r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\attractions\hb\mode_time_splits\mode_time_split_attraction_hb_to_reg.csv")
 
-mode_time_split['total_trips'] = mode_time_split.groupby(['tfn_at','hh_type','purpose','period'])['trips.est'].transform('sum')
-
-mode_time_split['Proportion'] = mode_time_split['trips.est']/mode_time_split['total_trips']
-
-by_mode = mode_time_split.groupby(['tfn_at','hh_type','purpose','period','mode'])['Proportion'].sum().reset_index()
-
+# Production Mode Proportion
+mode_time_split_production['total_trips'] = mode_time_split_production.groupby(['tfn_at','hh_type','purpose','period'])['trips.est'].transform('sum')
+mode_time_split_production['Proportion'] = mode_time_split_production['trips.est']/mode_time_split_production['total_trips']
+by_mode = mode_time_split_production.groupby(['tfn_at','hh_type','purpose','period','mode'])['Proportion'].sum().reset_index()
 test = by_mode.groupby(['tfn_at','hh_type','purpose','period'])['Proportion'].sum().reset_index()
-
 by_mode_reshaped = by_mode.pivot_table(index=['hh_type','purpose','period','mode'], columns='tfn_at', values='Proportion', aggfunc='sum')
-
 by_mode_reshaped.index.names = ['hh_type','p_hb','tp_return','m']
-
 seg_inputs = cb.SegmentationInput(enum_segments =['hh_type','p_hb','tp_return','m'], naming_order = ['hh_type','p_hb','tp_return','m'])
 segmentation = cb.Segmentation(seg_inputs)
 dvec_mode = cb.DVector(import_data = by_mode_reshaped, segmentation = segmentation, zoning_system = cb.ZoningSystem.get_zoning('tfn_at'))
 
-dvec_mode_production = mode_proportion_dvec(mode_time_split_production)
-dvec_mode_attraction = mode_proportion_dvec(mode_time_split_attraction)
-
+# Attraction Mode Proportion
+mode_time_split_attraction['total_trips'] = mode_time_split_attraction.groupby(['tfn_at','purpose','period','uni'])['trips.est'].transform('sum')
+mode_time_split_attraction['Proportion'] = mode_time_split_attraction['trips.est']/mode_time_split_attraction['total_trips']
+by_mode = mode_time_split_attraction.groupby(['tfn_at','uni','purpose','period','mode'])['Proportion'].sum().reset_index()
+test = by_mode.groupby(['tfn_at','uni','purpose','period'])['Proportion'].sum().reset_index()
+by_mode_reshaped = by_mode.pivot_table(index=['purpose','period','mode'], columns=['tfn_at','uni'], values='Proportion', aggfunc='sum')
+by_mode_reshaped.index.names = ['p_hb','tp_return','m']
+seg_inputs = cb.SegmentationInput(enum_segments =['hh_type','p_hb','tp_return','m'], naming_order = ['hh_type','p_hb','tp_return','m'])
+segmentation = cb.Segmentation(seg_inputs)
+dvec_mode = cb.DVector(import_data = by_mode_reshaped, segmentation = segmentation, zoning_system = cb.ZoningSystem.get_zoning('tfn_at'))
 
 
 
@@ -201,6 +205,8 @@ dvec_mode_attraction = mode_proportion_dvec(mode_time_split_attraction)
 return_home_trip_ends_production_mode = return_trip_ends_production * dvec_mode
 return_home_trip_ends_attraction_mode = return_trip_ends_attraction * dvec_mode
 
+return_home_trip_ends_production_mode.save(r"C:\Users\Kephale\Desktop\Alok\TFN\tem\production_return_home_phi_applied_with_mode_split.dvec")
+return_home_trip_ends_attraction_mode.save(r"C:\Users\Kephale\Desktop\Alok\TFN\tem\attraction_return_home_phi_applied_with_mode_split.dvec")
 
 # Check
 return_trip_ends_production.sum()-return_home_trip_ends_production_mode.sum()
