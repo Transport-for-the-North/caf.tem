@@ -134,13 +134,14 @@ for files in req_files:
 
 # Calculating return home trip ends
 P_dvec =cb.DVector.load(r"C:\Users\Kephale\Desktop\Alok\TFN\tem\Outputs\full_test\Core\hb_productions\hb_normits_tem_segmented_2023_dvec.h5")
+A_dvec = cb.DVector.load(r"C:\Users\Kephale\Desktop\Alok\TFN\tem\Outputs\full_test\Core\hb_attractions\hb_normits_tem_segmented_2023_dvec.h5")
 
-return_trip_ends_attraction = return_home_trip_ends(P_dvec,'A',['p_hb','tp_return','hh_type','adult_nssec','soc','ns_sec'])
+return_trip_ends_attraction = return_home_trip_ends(A_dvec,'A',['p_hb','tp_return','hh_type','adult_nssec','soc','ns_sec'])
 return_trip_ends_production = return_home_trip_ends(P_dvec,'P',['p_hb','tp_return','hh_type','adult_nssec','soc','ns_sec'])
 
 
 return_trip_ends_production.sum()-P_dvec.sum()
-return_trip_ends_attraction.sum()-P_dvec.sum()
+return_trip_ends_attraction.sum()-A_dvec.sum()
 
 #P_dvec_filtered = P_dvec.filter_segment_value('p', 1)
 #P_dvec_filtered.data.index
@@ -171,7 +172,8 @@ for p_val in range(1, 9):
 
 # Mode Split factors
 
-mode_time_split = pd.read_csv(r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\productions\hb\mode_time_splits\mode_time_split_production_hb_to_reg.csv")
+mode_time_split_production = pd.read_csv(r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\productions\hb\mode_time_splits\mode_time_split_production_hb_to_reg.csv")
+mode_time_split_attraction = pd.read_csv(r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\attractions\hb\mode_time_splits\mode_time_split_attraction_hb_to_reg.csv")
 
 mode_time_split['total_trips'] = mode_time_split.groupby(['tfn_at','hh_type','purpose','period'])['trips.est'].transform('sum')
 
@@ -189,6 +191,9 @@ seg_inputs = cb.SegmentationInput(enum_segments =['hh_type','p_hb','tp_return','
 segmentation = cb.Segmentation(seg_inputs)
 dvec_mode = cb.DVector(import_data = by_mode_reshaped, segmentation = segmentation, zoning_system = cb.ZoningSystem.get_zoning('tfn_at'))
 
+dvec_mode_production = mode_proportion_dvec(mode_time_split_production)
+dvec_mode_attraction = mode_proportion_dvec(mode_time_split_attraction)
+
 
 
 
@@ -201,12 +206,19 @@ return_home_trip_ends_attraction_mode = return_trip_ends_attraction * dvec_mode
 return_trip_ends_production.sum()-return_home_trip_ends_production_mode.sum()
 return_trip_ends_attraction.sum()-return_home_trip_ends_attraction_mode.sum()
 
+return_home_trip_ends_production_mode.aggregate_comp_zones(cb.ZoningSystem.get_zoning('gor')).data.sum()
+return_home_trip_ends_attraction_mode.aggregate_comp_zones(cb.ZoningSystem.get_zoning('gor')).data.sum()
+
+return_home_trip_ends_production_mode.aggregate_comp_zones(cb.ZoningSystem.get_zoning('gor')).data.sum() - return_trip_ends_production.aggregate_comp_zones(cb.ZoningSystem.get_zoning('gor')).data.sum()
+return_home_trip_ends_attraction_mode.aggregate_comp_zones(cb.ZoningSystem.get_zoning('gor')).data.sum() - return_trip_ends_attraction.aggregate_comp_zones(cb.ZoningSystem.get_zoning('gor')).data.sum()
 
 
 #Production
 return_home_trip_ends_production_mode_ = return_home_trip_ends_production_mode.aggregate(segs = ['p_hb','tp_return','hh_type','m',])
-Production = return_home_trip_ends_production_mode_.data
-P_agg_df = Production.groupby(axis=1, level=1).sum()
+#Production = return_home_trip_ends_production_mode_.data
+#P_agg_df = Production.groupby(axis=1, level=1).sum()
+P_agg_df = return_home_trip_ends_production_mode_.aggregate_comp_zones(cb.ZoningSystem.get_zoning('gor'))
+P_agg_df = P_agg_df.data
 P_agg_df_ = P_agg_df.stack().reset_index(name='Productions')
 P_agg_df_['hh_type'] = P_agg_df_['hh_type'].map(hh)
 P_agg_df_ = P_agg_df_.groupby(['p_hb','tp_return','hh_type','m','gor_id'])['Productions'].sum().reset_index()
@@ -214,8 +226,10 @@ P_agg_df_ = P_agg_df_.groupby(['p_hb','tp_return','hh_type','m','gor_id'])['Prod
 
 #Attractions
 return_home_trip_ends_attraction_mode_ = return_home_trip_ends_attraction_mode.aggregate(segs = ['p_hb','tp_return','hh_type','m',])
-Attraction = return_home_trip_ends_attraction_mode_.data
-A_agg_df = Attraction.groupby(axis=1, level=1).sum()
+#Attraction = return_home_trip_ends_attraction_mode_.data
+#A_agg_df = Attraction.groupby(axis=1, level=1).sum()
+A_agg_df = return_home_trip_ends_attraction_mode_.aggregate_comp_zones(cb.ZoningSystem.get_zoning('gor'))
+A_agg_df = A_agg_df.data
 A_agg_df_ = A_agg_df.stack().reset_index(name='Attractions')
 A_agg_df_['hh_type'] = A_agg_df_['hh_type'].map(hh)
 A_agg_df_ = A_agg_df_.groupby(['p_hb','tp_return','hh_type','m','gor_id'])['Attractions'].sum().reset_index()
