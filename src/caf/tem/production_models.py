@@ -316,7 +316,10 @@ class HBProductionModel:
             # tem_production_adj = self._adjust_production(tem_production, trip_rate_adj_factors)
             # Export tem productions
             if export_tem_segmentation:
-                tem_production.save(self.model.export_paths.tem_segmented[year])
+                if return_tripends:
+                    tem_production.save(self.model.export_paths.tem_segmented_from_home[year])
+                else:
+                    tem_production.save(self.model.export_paths.tem_segmented[year])
             if export_reports:
                 utils.write_reports(
                     mts_production, self.model.report_paths.tem_segmented, year

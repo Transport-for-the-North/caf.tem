@@ -285,7 +285,10 @@ class AttractionModel:
                     year,
                 )
             if export_tem_segmentation:
-                balanced_dvec.save(export_paths.tem_segmented[year])
+                if return_tripends:
+                    balanced_dvec.save(export_paths.tem_segmented_from_home[year])
+                else:
+                    balanced_dvec.save(export_paths.tem_segmented[year])
             if return_tripends:
                 tem_return_home_attr = self._create_tem_return_home_attraction(balanced_dvec)
                 tem_return_home_attr.save(export_paths.tem_segmented_return_home[year])
