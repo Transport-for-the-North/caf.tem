@@ -16,6 +16,8 @@ from __future__ import annotations
 import os
 import pathlib
 import warnings
+from typing import Union
+import glob
 
 # Third Party
 import caf.base as cb
@@ -230,3 +232,254 @@ def read_phi_factors(phi_path: pathlib.Path):
     if not math.isclose(agg_phi.sum(), len(phi_factors)):
         phi_factors /= agg_phi
     return phi_factors
+
+
+def phi_to_dvec(phi_path: Union[pathlib.Path,str], output_fld: Union[pathlib.Path,str]) -> None:
+    """
+    Reads phi factor CSV files from the given directory, reshapes them, and saves them as .dvec files
+    suitable for use with cb.DVector.
+
+    Parameters:
+    ----------
+    phi_path : pathlib.Path
+        Directory containing phi factor CSV files (pattern: 'phi_factors*_reg.csv').
+
+    output_fld : pathlib.Path
+        Output directory where reshaped .dvec files will be saved.
+
+    Returns:
+    -------
+    None
+    """
+
+    if not isinstance(phi_path, pathlib.Path):
+        phi_path = pathlib.Path(phi_path)
+
+    if not isinstance(output_fld, pathlib.Path):
+        output_fld = pathlib.Path(output_fld)
+
+    pattern = str(phi_path / "phi_factors*_reg.csv")
+    input_files = glob.glob(pattern)
+
+    if not input_files:
+        print(f"No matching files found in {phi_path}")
+        return
+
+    output_fld.mkdir(parents=True, exist_ok=True)
+
+    for file_path in input_files:
+        df = pd.read_csv(file_path)
+
+        df_reshaped = df.pivot_table(
+            index=['purpose.fr', 'purpose', 'period.fr', 'period'],
+            columns='tfn_at',
+            values='phi',
+            aggfunc='sum'
+        )
+
+        df_reshaped.index.names = ['p', 'p_return', 'tp', 'tp_return']
+
+        new_filename = pathlib.Path(file_path).stem.replace(".csv", ".dvec")
+        output_path = output_fld / new_filename
+
+        seg_inputs = cb.SegmentationInput(
+            enum_segments=["p", "p_return", "tp", "tp_return"],
+            naming_order=["p", "p_return", "tp", "tp_return"]
+        )
+
+        segmentation = cb.Segmentation(seg_inputs)
+        zoning_system = cb.ZoningSystem.get_zoning('tfn_at')
+
+        dvec = cb.DVector(import_data=df_reshaped, segmentation=segmentation, zoning_system=zoning_system)
+        dvec.save(output_path)
+
+        print(f"Saved: {output_path}")
+
+
+def create_mts_production_return_home_dvec(
+    csv_path: Union[str, Path],
+    zoning_name: str = 'tfn_at',
+    mts_only_by_mode: bool = True
+) -> cb.DVector:
+    """
+    Reads mode-time split production data from a CSV, calculates proportions or uses precomputed 'rho',
+    reshapes the data, and converts it into a cb.DVector.
+
+    Parameters
+    ----------
+    csv_path : str or Path
+        Path to the input CSV file containing mode-time split production data.
+
+    zoning_name : str, default='tfn_at'
+        Name of the zoning system to use when constructing the DVector.
+
+    mts_only_by_mode : bool, default=True
+        If True, compute proportions from 'trips.est', because tp_return is a segment of phi factors.
+        If False, use 'rho' column  use it directly, because tp_return is not a segment of phi factors.
+
+    Returns
+    -------
+    cb.DVector
+        A DVector containing reshaped mode split proportions for production trips.
+    """
+    csv_path = Path(csv_path)
+    df = pd.read_csv(csv_path)
+
+    if mts_only_by_mode:
+        # Step 1: Compute trip proportions within each group
+        df['total_trips'] = df.groupby(['tfn_at', 'hh_type', 'purpose', 'period'])['trips.est'].transform('sum')
+        df['rho'] = df['trips.est'] / df['total_trips']
+
+        # Step 2: Aggregate proportions by mode
+        by_mode = df.groupby(['tfn_at', 'hh_type', 'purpose', 'period', 'mode'])['rho'].sum().reset_index()
+
+
+    # Step 3:  Directly reshape precomputed 'rho'
+    by_mode_reshaped = df.pivot_table(
+        index=['hh_type', 'purpose', 'period', 'mode'],
+        columns='tfn_at',
+        values='rho',
+        aggfunc='sum'
+    )
+
+    # Step 4: Rename index levels to match segmentation convention
+    by_mode_reshaped.index.names = ['hh_type', 'p_return', 'tp_return', 'm']
+
+    # Step 5: Construct segmentation and DVector
+    seg_input = cb.SegmentationInput(
+        enum_segments=['hh_type', 'p_return', 'tp_return', 'm'],
+        naming_order=['hh_type', 'p_return', 'tp_return', 'm']
+    )
+    segmentation = cb.Segmentation(seg_input)
+    zoning = cb.ZoningSystem.get_zoning(zoning_name)
+
+    dvec = cb.DVector(
+        import_data=by_mode_reshaped,
+        segmentation=segmentation,
+        zoning_system=zoning
+    )
+
+    return dvec
+
+def create_mts_attraction_return_home_dvec(
+    csv_path: Union[str, Path],
+    zoning_name: str = 'tfn_at',
+    mts_only_by_mode: bool = True
+) -> cb.DVector:
+    """
+    Reads mode-time split attraction data from a CSV file, calculates mode proportions,
+    reshapes the data, and returns a cb.DVector.
+
+    Parameters
+    ----------
+    csv_path : str or Path
+        Path to the input CSV containing attraction trip records.
+
+    zoning_name : str, default='tfn_at'
+        The zoning system name used to create the cb.ZoningSystem object.
+
+    mts_only_by_mode : bool, default=True
+        If True, calculates mode proportions using only mode;
+        otherwise it also take return time period also in consideration.
+
+    Returns
+    -------
+    cb.DVector
+        DVector containing reshaped mode split proportions for attraction trips.
+    """
+    csv_path = Path(csv_path)
+    df = pd.read_csv(csv_path)
+
+    if mts_only_by_mode:
+        # Step 1: Compute trip proportions for each segment group
+        df['total_trips'] = df.groupby(['tfn_at', 'purpose', 'period'])['trips.est'].transform('sum')
+        df['Proportion'] = df['trips.est'] / df['total_trips']
+
+        # Step 2: Group by relevant mode-time splits and sum proportions
+        by_mode = df.groupby(['tfn_at', 'purpose', 'period', 'mode'])['Proportion'].sum().reset_index()
+    else:
+        # Step 1: Compute trip proportions for each segment group
+        df = df.groupby(['tfn_at', 'purpose', 'mode', 'period'])['trips.est'].sum().reset_index()
+        df['total_trips'] = df.groupby(['tfn_at', 'purpose'])['trips.est'].transform('sum')
+        df['Proportion'] = df['trips.est'] / df['total_trips']
+
+    # Step 3: Pivot the table into wide format
+    by_mode_reshaped = by_mode.pivot_table(
+        index=['purpose', 'period', 'mode'],
+        columns='tfn_at',
+        values='Proportion',
+        aggfunc='sum'
+    )
+    by_mode_reshaped.index.names = ['p_return', 'tp_return', 'm']
+
+    # Step 4: Set segmentation and zoning
+    seg_input = cb.SegmentationInput(
+        enum_segments=['p_return', 'tp_return', 'm'],
+        naming_order=['p_return', 'tp_return', 'm']
+    )
+    segmentation = cb.Segmentation(seg_input)
+    zoning = cb.ZoningSystem.get_zoning(zoning_name)
+
+    # Step 5: Create and return the DVector
+    return cb.DVector(
+        import_data=by_mode_reshaped,
+        segmentation=segmentation,
+        zoning_system=zoning
+    )
+
+def create_mts_return_home_adj_factor_dvectors(csv_path: Union[str, Path]) -> Tuple[cb.DVector, cb.DVector]:
+    """
+    Reads a single CSV containing both production ('p') and attraction ('a') MTS adjustment factors,
+    splits them, reshapes them into wide format, and converts each into a cb.DVector.
+
+    Parameters
+    ----------
+    csv_path : str or Path
+        Path to the input CSV containing adjustment factors. Must include a 'pa' column
+        with values 'p' or 'a', and columns: 'purpose', 'mode', 'period', 'gor', 'adj'.
+
+    Returns
+    -------
+    Tuple[cb.DVector, cb.DVector]
+        A tuple containing (production_dvector, attraction_dvector).
+    """
+    csv_path = Path(csv_path)
+    df = pd.read_csv(csv_path)
+
+    # Validate required columns
+    required_cols = {'pa', 'purpose', 'mode', 'period', 'gor', 'adj'}
+    missing_cols = required_cols - set(df.columns)
+    if missing_cols:
+        raise ValueError(f"Missing columns in input CSV: {missing_cols}")
+
+    # Common reshaping function
+    def reshape(sub_df: pd.DataFrame) -> pd.DataFrame:
+        reshaped = sub_df.pivot_table(
+            index=['purpose', 'mode', 'period'],
+            columns='gor',
+            values='adj',
+            aggfunc='sum'
+        )
+        reshaped.index.names = ['p_return', 'm', 'tp_return']
+        return reshaped
+
+    # Filter and reshape for production and attraction
+    df_prod = df[df['pa'] == 'p']
+    df_attr = df[df['pa'] == 'a']
+
+    reshaped_prod = reshape(df_prod)
+    reshaped_attr = reshape(df_attr)
+
+    # Create segmentation object
+    seg_input = cb.SegmentationInput(
+        enum_segments=["p_return", "m", "tp_return"],
+        naming_order=["p_return", "m", "tp_return"]
+    )
+    segmentation = cb.Segmentation(seg_input)
+    zoning = cb.ZoningSystem.get_zoning('gor')
+
+    # Construct DVector objects
+    dvec_prod = cb.DVector(import_data=reshaped_prod, segmentation=segmentation, zoning_system=zoning)
+    dvec_attr = cb.DVector(import_data=reshaped_attr, segmentation=segmentation, zoning_system=zoning)
+
+    return dvec_prod, dvec_attr

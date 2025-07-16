@@ -22,12 +22,15 @@ HBProd = model.HBProductionModel(
     population_paths={2023: Path(r"C:\Users\Kephale\Desktop\Alok\TFN\tem\Inputs\landuse\pop.dvec")}, #provide
     trip_rates_path=Path(r"C:\Users\Kephale\Desktop\Alok\TFN\tem\Inputs\hb_prod_triprates.dvec"), #provide
     mode_time_splits_path=r"C:\Users\Kephale\Desktop\Alok\TFN\tem\Inputs\mts_prod.dvec", #provide
+    phi_factors_path= Path(r"C:\Users\Kephale\Desktop\Alok\TFN\tem\Inputs\phi_factors"),
+    mts_return_home_path=r"C:\Users\Kephale\Desktop\Alok\TFN\tem\Inputs\mts_production_return_home.dvec",
+    mts_return_home_adj_factor_path=r"C:\Users\Kephale\Desktop\Alok\TFN\tem\Inputs\mts_return_home_prod_adj_factor.dvec",
     adjustment_path=r"C:\Users\Kephale\Desktop\Alok\TFN\tem\Inputs\trip_adj_factors.dvec",
     mts_adj_path = r"C:\Users\Kephale\Desktop\Alok\TFN\tem\Inputs\mts_adj_factors.dvec",
     pop_zoning='lsoa_2021'
 )
 
-HBProd.run(export_pure_production=False, export_reports=False, mts_geo_constraint=gor)
+HBProd.run(export_pure_production=False, export_reports=False, mts_geo_constraint=gor,return_tripends=True)
 
 emp = Landuse(land_use=r"C:\Users\Kephale\Desktop\Alok\TFN\tem\Inputs\landuse\emp.dvec", # provide
         type='emp',
@@ -57,9 +60,13 @@ HBAttr = model.AttractionModel(trip_rates_paths={
     balance_production=True,
     trip_rate_adjustment_path=r"C:\Users\Kephale\Desktop\Alok\TFN\tem\Inputs\inputs\02-HBAttraction\trip_rate_adjustments_attractions_hb_fr.hdf",
     mode_time_splits_adjustment_path=r"C:\Users\Kephale\Desktop\Alok\TFN\tem\Inputs\inputs\02-HBAttraction\mode_time_split_adjustments.hdf",
-    mts_uni_path=r"C:\Users\Kephale\Desktop\Alok\TFN\tem\Inputs\inputs\02-HBAttraction\mode_time_split_attraction_hb_fr_reg_uni.hdf")
+    mts_uni_path=r"C:\Users\Kephale\Desktop\Alok\TFN\tem\Inputs\inputs\02-HBAttraction\mode_time_split_attraction_hb_fr_reg_uni.hdf",
+    mts_return_home_path=r"C:\Users\Kephale\Desktop\Alok\TFN\tem\Inputs\mts_attraction_return_home.dvec",
+    mts_return_home_adj_factor_path =r"C:\Users\Kephale\Desktop\Alok\TFN\tem\Inputs\mts_return_home_attr_adj_factor.dvec",
+    phi_factors_path = r"C:\Users\Kephale\Desktop\Alok\TFN\tem\Inputs\phi_factors",
+    )
 
-HBAttr.run(export_pure_attractions=False, mts_geo_constraint=gor) # this still doesn't work - seems to be an issue with cb.DVector
+HBAttr.run(export_pure_attractions=False, mts_geo_constraint=gor,return_tripends=True) # this still doesn't work - seems to be an issue with cb.DVector
 
 NHBProd = model.NHBProductionModel(
     trip_rates_path=r"C:\Users\Kephale\Desktop\Alok\TFN\tem\Inputs\inputs\03-NHBProduction\nhb_trip_rates_production.hdf",

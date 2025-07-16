@@ -8,6 +8,8 @@ import os
 import warnings
 import pathlib
 import math
+import glob
+import gc
 
 from pathlib import Path
 
@@ -34,13 +36,16 @@ class AttractionModel:
         emp_landuse: dict[int, Landuse],
         hh_landuse: dict[int, Landuse],
         mts_path: os.PathLike,
+        mts_return_home_path:  os.PathLike,
         mts_adjustment_path: os.PathLike,
+        mts_return_home_adj_factor_path: os.PathLike,
+        phi_factors_path: os.PathLike,
         tem_segmentation: cb.Segmentation,
         mts_uni_path: os.PathLike,
         model_zoning: cb.ZoningSystem,
         agg_zoning: cb.ZoningSystem,
         translation: pd.DataFrame,
-        phi_factors: dict[int, Path] | None = None,
+
     ):
         self.production_model = production_model
         self.model = model
@@ -48,14 +53,18 @@ class AttractionModel:
         self.emp_landuse = emp_landuse
         self.hh_landuse = hh_landuse
         self.mts_path = mts_path
+        self.mts_return_home_path = mts_return_home_path
+        self.phi_factors_path = phi_factors_path
         self.tem_segmentation = tem_segmentation
         self.balance_production = balance_production
         self.tr_adjustment_path = adj_path
         self.mts_adjustment_path = mts_adjustment_path
+        self.mts_return_home_adj_factor_path = mts_return_home_adj_factor_path
         self.mts_uni_path = mts_uni_path
         self.model_zoning = model_zoning
         self.agg_zoning = agg_zoning
         self.zone_trans = translation
+
 
     def _format_init_paths(
         self,
@@ -103,6 +112,7 @@ class AttractionModel:
         export_tem_segmentation: bool = True,
         export_reports: bool = True,
         mts_geo_constraint: cb.ZoningSystem | None = None,
+        return_tripends: bool = False,
     ) -> None:
         """
         Runs the HB/NHB Attraction Model.
@@ -276,6 +286,9 @@ class AttractionModel:
                 )
             if export_tem_segmentation:
                 balanced_dvec.save(export_paths.tem_segmented[year])
+            if return_tripends:
+                tem_return_home_attr = self._create_tem_return_home_attraction(balanced_dvec)
+                tem_return_home_attr.save(export_paths.tem_segmented_return_home[year])
 
         # ## END ## #
         return None
@@ -310,6 +323,15 @@ class AttractionModel:
 
         return mts
 
+    def _read_mts_return_home(self) -> cb.DVector:
+        """
+        - Reads the mode-time split (MTS) DVector, from the path given in the constructor
+        - Translates the MTS DVector zoning system to the TEM Model zoning system
+        """
+        mts = cb.DVector.load(self.mts_return_home_path)
+
+        return mts
+
     def _read_adj_factors(self) -> dict[str, cb.DVector]:
         """ """
         adj_factors_dict: dict[str, cb.DVector] = {"tr": None, "mts": None}
@@ -331,6 +353,41 @@ class AttractionModel:
             adj_factors_dict["mts"] = mts
 
         return adj_factors_dict
+
+    def _read_mts_return_home_adjustment(self):
+        """Reads in MTS adjustment factors"""
+        if self.mts_return_home_adj_factor_path is None:
+            return None
+
+        adj_factors = cb.DVector.load(self.mts_return_home_adj_factor_path)
+
+        return adj_factors
+
+    def _adjust_mts_attraction_return_home(
+            self,
+            mts_production: cb.DVector,
+            adj_factors: cb.DVector,
+            geo_constraint: cb.ZoningSystem = None,
+    ) -> cb.DVector:
+        """ """
+        if adj_factors is None:
+            return mts_production
+
+
+        adj_factors.fill(0, 1)
+        adj = mts_production * adj_factors
+
+        numerator = mts_production.aggregate(["p_return"])
+        denominator = adj.aggregate(["p_return"])
+        if geo_constraint is not None:
+            if geo_constraint not in mts_production.zoning_system:
+                raise ValueError("Geo constraint must be contained in the zoning system")
+            numerator = numerator.aggregate_comp_zones(geo_constraint)
+            denominator = denominator.aggregate_comp_zones(geo_constraint)
+        adj = adj * (numerator / denominator)
+        mts_production_adj = adj
+
+        return mts_production_adj
 
     def _read_emp_lu(self, year):
         """
@@ -660,37 +717,100 @@ class AttractionModel:
 
         return balanced_dvec
 
-    def read_phi_factors(self, phi_path: Path):
-        if phi_path.is_file():
-            phi_factors = cb.DVector.load(phi_path)
-        else:
-            phi_factors = cb.DVector.concat_from_dir(phi_path)
-        agg_phi = phi_factors.aggregate(["p", "tp"])
-        if not math.isclose(agg_phi.sum(), len(phi_factors)):
-            phi_factors /= agg_phi
-        return phi_factors
 
-    def hb_return(
-        self, pa: cb.DVector, phi_factors: cb.DVector, mode_split: cb.DVector | None = None
-    ):
-        pa_seg = pa.segmentation.naming_order
-        temp_seg = list(map(lambda x: x + "_to" if x in ["p", "tp"] else x, pa_seg))
-        hb_to = (pa * phi_factors).aggregate(temp_seg)
-        hb_to_data = (
-            hb_to.data.reset_index()
-            .rename(columns={"p_to": "p", "tp_to": "tp"})
-            .set_index(pa_seg)
-        )
-        hb_to = cb.DVector(
-            import_data=hb_to_data, segmentation=pa_seg, zoning_system=pa.zoning_system
-        )
-        if mode_split is not None:
-            if "m" in pa_seg:
-                pa_seg.remove("m")
-                hb_to = hb_to.aggregate(pa_seg)
-            hb_to = hb_to * mode_split
-        if not math.isclose(pa.sum(), hb_to.sum()):
-            warnings.warn(
-                f"Return trips don't match outbound trips. Out = {pa.sum()}, return = {hb_to.sum()}"
+    def _create_tem_return_home_attraction(self,tem_attraction:cb.DVector):
+
+        # Reading one Phi factor Dvec to get its segmentation
+        self.phi_segmentation = self._read_phi_factor_dvec(1).segmentation.naming_order
+
+        aggregation_segments = list(
+            s for s in (
+                    set(self.tem_segmentation) ^ set(self.phi_segmentation)
+            # symmetric difference: keep segments that are in only one of the two
             )
-        return hb_
+            if s not in {"m", "tp"}  # manually exclude 'm' and 'tp' even if they are not common
+        )
+
+        tem_return_home_tripends_attraction = self.return_home_trip_ends(tem_attraction,aggregation_segments)
+        mts_return_home = self._read_mts_return_home()
+
+        # Check if 'tp_return' exists in either segmentation
+        tp_in_tem = 'tp_return' in tem_attraction.segmentation.naming_order
+        tp_in_mts = 'tp_return' in mts_return_home.segmentation.naming_order
+
+        if not (tp_in_tem or tp_in_mts):
+            raise SegmentationError(
+                "Segment 'tp_return' (Return Time Period) must be present in either the phi factor DVector or the mode-time split DVector.")
+
+        tem_return_home_tripends_attraction_mts = tem_return_home_tripends_attraction * mts_return_home
+        mts_return_home_adj = self._read_mts_return_home_adjustment()
+
+        tem_return_home_tripends_attraction_adj = self._adjust_mts_attraction_return_home(tem_return_home_tripends_attraction_mts,mts_return_home_adj,cb.ZoningSystem.get_zoning('gor'))
+
+        return tem_return_home_tripends_attraction_adj
+
+    def return_home_trip_ends(self, tem_attraction, agg_segments):
+        """
+        Computes return-home trip ends by applying phi factors to filtered production vectors,
+        then aggregating over the specified segment groups.
+
+        Parameters
+        ----------
+        tem_production : cb.DVector
+            The production DVector containing 'p' as a segment.
+
+        agg_segments : list[str]
+            List of segment names to aggregate over (e.g., ['p_return', 'tp_return']).
+
+        Returns
+        -------
+        cb.DVector
+            Aggregated return-home trip ends across all purpose segments.
+        """
+        trip_ends = None
+
+        for p_val in range(1, 9):
+            # Load phi factor for this purpose
+            phi = self._read_phi_factor_dvec(p_val)
+
+            # Filter production DVector by current purpose value, keep 'p' segment
+            tem_filtered = tem_attraction.filter_segment_value('p', p_val, keep_filtered=True)
+
+            # Multiply and aggregate
+            result = tem_filtered * phi
+            result = result.aggregate(segs=agg_segments)
+
+            # Accumulate results
+            if trip_ends is None:
+                trip_ends = result
+            else:
+                trip_ends += result
+
+            # Clean up memory
+            del phi, tem_filtered, result
+            gc.collect()
+
+        return trip_ends
+
+    def _read_phi_factor_dvec(self, purpose: int):
+        """
+        Reads a phi factor DVector file for the given purpose segment.
+
+        Parameters
+        ----------
+        purpose : int
+            Purpose segment value (e.g., 1 to 8).
+
+        Returns
+        -------
+        cb.DVector
+            Loaded phi factor DVector.
+
+        """
+        phi_factors_file_path = Path(os.path.join(self.phi_factors_path, f"phi_factors_A_p{purpose}_reg.dvec"))
+
+        if not phi_factors_file_path.exists():
+            raise FileNotFoundError(f"[ERROR] Phi factor file not found: {phi_factors_file_path}")
+
+        phi_factor = cb.DVector.load(phi_factors_file_path)
+        return phi_factor

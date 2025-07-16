@@ -103,9 +103,13 @@ class TEM:
         population_paths: dict[int, Landuse],
         trip_rates_path: os.PathLike,
         mode_time_splits_path: os.PathLike,
+        phi_factors_path: os.PathLike,
+        mts_return_home_path: os.PathLike,
+        mts_return_home_adj_factor_path: os.PathLike,
         adjustment_path: os.PathLike = None,
         mts_adj_path: os.PathLike = None,
         pop_zoning=None,
+
     ) -> HBProductionModel:
         """
         The Home-Based (HB) Production Model of caf.tem
@@ -150,6 +154,9 @@ class TEM:
             mode_time_splits_path,
             mts_adj_path,
             tem_segmentation=self.return_segmentation,
+            phi_factors_path=phi_factors_path,
+            mts_return_home_path = mts_return_home_path,
+            mts_return_home_adj_factor_path = mts_return_home_adj_factor_path,
         )
 
         return self.hb_production_model
@@ -164,6 +171,9 @@ class TEM:
         trip_rate_adjustment_path: os.PathLike = None,
         mode_time_splits_adjustment_path: os.PathLike = None,
         mts_uni_path: os.PathLike = None,
+        mts_return_home_path: os.PathLike = None,
+        mts_return_home_adj_factor_path: os.PathLike = None,
+        phi_factors_path: os.PathLike = None,
         origin: Literal["hb", "nhb"] = "hb",
     ) -> AttractionModel:
         """
@@ -209,7 +219,10 @@ class TEM:
                 emp_landuse,
                 hh_landuse,
                 mode_time_splits_path,
+                mts_return_home_path,
                 mode_time_splits_adjustment_path,
+                mts_return_home_adj_factor_path,
+                phi_factors_path,
                 self.return_segmentation,
                 mts_uni_path,
                 self.output_zoning,
@@ -226,7 +239,10 @@ class TEM:
                 emp_landuse,
                 hh_landuse,
                 mode_time_splits_path,
+                mts_return_home_path,
                 mode_time_splits_adjustment_path,
+                mts_return_home_adj_factor_path,
+                phi_factors_path,
                 self.return_segmentation,
                 mts_uni_path,
                 self.output_zoning,
