@@ -4,4 +4,4 @@
 
 from ._version import __version__
 
-from caf.tem.TEM import TEM
+from caf.tem.tem import TEM

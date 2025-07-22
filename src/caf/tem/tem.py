@@ -1,32 +1,18 @@
 """ASSUMPTIONS:
 """
 
-"""IMPORTS REQUIRED:
-"""
-
 import os
-import caf.base as cb
-import pandas as pd
 from typing import Literal
+import pandas as pd
 
+
+
+import caf.base as cb
 from .inputs import TEMExportPaths, Scenarios, Landuse
 from .attraction_models import AttractionModel
-from .production_models import HBProductionModel, NHBProductionModel_TP
+from .production_models import HBProductionModel, NHBProductionModelTP
 
-"""VARIABLE CODING INFORMATION:
-"""
-
-"""RELEVANT FILE PATHS:
-"""
-
-"""FUNCTIONS:
-"""
-
-"""EXECUTION OF CODE:
-"""
-from caf.toolkit import BaseConfig
-
-
+# pylint: disable =too-many-positional-arguments,too-many-arguments
 class TEM:
     """
     The Trip End Model (TEM) of caf.tem
@@ -95,8 +81,9 @@ class TEM:
 
         self.hb_production_model: HBProductionModel = None
         self.hb_attraction_model: AttractionModel = None
-        self.nhb_production_model: NHBProductionModel_TP = None
+        self.nhb_production_model: NHBProductionModelTP = None
         self.nhb_attraction_model: AttractionModel = None
+        self.attraction_model: AttractionModel = None
 
     def HBProductionModel(  # TODO default with respect to the NTS-Processing model output folder structure? - similarly for other models?
         self,
@@ -265,8 +252,30 @@ class TEM:
         trip_rates_path: os.PathLike,
         mode_time_splits_path: os.PathLike,
         balance_production: bool = True,
-    ) -> NHBProductionModel_TP:
-        self.nhb_production_model = NHBProductionModel_TP(
+    ) -> NHBProductionModelTP:
+        """
+        Initializes and returns the NHB (Non-Home-Based) Production Model.
+
+        This method creates an instance of `NHBProductionModelTP`
+
+        Parameters
+        ----------
+        trip_rates_path : os.PathLike
+            Path to the trip rates input file.
+
+        mode_time_splits_path : os.PathLike
+            Path to the mode-time split input file.
+
+        balance_production : bool, optional
+            Whether to balance production totals to match attractions,
+            by default True.
+
+        Returns
+        -------
+        NHBProductionModelTP
+            An initialized NHB production model object.
+        """
+        self.nhb_production_model = NHBProductionModelTP(
             self.export_paths.hb_attraction,
             self.export_paths.nhb_production,
             trip_rates_path,
@@ -343,6 +352,7 @@ class TEM:
         return self.nhb_attraction_model
 
     def run(self):
+        """Run the model"""
         if not all(
             [
                 self.hb_production_model,
@@ -357,10 +367,9 @@ class TEM:
             self.nhb_attraction_model.run()
         else:
             print("All child models must be defined before running the Trip End Model.")
+# pylint: enable =too-many-positional-arguments,too-many-arguments
 
 
-"""SAVE OUTPUT:
-"""
 
 # class TEMInput(BaseConfig):
 #     model_years: list[int]

@@ -13,16 +13,53 @@ import collections
 import warnings
 from dataclasses import dataclass
 from typing import Literal
-
-# Third Party
-import caf.toolkit as ctk
-import caf.base as cb
 import pandas as pd
 
+# Third Party
+import caf.base as cb
 
+
+# pylint: disable =too-many-positional-arguments,too-few-public-methods
 # # # CLASSES # # #
 @dataclass
 class Landuse:
+    """
+    A data container for handling different types of land use inputs (e.g., population, employment, households)
+    along with associated metadata for processing and transformation.
+
+    Attributes:
+        type (Literal["pop", "emp", "hh"]):
+            Specifies the type of land use. Must be one of:
+            - "pop": Population
+            - "emp": Employment
+            - "hh": Households
+
+        land_use (os.PathLike | cb.DVector):
+            The actual land use data. Can be either:
+            - A path to a file containing land use data
+            - A `cb.DVector` object (custom data vector used internally)
+
+        trans_tag (str, optional):
+            An optional tag used for transformation processes. Can help distinguish different data processing steps.
+
+        prefix (str, optional):
+            An optional prefix used when naming output fields or files. Helps to avoid naming collisions in outputs.
+
+        segmentation (cb.Segmentation, optional):
+            An optional segmentation object that splits the land use data based on predefined segments,
+            such as income levels, activity types, etc.
+
+        geographies (str, optional):
+            The name of the geographical unit associated with the land use data (e.g., zone ID, MSOA, LSOA, etc.).
+
+        out_zoning (cb.ZoningSystem | str | list[cb.ZoningSystem | str] | None, optional):
+            Defines the zoning system(s) to which the land use data should be mapped or output.
+            This can be:
+            - A single `cb.ZoningSystem` object
+            - A string representing a known zoning system
+            - A list of such zoning system objects or strings
+            - Or left as `None` if no output zoning conversion is required
+    """
 
     type: Literal["pop", "emp", "hh"]
     land_use: os.PathLike | cb.DVector
@@ -35,6 +72,19 @@ class Landuse:
     def read_landuse(
         self, translation: pd.DataFrame | None = None, model_zoning: cb.ZoningSystem = None
     ):
+        """
+        Reads and processes land use data from the specified source, applying optional translation and
+        aligning it with the model's zoning system if provided.
+
+        Parameters:
+            translation (pd.DataFrame | None, optional):
+                A translation table (typically a pandas DataFrame)
+
+            model_zoning (cb.ZoningSystem, optional)
+
+        Returns:
+            None
+        """
         if isinstance(self.land_use, cb.DVector):
             return self.land_use
         source_path = pathlib.Path(self.land_use)
@@ -79,7 +129,7 @@ class Landuse:
 
 @enum.unique
 class Scenarios(enum.Enum):
-
+    """Define different Scenario."""
     CORE = "Core"
     HIGH = "High"
     LOW = "Low"
@@ -167,6 +217,8 @@ class TEMModelPaths:
         self._trip_origin = _trip_origin
         self.model_zoning = model_zoning
         self.agg_zoning = agg_zoning
+        self.export_paths = None
+        self.report_paths = None
 
         # Make sure paths exist
         if not self.export_home.is_dir():
@@ -549,6 +601,6 @@ class TEMExportPaths:
             model_zoning=model_zoning,
             agg_zoning=agg_zoning,
         )
-
+# pylint: enable =too-many-positional-arguments,too-few-public-methods
 
 # # # FUNCTIONS # # #

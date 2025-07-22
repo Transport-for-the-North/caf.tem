@@ -1,14 +1,16 @@
+"""
+Process Attraction model.
+
+"""
 # -*- coding: utf-8 -*-
 # Allow class self type hinting
 from __future__ import annotations
-import logging
+
 
 # Builtins
 import os
 import warnings
 import pathlib
-import math
-import glob
 import gc
 
 from pathlib import Path
@@ -17,14 +19,76 @@ from pathlib import Path
 import pandas as pd
 
 import caf.base as cb
+from caf.tem import utils
 from caf.base.segmentation import SegmentationWarning
 
 from .inputs import ProductionModelPaths, AttractionModelPaths, Landuse
 
-import caf.tem.utils as utils
 
+
+# pylint: disable =too-many-instance-attributes,too-many-positional-arguments,too-many-locals,too-many-arguments,too-many-branches
+class SegmentationError(Exception):
+    """Error for segmentation objects."""
 
 class AttractionModel:
+    """
+    Initialize the AttractionModel object used for estimating and balancing trip attractions.
+
+    Parameters:
+    -----------
+    production_model : ProductionModelPaths
+        Paths to files or configurations required for the production-side modeling.
+
+    model : AttractionModelPaths
+        Paths to input and output resources required by the attraction model.
+
+    trip_rates_paths : dict[int, os.PathLike]
+        A dictionary mapping segmentation keys (e.g., GORs or modes) to trip rate CSV file paths.
+
+    adj_path : os.PathLike
+        Path to the file containing adjustment factors for trip balancing or calibration.
+
+    balance_production : BalancingZones or bool
+        Either a `BalancingZones` object specifying zone-level production constraints,
+        or a boolean indicating whether to apply production balancing.
+
+    emp_landuse : dict[int, Landuse]
+        Mapping of segmentation keys to employment-based land use data used for estimating attractions.
+
+    hh_landuse : dict[int, Landuse]
+        Mapping of segmentation keys to household-based land use data for modeling return-home or home-based trips.
+
+    mts_path : os.PathLike
+        Path to the Multi-modal Trip Summary (MTS) file.
+
+    mts_return_home_path : os.PathLike
+        Path to the MTS return-home trip data file.
+
+    mts_adjustment_path : os.PathLike
+        Path to the MTS adjustment factors file, used to calibrate or scale modeled trips.
+
+    mts_return_home_adj_factor_path : os.PathLike
+        Path to the file containing return-home adjustment factors.
+
+    phi_factors_path : os.PathLike
+        Path to the phi factor CSV used for distance decay adjustments or calibration.
+
+    tem_segmentation : cb.Segmentation
+        A `Segmentation` object that defines how trips or zones are segmented for model estimation.
+
+    mts_uni_path : os.PathLike
+        Path to the file containing university-specific MTS data (if modeling student travel or education-related trips).
+
+    model_zoning : cb.ZoningSystem
+        Zoning system used for core modeling (e.g., small area zones, LSOAs, or custom units).
+
+    agg_zoning : cb.ZoningSystem
+        Higher-level zoning system used for aggregating outputs (e.g., LA districts or GORs).
+
+    translation : pd.DataFrame
+        A DataFrame used to map or translate zone/system identifiers across different zoning systems
+        (e.g., from model zones to aggregated zones).
+    """
 
     def __init__(
         self,
@@ -102,7 +166,7 @@ class AttractionModel:
                 if not hh_landuse_path.is_file():
                     raise FileNotFoundError(f"{hh_landuse_path} is not a valid file.")
         if not mts_path.is_file():
-            raise FileNotFoundError(f"{hh_landuse_path} is not a valid file.")
+            raise FileNotFoundError(f"{mts_path} is not a valid file.")
 
         return trip_rates_paths, emp_landuse_paths, hh_landuse_paths, mts_path
 
@@ -263,12 +327,12 @@ class AttractionModel:
             tem_dvec = self._create_tem_dvec(seg_dict)
             # Test all mts_dict DVectors match sum of attr_dict DVectors - TODO confirm rel/abs tolerance w Isaac for this test.
             seg_dict_sum: float = 0
-            for p in seg_dict.keys():
-                seg_dict_sum += seg_dict[p].sum()
+            for p, v in seg_dict.items():
+                seg_dict_sum += v.sum()
             if not tem_dvec.sum_is_close(seg_dict_sum, 0.01, 100):
                 print(
                     f"The sum of the TEM Segmented segmented attraction (split by TEM Production) does not match the expected sum.\n"
-                    f"Expected: {seg_dict[p].sum()}\nGot: {seg_dict[p].sum()}"
+                    f"Expected: {seg_dict_sum}\nGot: {tem_dvec.sum()}"
                 )
             # No longer need dictionary of further segmented mts attraction by purpose
             del seg_dict
@@ -294,7 +358,7 @@ class AttractionModel:
                 tem_return_home_attr.save(export_paths.tem_segmented_return_home[year])
 
         # ## END ## #
-        return None
+
 
     # # # HELPER FUNCTIONS # # #
 
@@ -479,10 +543,10 @@ class AttractionModel:
             zoning_system=cb.ZoningSystem.get_zoning("lsoa_2021"),
         )
         # Translate the household landuse to the TEM Model zoning system
-        zoning_system = cb.ZoningSystem.get_zoning(self.model._zoning_system)
+        zoning_system = cb.ZoningSystem.get_zoning(self.model._zoning_system)# pylint: disable =protected-access
         hh_landuse = hh_landuse.translate_zoning(
             zoning_system, trans_vector=self.hh_trans, check_totals=True, no_factors=False
-        )
+        )# pylint: enable =protected-access
 
         return hh_landuse
 
@@ -500,7 +564,7 @@ class AttractionModel:
         # For each purpose...
         for p, trip_rate in trip_rates.items():
             # Access the landuse dvec (employment or household) with respect to travel purpose
-            if (p != 7) and (p != 17):
+            if p not in (7, 17):
                 landuse = landuses["emp"]
             else:
                 landuse = landuses["hh"]
@@ -554,7 +618,7 @@ class AttractionModel:
             out_path = self.model.export_paths.pure_demand_adj[year]
         output_pure.save(out_path)
 
-        return None
+
 
     def _create_mts_dict(
         self,
@@ -588,7 +652,7 @@ class AttractionModel:
                     f"Expected: {attr_dict[p].sum()}\nGot: {mts_dict[p].sum()}\n"
                 )
 
-        return None
+
 
     def _adjust_mts_dict(
         self,
@@ -647,7 +711,7 @@ class AttractionModel:
             out_path = self.model.export_paths.mts_demand_adj[year]
         output_pure.save(out_path)
 
-        return None
+
 
     def _create_seg_dict(
         self, mts_dict: dict[int, cb.DVector], tem_production: cb.DVector
@@ -678,7 +742,7 @@ class AttractionModel:
                     f"Expected: {mts_dict[p].sum()}\nGot: {seg_dict[p].sum()}\n"
                 )
 
-        return None
+
 
     def _create_tem_dvec(self, seg_dict: dict[int, cb.DVector]) -> cb.DVector:
         """
@@ -705,7 +769,7 @@ class AttractionModel:
         - Calls the balance_by_segments function on the TEM Attractions, balancing against TEM Productions using the specified balancing zones
         """
         # If balancing_zones is True
-        if self.balance_production == True:
+        if self.balance_production is True:
             tem_dvec.fill(0, 1e-16)
             gb_factors = tem_production.remove_zoning() / tem_dvec.remove_zoning()
             balanced_dvec = tem_dvec * gb_factors
@@ -724,11 +788,11 @@ class AttractionModel:
     def _create_tem_return_home_attraction(self,tem_attraction:cb.DVector):
 
         # Reading one Phi factor Dvec to get its segmentation
-        self.phi_segmentation = self._read_phi_factor_dvec(1).segmentation.naming_order
+        phi_segmentation = self._read_phi_factor_dvec(1).segmentation.naming_order
 
         aggregation_segments = list(
             s for s in (
-                    set(self.tem_segmentation) ^ set(self.phi_segmentation)
+                    set(self.tem_segmentation) ^ set(phi_segmentation)
             # symmetric difference: keep segments that are in only one of the two
             )
             if s not in {"m", "tp"}  # manually exclude 'm' and 'tp' even if they are not common
@@ -817,3 +881,4 @@ class AttractionModel:
 
         phi_factor = cb.DVector.load(phi_factors_file_path)
         return phi_factor
+# pylint: enable =too-many-instance-attributes,too-many-positional-arguments,too-many-locals,too-many-arguments,too-many-instance-attributes,too-many-branches

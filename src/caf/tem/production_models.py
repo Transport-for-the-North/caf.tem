@@ -1,57 +1,37 @@
+"""
+Process Pdoduction model.
+
+"""
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
-"""ASSUMPTIONS:
-    - List assumptions here... TODO
-"""
-
-
-"""IMPORTS REQUIRED:
-"""
 # Builtins
-import dataclasses  # TODO check if needed
 import os
 import math
-import pathlib
 import warnings
 import logging
 import gc
 
-from typing import Dict, List, Optional, Literal  # TODO check if needed
+from typing import Dict
+from pathlib import Path
+import pandas as pd
 
 # Third party imports
-import pandas as pd
 import caf.base as cb
 import caf.toolkit as ctk
-
-from pathlib import Path
-from caf.tem.inputs import ProductionModelPaths
+from caf.tem import utils
 
 from .inputs import ProductionModelPaths, AttractionModelPaths
 
-import caf.tem.utils as utils
 
 
-"""VARIABLE CODING INFORMATION:
-"""
-
-
-"""RELEVANT FILE PATHS: TODO - if dirs are to be unchanged, or these dirs are likely to be referenced, could simplify input to look here automatically.
-"""
 EMPLOYMENT_LANDUSE_DIR = Path(r"F:\Deliverables\Land-Use\241213_Employment\02_Final Outputs")
 POPULATION_LANDUSE_DIR = Path(r"F:\Deliverables\Land-Use\241213_Population\02_Final Outputs")
-POPULATION_V2_LANDUSE_DIR = Path(
-    r"F:\Deliverables\Land-Use\241213_Populationv2\02_Final Outputs"
-)
+POPULATION_V2_LANDUSE_DIR = Path(r"F:\Deliverables\Land-Use\241213_Populationv2\02_Final Outputs")
 
-
-"""FUNCTIONS: TODO utils specific to Prod models here?
-"""
-
-
-"""EXECUTION OF CODE:
-"""
-
+# pylint: disable =too-many-instance-attributes,too-many-positional-arguments,too-many-locals,too-many-arguments,too-few-public-methods
+class SegmentationError(Exception):
+    """Error for segmentation objects."""
 
 class HBProductionModel:
     """
@@ -131,8 +111,7 @@ class HBProductionModel:
         self.mts_return_home_adj_factor_path =  mts_return_home_adj_factor_path
 
         _log_fname = "HBProductionModel_log.log"
-        logger_name = "%s.%s" % ("placeholder", self.__class__.__name__)
-        log_file_path = Path(self.model.export_home) / _log_fname
+        logger_name = f"placeholder.{self.__class__.__name__}"
         self._logger = logging.getLogger(
             logger_name
         )  # TODO logger doesnt't appear to do anything yet... fix
@@ -171,7 +150,6 @@ class HBProductionModel:
         export_mts_production: bool = True,
         export_tem_segmentation: bool = True,
         export_reports: bool = True,
-        export_return_home_productions: bool = True,
         mts_geo_constraint: cb.ZoningSystem = None,
         return_tripends: bool = False,
     ) -> None:
@@ -244,7 +222,7 @@ class HBProductionModel:
             )  # TODO consider running anyway in case user wants to debug.
             end_time = ctk.timing.current_milli_time()
             time_taken = ctk.timing.time_taken(start_time, end_time)
-            self._logger.info("HB Production Model took:%s" % time_taken)
+            self._logger.info("HB Production Model took:%s" ,time_taken)
             self._logger.info("HB Production Model Finished")
             return None
 
@@ -330,12 +308,16 @@ class HBProductionModel:
 
             year_end_time = ctk.timing.current_milli_time()
             time_taken = ctk.timing.time_taken(year_start_time, year_end_time)
-            self._logger.info("HB Productions in year %s took: %s\n" % (year, time_taken))
+            self._logger.info(
+                "HB Productions in year %s took: %s\n",
+                year,
+                time_taken
+            )
 
         # End timing
         end_time = ctk.timing.current_milli_time()
         time_taken = ctk.timing.time_taken(start_time, end_time)
-        self._logger.info("HB Production Model took:%s" % time_taken)
+        self._logger.info("HB Production Model took:%s" , time_taken)
         self._logger.info("HB Production Model Finished")
 
         return None
@@ -408,7 +390,7 @@ class HBProductionModel:
         - Translates the population landuse DVector zoning system to the TEM Model zoning system
         """
 
-        self._logger.info(f"Year {year}:\n  Loading the population data")
+        self._logger.info("Year %s:\n  Loading the population data", year)
         if self.population_paths[year].is_dir():
             population = utils.read_pop_lu(self.population_paths[year], "Output P11_{}.hdf")[0]
         else:
@@ -523,11 +505,11 @@ class HBProductionModel:
         self._logger.info("Processing return home trips")
 
         # Reading one Phi factor Dvec to get its segmentation
-        self.phi_segmentation = self._read_phi_factor_dvec(1).segmentation.naming_order
+        phi_segmentation = self._read_phi_factor_dvec(1).segmentation.naming_order
 
         aggregation_segments = list(
             s for s in (
-                    set(self.tem_segmentation) ^ set(self.phi_segmentation)
+                    set(self.tem_segmentation) ^ set(phi_segmentation)
             # symmetric difference: keep segments that are in only one of the two
             )
             if s not in {"m", "tp"}  # manually exclude 'm' and 'tp' even if they are not common
@@ -621,41 +603,45 @@ class HBProductionModel:
 
 
 
-class NHBProductionModel_TP:
-    _log_fname = "HBProductionModel_log.log"
-    """The Home-Based Production Model of NoTEM
-
-    The production model can be ran by calling the class run() method.
-
-    Attributes
-    ----------
-    population_paths: Dict[int, os.PathLike]:
-        Dictionary of {year: land_use_employment_data} pairs. As passed
-        into the constructor.
-
-    trip_rates_path: str
-        The path to the production trip rates. As passed into the constructor.
-
-    mts_path: str
-        The path to production mode-time splits. As passed into the
-        constructor.
-
-    constraint_paths: Dict[int, os.PathLike]
-        Dictionary of {year: constraint_path} pairs. As passed into the
-        constructor.
-
-    process_count: int
-        The number of processes to create in the Pool. As passed into the
-        constructor.
-
-    years: List[int]
-        A list of years that the model will run for. Derived from the keys of
-        land_use_paths
-
-    See HBProductionModelPaths for documentation on:
-        "path_years, export_home, report_home, export_paths, report_paths"
+class NHBProductionModelTP:
     """
+    Sets up and validates arguments for the NHB Production model.
 
+    Parameters
+    ----------
+    hb_attraction_paths:
+        Dictionary of {year: notem_segmented_HB_attractions_data} pairs.
+        These paths should come from nd.HBAttraction model and should
+        be pickled Dvector paths.
+
+    population_paths:
+        Dictionary of {year: land_use_population_data} pairs.
+
+    trip_rates_path:
+        The path to the NHB production trip rates.
+        Should have the columns as defined in:
+        NHBProductionModel._target_cols['nhb_trip_rate']
+
+    mts_path:
+        The path to NHB production time split.
+        Should have the columns as defined in:
+        NHBProductionModel._target_cols['tp']
+
+    export_home:
+        Path to export NHB Production outputs.
+
+    constraint_paths:
+        Dictionary of {year: constraint_path} pairs.
+        Must contain the same keys as land_use_paths, but it can contain
+        more (any extras will be ignored).
+        If set - will be used to constrain the productions - a report will
+        be written before and after.
+
+    process_count:
+        The number of processes to create in the Pool. Typically this
+        should not exceed the number of cores available.
+        Defaults to consts.PROCESS_COUNT.
+    """
     def __init__(
         self,
         hb_attraction_model: AttractionModelPaths,  # HB Attraction Paths for balancing - not user input - assume these are pure attraction.
@@ -665,43 +651,39 @@ class NHBProductionModel_TP:
         mts_path: str,
         return_segmentation,
     ) -> None:
-        """
-        Sets up and validates arguments for the NHB Production model.
 
-        Parameters
+        _log_fname = "HBProductionModel_log.log"
+        """The Home-Based Production Model of NoTEM
+
+        The production model can be ran by calling the class run() method.
+
+        Attributes
         ----------
-        hb_attraction_paths:
-            Dictionary of {year: notem_segmented_HB_attractions_data} pairs.
-            These paths should come from nd.HBAttraction model and should
-            be pickled Dvector paths.
+        population_paths: Dict[int, os.PathLike]:
+            Dictionary of {year: land_use_employment_data} pairs. As passed
+            into the constructor.
 
-        population_paths:
-            Dictionary of {year: land_use_population_data} pairs.
+        trip_rates_path: str
+            The path to the production trip rates. As passed into the constructor.
 
-        trip_rates_path:
-            The path to the NHB production trip rates.
-            Should have the columns as defined in:
-            NHBProductionModel._target_cols['nhb_trip_rate']
+        mts_path: str
+            The path to production mode-time splits. As passed into the
+            constructor.
 
-        mts_path:
-            The path to NHB production time split.
-            Should have the columns as defined in:
-            NHBProductionModel._target_cols['tp']
+        constraint_paths: Dict[int, os.PathLike]
+            Dictionary of {year: constraint_path} pairs. As passed into the
+            constructor.
 
-        export_home:
-            Path to export NHB Production outputs.
+        process_count: int
+            The number of processes to create in the Pool. As passed into the
+            constructor.
 
-        constraint_paths:
-            Dictionary of {year: constraint_path} pairs.
-            Must contain the same keys as land_use_paths, but it can contain
-            more (any extras will be ignored).
-            If set - will be used to constrain the productions - a report will
-            be written before and after.
+        years: List[int]
+            A list of years that the model will run for. Derived from the keys of
+            land_use_paths
 
-        process_count:
-            The number of processes to create in the Pool. Typically this
-            should not exceed the number of cores available.
-            Defaults to consts.PROCESS_COUNT.
+        See HBProductionModelPaths for documentation on:
+            "path_years, export_home, report_home, export_paths, report_paths"
         """
 
         ## Assign
@@ -717,15 +699,15 @@ class NHBProductionModel_TP:
         self.agg_zoning = cb.ZoningSystem.get_zoning(self.model.agg_zoning)
 
         _log_fname = "NHBProductionModel_log.log"
-        logger_name = "%s.%s" % ("placeholder", self.__class__.__name__)
-        log_file_path = Path(self.model.export_home) / _log_fname
+        logger_name = f"placeholder.{self.__class__.__name__}"
+        #log_file_path = Path(self.model.export_home) / _log_fname
         self._logger = logging.getLogger(logger_name)
 
     #
     def run(
         self,
         export_nhb_pure_demand: bool = True,
-        export_fully_segmented: bool = False,
+        #export_fully_segmented: bool = False,
         export_notem_segmentation: bool = True,
         export_reports: bool = True,
     ) -> None:
@@ -794,7 +776,7 @@ class NHBProductionModel_TP:
 
             # ## READ HB ATTRACTION ## #
             # TODO
-            hbattr = self._read_HB_attraction(year)
+            hbattr = self._read_hb_attraction(year)
 
             # ## PURE PRODUCTION ## #
             # TODO
@@ -837,7 +819,7 @@ class NHBProductionModel_TP:
 
         return mts
 
-    def _read_HB_attraction(
+    def _read_hb_attraction(
         self, year: int
     ) -> cb.DVector:  # TODO tidy. Perhaps use segment translation method.
         """
@@ -917,12 +899,6 @@ class NHBProductionModel_TP:
             warnings.warn("mts has changed the total.")
         return mts_production
 
-    def _create_tem_production(self, mts_production: cb.DVector) -> cb.DVector:
-        """
-        - Aggregates the mode-time split productions to the TEM segmentation
-        """
-        tem_production = mts_production.aggregate(self.return_segmentation)
-
     def _generate_nhb_productions(
         self,
         hb_attractions: cb.DVector,
@@ -959,8 +935,47 @@ class NHBProductionModel_TP:
 
 
 class NHBProductionModel(ProductionModelPaths):
+    """
+    Sets up and validates arguments for the NHB Production model.
+
+    Parameters
+    ----------
+    hb_attraction_paths:
+        Dictionary of {year: notem_segmented_HB_attractions_data} pairs.
+        These paths should come from nd.HBAttraction model and should
+        be pickled Dvector paths.
+
+    population_paths:
+        Dictionary of {year: land_use_population_data} pairs.
+
+    trip_rates_path:
+        The path to the NHB production trip rates.
+        Should have the columns as defined in:
+        NHBProductionModel._target_cols['nhb_trip_rate']
+
+    time_splits_path:
+        The path to NHB production time split.
+        Should have the columns as defined in:
+        NHBProductionModel._target_cols['tp']
+
+    export_home:
+        Path to export NHB Production outputs.
+
+    constraint_paths:
+        Dictionary of {year: constraint_path} pairs.
+        Must contain the same keys as land_use_paths, but it can contain
+        more (any extras will be ignored).
+        If set - will be used to constrain the productions - a report will
+        be written before and after.
+
+    process_count:
+        The number of processes to create in the Pool. Typically this
+        should not exceed the number of cores available.
+        Defaults to consts.PROCESS_COUNT.
+    """
     _log_fname = "NHBProductionModel_log.log"
-    """The Non Home-Based Production Model of NoTEM
+    """
+    The Non Home-Based Production Model of NoTEM
 
         The production model can be ran by calling the class run() method.
 
@@ -995,7 +1010,7 @@ class NHBProductionModel(ProductionModelPaths):
 
         See NHBProductionModelPaths for documentation on:
             "path_years, export_home, report_home, export_paths, report_paths"
-        """
+    """
 
     def __init__(
         self,
@@ -1007,44 +1022,9 @@ class NHBProductionModel(ProductionModelPaths):
         constraint_paths: Dict[int, os.PathLike] = None,
         process_count: int = 1,
     ) -> None:
-        """
-        Sets up and validates arguments for the NHB Production model.
 
-        Parameters
-        ----------
-        hb_attraction_paths:
-            Dictionary of {year: notem_segmented_HB_attractions_data} pairs.
-            These paths should come from nd.HBAttraction model and should
-            be pickled Dvector paths.
 
-        population_paths:
-            Dictionary of {year: land_use_population_data} pairs.
 
-        trip_rates_path:
-            The path to the NHB production trip rates.
-            Should have the columns as defined in:
-            NHBProductionModel._target_cols['nhb_trip_rate']
-
-        time_splits_path:
-            The path to NHB production time split.
-            Should have the columns as defined in:
-            NHBProductionModel._target_cols['tp']
-
-        export_home:
-            Path to export NHB Production outputs.
-
-        constraint_paths:
-            Dictionary of {year: constraint_path} pairs.
-            Must contain the same keys as land_use_paths, but it can contain
-            more (any extras will be ignored).
-            If set - will be used to constrain the productions - a report will
-            be written before and after.
-
-        process_count:
-            The number of processes to create in the Pool. Typically this
-            should not exceed the number of cores available.
-            Defaults to consts.PROCESS_COUNT.
-        """
         # Check that the paths we need exist! --> turn into some function e.g. validate input.
         [check_file_exists(x) for x in hb_attraction_paths.values()]
         check_file_exists(trip_rates_path)
@@ -1071,9 +1051,10 @@ class NHBProductionModel(ProductionModelPaths):
             path_years=self.years,
             export_home=export_home,
             report_home=report_home,
+            _trip_origin = "nhb",
         )
         # Create a logger
-        logger_name = "%s.%s" % (nd.get_package_logger_name(), self.__class__.__name__)
+        logger_name = f"{nd.get_package_logger_name()}.{self.__class__.__name__}"
         log_file_path = os.path.join(self.export_home, self._log_fname)
         self._logger = nd.get_logger(
             logger_name=logger_name,
@@ -1215,9 +1196,9 @@ class NHBProductionModel(ProductionModelPaths):
             # ## PRODUCTIONS TOTAL CHECK ## #
             if not pure_nhb_demand.sum_is_close(fully_segmented):
                 msg = (
-                    "The NHB production totals before and after time split are not same.\n"
-                    "Expected %f\n"
-                    "Got %f" % (pure_nhb_demand.sum(), fully_segmented.sum())
+                    f"The NHB production totals before and after time split are not same.\n"
+                    f"Expected {pure_nhb_demand.sum():.6f}\n"
+                    f"Got {fully_segmented.sum():.6f}"
                 )
                 self._logger.warning(msg)
                 warnings.warn(msg)
@@ -1234,8 +1215,8 @@ class NHBProductionModel(ProductionModelPaths):
                 msg = (
                     "The NHB production totals before and after rename to "
                     "output segmentation are not same.\n"
-                    "Expected %f\n"
-                    "Got %f" % (pure_nhb_demand.sum(), fully_segmented.sum())
+                    f"Expected {pure_nhb_demand.sum():.6f}\n"
+                    f"Got {fully_segmented.sum():.6f}"
                 )
                 self._logger.warning(msg)
                 warnings.warn(msg)
@@ -1258,12 +1239,12 @@ class NHBProductionModel(ProductionModelPaths):
             # Print timing stats for the year
             year_end_time = ctk.timing.current_milli_time()
             time_taken = ctk.timing.time_taken(year_start_time, year_end_time)
-            self._logger.info("NHB Productions in year %s took: %s\n" % (year, time_taken))
+            self._logger.info("NHB Productions in year %s took: %s\n" , (year, time_taken))
 
         # End timing
         end_time = ctk.timing.current_milli_time()
         time_taken = ctk.timing.time_taken(start_time, end_time)
-        self._logger.info("NHB Production Model took:%s" % time_taken)
+        self._logger.info("NHB Production Model took:%s" , time_taken)
         self._logger.info("NHB Production Model Finished")
 
     def _transform_attractions(
@@ -1300,7 +1281,7 @@ class NHBProductionModel(ProductionModelPaths):
             )
         # Remove time period
         hb_attr = hb_attr_notem.aggregate(tem_no_tp_seg)
-        return hb_attr.add_segment(
+        return hb_attr.add_segments(
             cb.segments.SegmentsSuper("at").get_segment(), split_method="duplicate"
         )
 
@@ -1364,28 +1345,4 @@ class NHBProductionModel(ProductionModelPaths):
         # Multiply together #
         return (pure_nhb_demand * time_splits_dvec).aggregate(full_seg)
 
-
-if __name__ == "__main__":
-    return_seg = cb.SegmentationInput(
-        enum_segments=["p", "m", "gender_3", "soc", "ns_sec", "tp"],
-        naming_order=["p", "m", "gender_3", "soc", "ns_sec", "tp"],
-        subsets={"p": [1, 2, 3, 4, 5, 6, 7, 8]},
-    )
-
-    normits = cb.ZoningSystem.get_zoning("normits")
-
-    hb_prod = HBProductionModel(
-        population_paths={2023: pathlib.Path(r"E:\tem\outputs\pop_2021.dvec")},
-        export_home=pathlib.Path(r"E:\tem\outputs"),
-        mode_time_splits_path=pathlib.Path(
-            r"E:\NTS\outputs_is\productions\hb\mode_time_splits\hb_mode_time_split_production_hb_fr.dvec"
-        ),
-        trip_rates_path=pathlib.Path(
-            r"E:\NTS\outputs\productions\hb\trip_rates\hb_trip_rates_production_dvector.dvec"
-        ),
-        return_segmentation=cb.Segmentation(return_seg),
-        model_zoning=normits,
-    )
-    hb_prod.run(True, True, True)
-
-    print("debugging")
+# pylint: enable =too-many-instance-attributes,too-many-positional-arguments,too-many-locals,too-many-arguments,too-few-public-methods

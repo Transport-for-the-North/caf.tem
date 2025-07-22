@@ -12,17 +12,20 @@ File purpose:
 """
 from __future__ import annotations
 
-# Built-Ins
+# Built-in
+import math
 import os
 import pathlib
 import warnings
-from typing import Union
+from typing import Union, Tuple
 import glob
 
-# Third Party
-import caf.base as cb
+# Third-party
 import pandas as pd
-import math
+
+# Local
+import caf.base as cb
+
 
 
 # Local Imports
@@ -58,6 +61,14 @@ LAD_REPORT_SEG: cb.SegmentationInput = cb.SegmentationInput(
 
 # # # FUNCTIONS # # #
 def lu_to_tt(dvec: cb.DVector):
+    """
+    Args:
+        dvec (cb.DVector): The input DVector containing land-use-based segmentation.
+
+    Returns:
+        cb.DVector: A new DVector segmented and aggregated for travel-type modelling.
+
+    """
     out_dvec = dvec.aggregate(
         ["age_9", "g", "ns_sec", "soc", "pop_emp", "adults", "adult_nssec", "car_availability"]
     )
@@ -90,7 +101,7 @@ def write_reports(dvec: cb.DVector, report_path, year: int) -> None:
         lad_report_seg=cb.Segmentation(LAD_REPORT_SEG),
     )
 
-    return None
+
 
 
 def file_exists(file_path: os.PathLike) -> bool:
@@ -112,8 +123,7 @@ def file_exists(file_path: os.PathLike) -> bool:
 
     if not os.path.isfile(file_path):
         raise IsADirectoryError(
-            "The given path exists, but does not point to a file. "
-            "Given path: %s" % str(file_path)
+            f"The given path exists, but does not point to a file. Given path: {file_path}"
         )
 
     return True
@@ -140,18 +150,44 @@ def check_file_exists(
     None
     """
     if not file_exists(file_path):
-        raise FileNotFoundError("Cannot find a path to: %s" % str(file_path))
+        raise FileNotFoundError(f"Cannot find a path to: {file_path}")
 
 
 def read_pop_lu(
-    dir: pathlib.Path,
+    dir_: pathlib.Path,
     file_name: str,
     out_zoning: cb.ZoningSystem | None = None,
     geographies=("EM", "EoE", "Lon", "NE", "NW", "SE", "SW", "Wales", "WM", "YH", "Scotland"),
 ):
+    """
+    Reads population-level data from multiple regional files, converts them to TT-format DVector objects,
+    and optionally translates the output to a specified zoning system.
+
+    Parameters:
+    ----------
+    dir_ : pathlib.Path
+        The directory path where the input population files are stored.
+
+    file_name : str
+        A string template for the file name, which should include a placeholder for the region (e.g., "population_{}.csv").
+
+    out_zoning : cb.ZoningSystem, optional
+        The desired output zoning system to which the aggregated DVector will be translated. If None, no translation is performed.
+
+    geographies : tuple of str, optional
+        The list of region codes to iterate over. Each region should correspond to a valid file when substituted into the file_name template.
+
+    Returns:
+    -------
+    dvec : cb.DVector
+        A combined and optionally translated DVector containing TT-format population data.
+
+    trans : pd.Series or None
+        The translation vector used for zoning conversion, or None if no translation was performed.
+    """
     dvecs = []
     for region in geographies:
-        dvec = cb.DVector.load(pathlib.Path(dir) / file_name.format(region))
+        dvec = cb.DVector.load(pathlib.Path(dir_) / file_name.format(region))
         dvec_tt = lu_to_tt(dvec)
         dvecs.append(dvec_tt)
     overall_data = pd.concat([d.data for d in dvecs], axis=1)
@@ -168,11 +204,37 @@ def read_pop_lu(
 
 
 def read_hh_lu(
-    dir: pathlib.Path | str, file_name: str, out_seg: cb.Segmentation = SEG_HH, geographies=GOR
+    dir_: pathlib.Path | str, file_name: str, out_seg: cb.Segmentation = SEG_HH, geographies=GOR
 ):
+    """
+    Reads and aggregates household-level look-up data from multiple regional files,
+    combines them into a single DVector, and returns the result.
+
+    Parameters:
+    ----------
+    dir_ : pathlib.Path or str
+        The directory path where the household data files are located.
+
+    file_name : str
+        A string template for the file name, which must include a placeholder for region names
+        (e.g., "households_{}.csv").
+
+    out_seg : cb.Segmentation, optional
+        The segmentation to which the input data should be aggregated. Defaults to SEG_HH.
+
+    geographies : iterable of str, optional
+        The list of region codes to iterate over. Each region should correspond to a file that
+        can be resolved by applying it to the file_name template.
+
+    Returns:
+    -------
+    dvec : cb.DVector
+        A combined DVector object containing aggregated household data in the specified segmentation and
+        using the "lsoa_2021" zoning system.
+        """
     dvecs = []
     for region in geographies:
-        dvec = cb.DVector.load(pathlib.Path(dir) / file_name.format(region))
+        dvec = cb.DVector.load(pathlib.Path(dir_) / file_name.format(region))
         dvec = dvec.aggregate(out_seg)
         print(f"    {region:8}: lu {dvec.data.sum(axis=1).sum():.2f}")
         dvecs.append(dvec)
@@ -183,9 +245,26 @@ def read_hh_lu(
     return dvec
 
 
-def read_lu_emp(dir: pathlib.Path | str, file_name: str, out_seg: cb.Segmentation):
+def read_lu_emp(dir_: pathlib.Path | str, file_name: str):
+    """
+    Load and process employment land use data from disk.
 
-    dvec = cb.DVector.load(pathlib.Path(dir) / file_name)
+    Parameters
+    ----------
+    dir_ : pathlib.Path or str
+        Directory path where the employment data file is located.
+    file_name : str
+        Name of the file to load.
+
+    Returns
+    -------
+    cb.DVector
+        A DVector object aggregated by employment categories (SEG_EMP),
+        with zoning system set to "lsoa_2021" and segmentation updated to TT_EMP.
+
+    """
+
+    dvec = cb.DVector.load(pathlib.Path(dir_) / file_name)
     dvec = dvec.aggregate(SEG_EMP).data
     out = pd.DataFrame(dvec.groupby(level="soc").sum().sum(axis=1)).rename(columns={0: "emp"})
     out["prop"] = out["emp"].div(out["emp"].sum()) * 100
@@ -201,6 +280,17 @@ def read_lu_emp(dir: pathlib.Path | str, file_name: str, out_seg: cb.Segmentatio
 
 
 def return_home(pa: cb.DVector, phi_factors: cb.DVector, mode_split: cb.DVector | None = None):
+    """
+    Computes return trips from outbound home-based trips using phi factors and optional mode split.
+
+    Args:
+        pa (cb.DVector): The outbound home-based production-attraction trip matrix.
+        phi_factors (cb.DVector): Factors used to convert outbound trips into return trips.
+        mode_split (cb.DVector, optional): Mode share factors for further disaggregation by mode.
+
+    Returns:
+        cb.DVector: A new DVector representing return trips segmented according to `pa`.
+    """
     pa_seg = pa.segmentation.naming_order
     temp_seg = list(map(lambda x: x + "_to" if x in ["p", "tp"] else x, pa_seg))
     hb_to = (pa * phi_factors).aggregate(temp_seg)
@@ -221,17 +311,6 @@ def return_home(pa: cb.DVector, phi_factors: cb.DVector, mode_split: cb.DVector 
         )
 
     return hb_to
-
-
-def read_phi_factors(phi_path: pathlib.Path):
-    if phi_path.is_file():
-        phi_factors = cb.DVector.load(phi_path)
-    else:
-        phi_factors = cb.DVector.concat_from_dir(phi_path)
-    agg_phi = phi_factors.aggregate(["p", "tp"])
-    if not math.isclose(agg_phi.sum(), len(phi_factors)):
-        phi_factors /= agg_phi
-    return phi_factors
 
 
 def phi_to_dvec(phi_path: Union[pathlib.Path,str], output_fld: Union[pathlib.Path,str]) -> None:
@@ -297,7 +376,7 @@ def phi_to_dvec(phi_path: Union[pathlib.Path,str], output_fld: Union[pathlib.Pat
 
 
 def create_mts_production_return_home_dvec(
-    csv_path: Union[str, Path],
+    csv_path: Union[str, pathlib.Path],
     zoning_name: str = 'tfn_at',
     mts_only_by_mode: bool = True
 ) -> cb.DVector:
@@ -322,7 +401,7 @@ def create_mts_production_return_home_dvec(
     cb.DVector
         A DVector containing reshaped mode split proportions for production trips.
     """
-    csv_path = Path(csv_path)
+    csv_path = pathlib.Path(csv_path)
     df = pd.read_csv(csv_path)
 
     if mts_only_by_mode:
@@ -331,7 +410,7 @@ def create_mts_production_return_home_dvec(
         df['rho'] = df['trips.est'] / df['total_trips']
 
         # Step 2: Aggregate proportions by mode
-        by_mode = df.groupby(['tfn_at', 'hh_type', 'purpose', 'period', 'mode'])['rho'].sum().reset_index()
+        df = df.groupby(['tfn_at', 'hh_type', 'purpose', 'period', 'mode'])['rho'].sum().reset_index()
 
 
     # Step 3:  Directly reshape precomputed 'rho'
@@ -362,7 +441,7 @@ def create_mts_production_return_home_dvec(
     return dvec
 
 def create_mts_attraction_return_home_dvec(
-    csv_path: Union[str, Path],
+    csv_path: Union[str, pathlib.Path],
     zoning_name: str = 'tfn_at',
     mts_only_by_mode: bool = True
 ) -> cb.DVector:
@@ -387,7 +466,7 @@ def create_mts_attraction_return_home_dvec(
     cb.DVector
         DVector containing reshaped mode split proportions for attraction trips.
     """
-    csv_path = Path(csv_path)
+    csv_path = pathlib.Path(csv_path)
     df = pd.read_csv(csv_path)
 
     if mts_only_by_mode:
@@ -396,7 +475,7 @@ def create_mts_attraction_return_home_dvec(
         df['Proportion'] = df['trips.est'] / df['total_trips']
 
         # Step 2: Group by relevant mode-time splits and sum proportions
-        by_mode = df.groupby(['tfn_at', 'purpose', 'period', 'mode'])['Proportion'].sum().reset_index()
+        df = df.groupby(['tfn_at', 'purpose', 'period', 'mode'])['Proportion'].sum().reset_index()
     else:
         # Step 1: Compute trip proportions for each segment group
         df = df.groupby(['tfn_at', 'purpose', 'mode', 'period'])['trips.est'].sum().reset_index()
@@ -404,7 +483,7 @@ def create_mts_attraction_return_home_dvec(
         df['Proportion'] = df['trips.est'] / df['total_trips']
 
     # Step 3: Pivot the table into wide format
-    by_mode_reshaped = by_mode.pivot_table(
+    by_mode_reshaped = df.pivot_table(
         index=['purpose', 'period', 'mode'],
         columns='tfn_at',
         values='Proportion',
@@ -427,7 +506,7 @@ def create_mts_attraction_return_home_dvec(
         zoning_system=zoning
     )
 
-def create_mts_return_home_adj_factor_dvectors(csv_path: Union[str, Path]) -> Tuple[cb.DVector, cb.DVector]:
+def create_mts_return_home_adj_factor_dvectors(csv_path: Union[str, pathlib.Path]) -> Tuple[cb.DVector, cb.DVector]:
     """
     Reads a single CSV containing both production ('p') and attraction ('a') MTS adjustment factors,
     splits them, reshapes them into wide format, and converts each into a cb.DVector.
@@ -443,7 +522,7 @@ def create_mts_return_home_adj_factor_dvectors(csv_path: Union[str, Path]) -> Tu
     Tuple[cb.DVector, cb.DVector]
         A tuple containing (production_dvector, attraction_dvector).
     """
-    csv_path = Path(csv_path)
+    csv_path = pathlib.Path(csv_path)
     df = pd.read_csv(csv_path)
 
     # Validate required columns

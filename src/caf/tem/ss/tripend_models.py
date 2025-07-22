@@ -22,6 +22,7 @@ from ..attraction_models import AttractionModel
 
 
 # pylint: enable=import-error,wrong-import-position
+# pylint: disable=too-many-positional-arguments,too-many-arguments
 class TEM(TEMExportPaths):
     def __init__(
         self,
@@ -37,6 +38,35 @@ class TEM(TEMExportPaths):
         nhbattrinput: AttrInput = None,
         process_count: int = 1,
     ):
+        """
+        Initialize a Trip-End Model (TEM) instance.
+
+        Parameters
+        ----------
+        years : list of int
+            List of years to run the model for (e.g., [2021, 2031]).
+        scenario : Scenarios
+            Scenario object specifying model assumptions and inputs.
+        iteration_name : str
+            Name used to label this model run or iteration.
+        export_home : os.PathLike
+            Path where the model outputs should be saved.
+        tem_segs : TEMSegmentations
+            Object specifying segmentation schemes used in the TEM model.
+        model_zoning : cb.ZoningSystem
+            Zoning system used for spatial disaggregation.
+        hbprodinput : HBProdInput, optional
+            Input data for home-based production trips (default is None).
+        nhbprodinput : NHBProdInput, optional
+            Input data for non-home-based production trips (default is None).
+        hbattrinput : AttrInput, optional
+            Input data for home-based attraction trips (default is None).
+        nhbattrinput : AttrInput, optional
+            Input data for non-home-based attraction trips (default is None).
+        process_count : int, optional
+            Number of parallel processes to use for model execution (default is 1).
+
+        """
         # Assign
         self.years = years
         self.process_count = process_count
@@ -146,5 +176,5 @@ class TEM(TEMExportPaths):
         if generate_nhb_attraction:
             self._generate_nhb_attraction()
 
-
+# pylint: enable=too-many-positional-arguments,too-many-arguments
 # # # FUNCTIONS # # #
