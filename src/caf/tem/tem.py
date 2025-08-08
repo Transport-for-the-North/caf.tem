@@ -10,7 +10,7 @@ import pandas as pd
 import caf.base as cb
 from .inputs import TEMExportPaths, Scenarios, Landuse
 from .attraction_models import AttractionModel
-from .production_models import HBProductionModel, NHBProductionModelTP
+from .production_models import HBProductionModel, NHBProductionModel
 
 # pylint: disable =too-many-positional-arguments,too-many-arguments
 class TEM:
@@ -252,7 +252,7 @@ class TEM:
         trip_rates_path: os.PathLike,
         mode_time_splits_path: os.PathLike,
         balance_production: bool = True,
-    ) -> NHBProductionModelTP:
+    ) -> NHBProductionModel:
         """
         Initializes and returns the NHB (Non-Home-Based) Production Model.
 
@@ -275,7 +275,7 @@ class TEM:
         NHBProductionModelTP
             An initialized NHB production model object.
         """
-        self.nhb_production_model = NHBProductionModelTP(
+        self.nhb_production_model = NHBProductionModel(
             self.export_paths.hb_attraction,
             self.export_paths.nhb_production,
             trip_rates_path,

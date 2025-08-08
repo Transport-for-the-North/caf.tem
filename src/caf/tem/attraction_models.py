@@ -19,6 +19,7 @@ from pathlib import Path
 import pandas as pd
 
 import caf.base as cb
+
 from caf.tem import utils
 from caf.base.segmentation import SegmentationWarning
 
@@ -292,12 +293,12 @@ class AttractionModel:
             # ## MODE TIME SPLIT ## #
             # Create a dictionary of attractions, with mode time split applied, by purpose
             mts_dict = self._create_mts_dict(attr_dict_adj, mts, mts_uni)
-            # Tests to the MTS dict created - TODO confirm rel/abs tolerance w Isaac for this test.
+            # Tests to the MTS dict created
             self._check_mts_dict(attr_dict_adj, mts_dict)
             # Apply mts adjustment
             mts_dict_adj = self._adjust_mts_dict(
                 mts_dict, adj_factors_dict["mts"], geo_constraint=mts_geo_constraint
-            )  # TODO do I want an mts_dict_adj variable and/or output? To ask Isaac
+            )
             if export_pure_attractions:
                 self._export_mts_attractions(mts_dict, year)
                 self._export_mts_attractions(mts_dict_adj, year, adj=True)
@@ -309,7 +310,7 @@ class AttractionModel:
 
             tem_production = cb.DVector.load(
                 self.production_model.export_paths.tem_segmented[year]
-            )  # TODO confirm not tem_segmented_adj i.e. are ==
+            )
             if (
                 mts_dict_adj.keys()
                 != tem_production.segmentation.get_segment("p").values.keys()
@@ -317,7 +318,7 @@ class AttractionModel:
                 mts_dict_adj = {i + 10: j for i, j in mts_dict_adj.items()}
             # Apply the split_by_other method to the mts DVectors, given the tem_production
             seg_dict = self._create_seg_dict(mts_dict_adj, tem_production)
-            # Test all mts_dict DVectors match sum of attr_dict DVectors - TODO confirm rel/abs tolerance w Isaac for this test.
+            # Test all mts_dict DVectors match sum of attr_dict DVectors
             self._check_seg_dict(mts_dict_adj, seg_dict)
             # No longer need dictionary of mts attraction by purpose
             del mts_dict
@@ -325,7 +326,7 @@ class AttractionModel:
             # ## TEM SEGMENTATION ## #
             # Take the pure segmentation, and aggregate to the desired TEM segmentation
             tem_dvec = self._create_tem_dvec(seg_dict)
-            # Test all mts_dict DVectors match sum of attr_dict DVectors - TODO confirm rel/abs tolerance w Isaac for this test.
+            # Test all mts_dict DVectors match sum of attr_dict DVectors
             seg_dict_sum: float = 0
             for p, v in seg_dict.items():
                 seg_dict_sum += v.sum()
@@ -381,22 +382,15 @@ class AttractionModel:
     def _read_mts(self) -> cb.DVector:
         """
         - Reads the mode-time split (MTS) DVector, from the path given in the constructor
-        - Translates the MTS DVector zoning system to the TEM Model zoning system
         """
         mts = cb.DVector.load(self.mts_path)
-        # Ensure zoning system of mts matches the TEM Model zoning system
-        # zoning_system = cb.ZoningSystem.get_zoning(self.model_zoning)
-        # mts = mts.translate_zoning(zoning_system, check_totals=False, no_factors=True)
-
         return mts
 
     def _read_mts_return_home(self) -> cb.DVector:
         """
         - Reads the mode-time split (MTS) DVector, from the path given in the constructor
-        - Translates the MTS DVector zoning system to the TEM Model zoning system
         """
         mts = cb.DVector.load(self.mts_return_home_path)
-
         return mts
 
     def _read_adj_factors(self) -> dict[str, cb.DVector]:
@@ -521,8 +515,8 @@ class AttractionModel:
     def _read_hh_lu(self, year):
         """
         - Reads all household landuse DVectors, for each Government Office Region (GOR), using the file prefix and the directory given in the constructor
-        - Concatonates the household landuse DVectors
-        - Translates the concatonated household DVector zoning system to the TEM Model zoning system
+        - Concatenates the household landuse DVectors
+        - Translates the concatenated household DVector zoning system to the TEM Model zoning system
         DVector files, in the directory, should be formated: {hh_landuse_prefix}_{gor_code}.{hdf/dvec}
         """
         # Create an empty list of DVectors which will contain household landuse for each Government Office Region (GOR)
