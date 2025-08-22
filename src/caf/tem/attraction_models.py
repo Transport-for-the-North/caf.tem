@@ -2,6 +2,7 @@
 Process Attraction model.
 
 """
+
 # -*- coding: utf-8 -*-
 # Allow class self type hinting
 from __future__ import annotations
@@ -12,6 +13,7 @@ import os
 import warnings
 import pathlib
 import gc
+import logging
 
 from pathlib import Path
 
@@ -19,17 +21,17 @@ from pathlib import Path
 import pandas as pd
 
 import caf.base as cb
+import caf.toolkit as ctk
+from caf.base.segmentation import SegmentationError
 
 from caf.tem import utils
 from caf.base.segmentation import SegmentationWarning
 
-from .inputs import ProductionModelPaths, AttractionModelPaths, Landuse
-
+from caf.tem.inputs import ProductionModelPaths, AttractionModelPaths, Landuse
 
 
 # pylint: disable =too-many-instance-attributes,too-many-positional-arguments,too-many-locals,too-many-arguments,too-many-branches
-class SegmentationError(Exception):
-    """Error for segmentation objects."""
+
 
 class AttractionModel:
     """
@@ -96,21 +98,20 @@ class AttractionModel:
         production_model: ProductionModelPaths,
         model: AttractionModelPaths,
         trip_rates_paths: dict[int, os.PathLike],
-        adj_path: os.PathLike,
+        trip_rate_adj_path: os.PathLike,
         balance_production: cb.zoning.BalancingZones | bool,
         emp_landuse: dict[int, Landuse],
         hh_landuse: dict[int, Landuse],
         mts_path: os.PathLike,
-        mts_return_home_path:  os.PathLike,
         mts_adjustment_path: os.PathLike,
-        mts_return_home_adj_factor_path: os.PathLike,
-        phi_factors_path: os.PathLike,
         tem_segmentation: cb.Segmentation,
         mts_uni_path: os.PathLike,
         model_zoning: cb.ZoningSystem,
         agg_zoning: cb.ZoningSystem,
         translation: pd.DataFrame,
-
+        phi_factors_path: os.PathLike | None = None,
+        mts_return_home_path: os.PathLike | None = None,
+        mts_return_home_adj_factor_path: os.PathLike | None = None,
     ):
         self.production_model = production_model
         self.model = model
@@ -118,11 +119,12 @@ class AttractionModel:
         self.emp_landuse = emp_landuse
         self.hh_landuse = hh_landuse
         self.mts_path = mts_path
+        self.years = list(self.hh_landuse.keys())
         self.mts_return_home_path = mts_return_home_path
         self.phi_factors_path = phi_factors_path
         self.tem_segmentation = tem_segmentation
         self.balance_production = balance_production
-        self.tr_adjustment_path = adj_path
+        self.tr_adjustment_path = trip_rate_adj_path
         self.mts_adjustment_path = mts_adjustment_path
         self.mts_return_home_adj_factor_path = mts_return_home_adj_factor_path
         self.mts_uni_path = mts_uni_path
@@ -130,46 +132,9 @@ class AttractionModel:
         self.agg_zoning = agg_zoning
         self.zone_trans = translation
 
-
-    def _format_init_paths(
-        self,
-        trip_rates_paths: dict[int, os.PathLike],
-        emp_landuse_paths: dict[int, os.PathLike],
-        hh_landuse_dirs: dict[int, os.PathLike],
-        hh_landuse_prefix: str,
-        mts_path: os.PathLike,
-    ) -> tuple[dict[int, Path], dict[int, Path], dict[int, dict[str, Path]], Path]:
-        """
-        - Ensures all paths in population_paths, trip_rates_path, and mts_path
-        """
-        # TODO add in trip rates adj and mts adj
-        trip_rates_paths: dict[int, Path] = {
-            p: Path(path) for p, path in trip_rates_paths.items()
-        }
-        emp_landuse_paths = {year: Path(file) for year, file in emp_landuse_paths.items()}
-        hh_landuse_paths: dict[int, dict[str, Path]] = {
-            year: {
-                f"{gor}": Path(hh_landuse_dirs[year]) / f"{hh_landuse_prefix}_{gor}.hdf"
-                for gor in utils.GOR
-            }
-            for year in hh_landuse_dirs.keys()
-        }
-        mts_path = Path(mts_path)
-
-        for p, trip_rates_path in trip_rates_paths.items():
-            if not trip_rates_path.is_file():
-                raise FileNotFoundError(f"{trip_rates_path} is not a valid file.")
-        for year, emp_landuse_path in emp_landuse_paths.items():
-            if not emp_landuse_path.is_file():
-                raise FileNotFoundError(f"{emp_landuse_path} is not a valid file.")
-        for year, hh_landuse_dir in hh_landuse_paths.items():
-            for gor, hh_landuse_path in hh_landuse_dir.items():
-                if not hh_landuse_path.is_file():
-                    raise FileNotFoundError(f"{hh_landuse_path} is not a valid file.")
-        if not mts_path.is_file():
-            raise FileNotFoundError(f"{mts_path} is not a valid file.")
-
-        return trip_rates_paths, emp_landuse_paths, hh_landuse_paths, mts_path
+        _log_fname = "AttractionModel_log.log"
+        logger_name = f"{self.__class__.__name__}"
+        self._logger = logging.getLogger(logger_name)
 
     def run(
         self,
@@ -209,6 +174,10 @@ class AttractionModel:
         export_reports:
             Whether to output reports while running. All reports will be
             written out to self.report_home
+        mts_geo_constraint: cb.ZoningSystem | None
+            Aggregate zoning to constrain post mts adjustment at.
+        return_tripends: bool = False
+            Whether to produce return home trip ends.
 
         Returns
         -------
@@ -218,10 +187,18 @@ class AttractionModel:
 
         # ## TEM PRE-REQUISITES ## #
         # If all exports are False, then the run() function is redundant.
+        start_time = ctk.timing.current_milli_time()
+        self._logger.info("Starting attraction Model")
+
         if not (export_pure_attractions or export_tem_segmentation or export_reports):
-            raise IOError(
-                "The code has been terminated. All HB Attraction Model exports are set to False, running the HB Attraction Model is redundant."
-            )
+            self._logger.info(
+                "All exports set to False. Run not executed."
+            )  # TODO consider running anyway in case user wants to debug.
+            end_time = ctk.timing.current_milli_time()
+            time_taken = ctk.timing.time_taken(start_time, end_time)
+            self._logger.info("HB Production Model took:%s", time_taken)
+            self._logger.info("HB Production Model Finished")
+            return None
 
         # Ensure production balance file exists... (if balance_production is True)
         for year in self.model.path_years:
@@ -262,12 +239,7 @@ class AttractionModel:
                 mts_uni = None
 
         # For each year the model is running for...
-        for (
-            year
-        ) in (
-            self.emp_landuse.keys()
-        ):  # -> TODO is this the correct iterable, path_years or keys of emp landuse? - or check path_years = dict keys of emp_landuse and hh_landuse. What if p7 isn't being tested, wouldn't need hh_landuse...
-
+        for year in self.years:
             # Read in the landuses dvec files specific to the year.
             landuses: dict[str, cb.DVector | dict[str, cb.DVector]] = {
                 "emp": self.emp_landuse[year]
@@ -360,7 +332,6 @@ class AttractionModel:
 
         # ## END ## #
 
-
     # # # HELPER FUNCTIONS # # #
 
     def _read_trip_rate(self, p: int) -> cb.DVector:
@@ -373,9 +344,8 @@ class AttractionModel:
             trip_rate = pd.read_csv(self.trip_rates_paths[p], index_col=0).squeeze()
             trip_rate.index.name = self.agg_zoning.column_name
         else:
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", category=SegmentationWarning)
-                trip_rate = cb.DVector.load(self.trip_rates_paths[p])
+            trip_rate = cb.DVector.load(self.trip_rates_paths[p])
+            # trip_rate.save(self.trip_rates_paths[p])
 
         return trip_rate
 
@@ -401,7 +371,6 @@ class AttractionModel:
                 warnings.simplefilter("ignore", category=UserWarning)
                 tr = cb.DVector.load(self.tr_adjustment_path)
             # Ensure zoning system of mts matches the TEM Model zoning system
-            tr = tr.translate_zoning(self.model_zoning, check_totals=False, no_factors=True)
             tr.fill(0, 1)
             tr.fillna(1)
             adj_factors_dict["tr"] = tr
@@ -425,15 +394,14 @@ class AttractionModel:
         return adj_factors
 
     def _adjust_mts_attraction_return_home(
-            self,
-            mts_production: cb.DVector,
-            adj_factors: cb.DVector,
-            geo_constraint: cb.ZoningSystem = None,
+        self,
+        mts_production: cb.DVector,
+        adj_factors: cb.DVector,
+        geo_constraint: cb.ZoningSystem = None,
     ) -> cb.DVector:
         """ """
         if adj_factors is None:
             return mts_production
-
 
         adj_factors.fill(0, 1)
         adj = mts_production * adj_factors
@@ -537,10 +505,12 @@ class AttractionModel:
             zoning_system=cb.ZoningSystem.get_zoning("lsoa_2021"),
         )
         # Translate the household landuse to the TEM Model zoning system
-        zoning_system = cb.ZoningSystem.get_zoning(self.model._zoning_system)# pylint: disable =protected-access
+        zoning_system = cb.ZoningSystem.get_zoning(
+            self.model._zoning_system
+        )  # pylint: disable =protected-access
         hh_landuse = hh_landuse.translate_zoning(
             zoning_system, trans_vector=self.hh_trans, check_totals=True, no_factors=False
-        )# pylint: enable =protected-access
+        )  # pylint: enable =protected-access
 
         return hh_landuse
 
@@ -563,8 +533,10 @@ class AttractionModel:
             else:
                 landuse = landuses["hh"]
             # Create the attraction DVector for the given purpose
-            attr = landuse * trip_rate
-            # Add the purpose segmentat to the DVector segmentation
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", category=SegmentationWarning)
+                attr = landuse * trip_rate
+            # Add the purpose segmentation to the DVector segmentation
             attr = attr.add_segments(
                 [cb.segmentation.SegmentsSuper("p").get_segment(subset=[p])]
             )
@@ -612,8 +584,6 @@ class AttractionModel:
             out_path = self.model.export_paths.pure_demand_adj[year]
         output_pure.save(out_path)
 
-
-
     def _create_mts_dict(
         self,
         attr_dict: dict[int, cb.DVector],
@@ -628,10 +598,13 @@ class AttractionModel:
             if mts_uni is None:
                 mts_dict[p] = trips * mts
             else:
-                if p in mts_uni.segmentation.input.subsets["p"]:
-                    mts_dict[p] = trips * mts_uni
-                else:
-                    mts_dict[p] = trips * mts
+                # This does change segmentation by design
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", category=SegmentationWarning)
+                    if p in mts_uni.segmentation.input.subsets["p"]:
+                        mts_dict[p] = trips * mts_uni
+                    else:
+                        mts_dict[p] = trips * mts
 
         return mts_dict
 
@@ -645,8 +618,6 @@ class AttractionModel:
                     f"The sum of mode-time split, of the Pure Attractions for purpose {p}, does not match the expected sum.\n"
                     f"Expected: {attr_dict[p].sum()}\nGot: {mts_dict[p].sum()}\n"
                 )
-
-
 
     def _adjust_mts_dict(
         self,
@@ -705,8 +676,6 @@ class AttractionModel:
             out_path = self.model.export_paths.mts_demand_adj[year]
         output_pure.save(out_path)
 
-
-
     def _create_seg_dict(
         self, mts_dict: dict[int, cb.DVector], tem_production: cb.DVector
     ) -> dict[int, cb.DVector]:
@@ -721,7 +690,7 @@ class AttractionModel:
             seg_dict[p] = mts.split_by_other(
                 tem_production.filter_segment_value("p", [p]),
                 agg_zone=cb.ZoningSystem.get_zoning("gor"),
-            )  # TODO want zoning for splitting and balancing to both be arguments / levers re: issues down the line, optional arg with default "gor". splitting = gor, balancing = gb currently (remove zoning)
+            )  # TODO want zoning for splitting and balancing to both be arguments / levers re: issues down the line, optional arg default "gor". splitting = gor, balancing = gb currently (remove zoning)
 
         return seg_dict
 
@@ -735,8 +704,6 @@ class AttractionModel:
                     f"The sum of Segmented MTS Attractions, of the pre-segmented MTS Attractions for purpose {p}, does not match the expected sum.\n"
                     f"Expected: {mts_dict[p].sum()}\nGot: {seg_dict[p].sum()}\n"
                 )
-
-
 
     def _create_tem_dvec(self, seg_dict: dict[int, cb.DVector]) -> cb.DVector:
         """
@@ -778,35 +745,46 @@ class AttractionModel:
 
         return balanced_dvec
 
-
-    def _create_tem_return_home_attraction(self,tem_attraction:cb.DVector):
+    def _create_tem_return_home_attraction(self, tem_attraction: cb.DVector):
 
         # Reading one Phi factor Dvec to get its segmentation
         phi_segmentation = self._read_phi_factor_dvec(1).segmentation.naming_order
 
         aggregation_segments = list(
-            s for s in (
-                    set(self.tem_segmentation) ^ set(phi_segmentation)
-            # symmetric difference: keep segments that are in only one of the two
+            s
+            for s in (
+                set(self.tem_segmentation)
+                ^ set(phi_segmentation)
+                # symmetric difference: keep segments that are in only one of the two
             )
-            if s not in {"m", "tp"}  # manually exclude 'm' and 'tp' even if they are not common
+            if s
+            not in {"m", "tp"}  # manually exclude 'm' and 'tp' even if they are not common
         )
 
-        tem_return_home_tripends_attraction = self.return_home_trip_ends(tem_attraction,aggregation_segments)
+        tem_return_home_tripends_attraction = self.return_home_trip_ends(
+            tem_attraction, aggregation_segments
+        )
         mts_return_home = self._read_mts_return_home()
 
         # Check if 'tp_return' exists in either segmentation
-        tp_in_tem = 'tp_return' in tem_attraction.segmentation.naming_order
-        tp_in_mts = 'tp_return' in mts_return_home.segmentation.naming_order
+        tp_in_tem = "tp_return" in tem_attraction.segmentation.naming_order
+        tp_in_mts = "tp_return" in mts_return_home.segmentation.naming_order
 
         if not (tp_in_tem or tp_in_mts):
             raise SegmentationError(
-                "Segment 'tp_return' (Return Time Period) must be present in either the phi factor DVector or the mode-time split DVector.")
+                "Segment 'tp_return' (Return Time Period) must be present in either the phi factor DVector or the mode-time split DVector."
+            )
 
-        tem_return_home_tripends_attraction_mts = tem_return_home_tripends_attraction * mts_return_home
+        tem_return_home_tripends_attraction_mts = (
+            tem_return_home_tripends_attraction * mts_return_home
+        )
         mts_return_home_adj = self._read_mts_return_home_adjustment()
 
-        tem_return_home_tripends_attraction_adj = self._adjust_mts_attraction_return_home(tem_return_home_tripends_attraction_mts,mts_return_home_adj,cb.ZoningSystem.get_zoning('gor'))
+        tem_return_home_tripends_attraction_adj = self._adjust_mts_attraction_return_home(
+            tem_return_home_tripends_attraction_mts,
+            mts_return_home_adj,
+            cb.ZoningSystem.get_zoning("gor"),
+        )
 
         return tem_return_home_tripends_attraction_adj
 
@@ -835,7 +813,7 @@ class AttractionModel:
             phi = self._read_phi_factor_dvec(p_val)
 
             # Filter production DVector by current purpose value, keep 'p' segment
-            tem_filtered = tem_attraction.filter_segment_value('p', p_val, keep_filtered=True)
+            tem_filtered = tem_attraction.filter_segment_value("p", p_val, keep_filtered=True)
 
             # Multiply and aggregate
             result = tem_filtered * phi
@@ -868,11 +846,17 @@ class AttractionModel:
             Loaded phi factor DVector.
 
         """
-        phi_factors_file_path = Path(os.path.join(self.phi_factors_path, f"phi_factors_A_p{purpose}_reg.dvec"))
+        phi_factors_file_path = Path(
+            os.path.join(self.phi_factors_path, f"phi_factors_A_p{purpose}_reg.dvec")
+        )
 
         if not phi_factors_file_path.exists():
-            raise FileNotFoundError(f"[ERROR] Phi factor file not found: {phi_factors_file_path}")
+            raise FileNotFoundError(
+                f"[ERROR] Phi factor file not found: {phi_factors_file_path}"
+            )
 
         phi_factor = cb.DVector.load(phi_factors_file_path)
         return phi_factor
+
+
 # pylint: enable =too-many-instance-attributes,too-many-positional-arguments,too-many-locals,too-many-arguments,too-many-instance-attributes,too-many-branches

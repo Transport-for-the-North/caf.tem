@@ -130,6 +130,7 @@ class Landuse:
 @enum.unique
 class Scenarios(enum.Enum):
     """Define different Scenario."""
+
     CORE = "Core"
     HIGH = "High"
     LOW = "Low"
@@ -287,8 +288,8 @@ class TEMModelPaths:
             mts_demand=mts_demand_paths,
             mts_demand_adj=mts_demand_adj_paths,
             tem_segmented=tem_segmented_paths,
-            tem_segmented_return_home = tem_segmented_return_home_paths,
-            tem_segmented_from_home = tem_segmented_from_home_paths,
+            tem_segmented_return_home=tem_segmented_return_home_paths,
+            tem_segmented_from_home=tem_segmented_from_home_paths,
         )
 
     def _create_report_paths(self) -> None:
@@ -302,7 +303,9 @@ class TEMModelPaths:
             mts_demand=self._generate_report_paths(self._mts_demand),
             mts_demand_adj=self._generate_report_paths(self._mts_demand_adj),
             tem_segmented=self._generate_report_paths(self._tem_segmented),
-            tem_segmented_return_home=self._generate_report_paths(self._tem_segmented_return_home),
+            tem_segmented_return_home=self._generate_report_paths(
+                self._tem_segmented_return_home
+            ),
             tem_segmented_from_home=self._generate_report_paths(self._tem_segmented_from_home),
         )
 
@@ -601,6 +604,8 @@ class TEMExportPaths:
             model_zoning=model_zoning,
             agg_zoning=agg_zoning,
         )
+
+
 # pylint: enable =too-many-positional-arguments,too-few-public-methods
 
 # # # FUNCTIONS # # #

@@ -118,13 +118,10 @@ def model_setup():
 
     # Create HBProd Model
     input_dir = Path(r"T:\ThomasPrince\TEM Input\comparison\01_HBProduction\input")
-    tem.HBProductionModel(
-        population_paths={2023: input_dir / "lu_pop_2023.hdf"},
-        trip_rates_path=input_dir / "hb_trip_rates_production.hdf",
-        mode_time_splits_path=input_dir / "mode_time_split_production_hb_fr_reg.hdf",
-        adjustment_path=input_dir / "trip_rate_adjustments_production_hb_fr.hdf",
-        population_translation_path=r"T:\ThomasPrince\TEM Input\lsoa_normits_pop.csv"
-    )
+    tem.HBProductionModel(population={2023: input_dir / "lu_pop_2023.hdf"},
+                          trip_rates_path=input_dir / "hb_trip_rates_production.hdf",
+                          mode_time_splits_path=input_dir / "mode_time_split_production_hb_fr_reg.hdf",
+                          adjustment_path=input_dir / "trip_rate_adjustments_production_hb_fr.hdf")
 
     return tem
 

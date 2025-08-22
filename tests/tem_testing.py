@@ -18,20 +18,17 @@ input_dir = Path(r"T:\ThomasPrince\TEM I-Drive Comparison\Inputs\01-HBProduction
 
 gor = cb.ZoningSystem.get_zoning('gor')
 
-HBProd = model.HBProductionModel(
-    population_paths={
-        # 2023: Path(r"T:\Yan_Kavana\tem_inputs_isaac\landuse\pop.dvec"),
-        # 2024: Path(r"I:\Data\D-Log\DLIT\Outputs\test20_v0.19_updated\M4_split\dvec_pop\pop_2024.dvec"),
-        2025: Path(r"I:\Data\D-Log\DLIT\Outputs\test20_v0.19_updated\M4_split\dvec_pop\pop_large_2025.dvec"),
-        # 2035: Path(r"I:\Data\D-Log\DLIT\Outputs\test20_v0.19_updated\M4_split\dvec_pop\pop_large_2035.dvec"),
+HBProd = model.HBProductionModel(population={
+    # 2023: Path(r"T:\Yan_Kavana\tem_inputs_isaac\landuse\pop.dvec"),
+    # 2024: Path(r"I:\Data\D-Log\DLIT\Outputs\test20_v0.19_updated\M4_split\dvec_pop\pop_2024.dvec"),
+    2025: Path(
+        r"I:\Data\D-Log\DLIT\Outputs\test20_v0.19_updated\M4_split\dvec_pop\pop_large_2025.dvec"),
+    # 2035: Path(r"I:\Data\D-Log\DLIT\Outputs\test20_v0.19_updated\M4_split\dvec_pop\pop_large_2035.dvec"),
     # population_paths={2023: Path(r"T:\Yan_Kavana\tem_inputs_isaac\landuse\pop.dvec")
-    }, #provide
-    trip_rates_path=Path(r"T:\Yan_Kavana\tem_inputs_isaac\hb_prod_triprates.dvec"), #provide
-    mode_time_splits_path=r"T:\Yan_Kavana\tem_inputs_isaac\mts_prod.dvec", #provide
+}, trip_rates_path=Path(r"T:\Yan_Kavana\tem_inputs_isaac\hb_prod_triprates.dvec"),
+    mode_time_splits_path=r"T:\Yan_Kavana\tem_inputs_isaac\mts_prod.dvec",
     adjustment_path=r"T:\Yan_Kavana\tem_inputs_isaac\trip_adj_factors.dvec",
-    mts_adj_path = r"T:\Yan_Kavana\tem_inputs_isaac\mts_adj_factors.dvec",
-    pop_zoning='lsoa_2021'
-)
+    mts_adj_path=r"T:\Yan_Kavana\tem_inputs_isaac\mts_adj_factors.dvec")
 
 # HBProd.run(export_pure_production=True, export_reports=False, mts_geo_constraint=gor)
 

@@ -13,10 +13,9 @@ tem = ct.TEM(
 
 dvec_fldr = Path(r"C:\Users\Spiral\Documents\Thomas Prince\(normitsefs) Transfer\TP_20250128-copy\tem_inputs")
 
-HBProd = tem.HBProductionModel(
-    population_paths={2023: dvec_fldr / "pop_2023.dvec"},
-    trip_rates_path=dvec_fldr / "hb_trip_rates_production_dvector.dvec",
-    mode_time_splits_path=dvec_fldr / "hb_mode_time_split_production_hb_fr.dvec")
+HBProd = tem.HBProductionModel(population={2023: dvec_fldr / "pop_2023.dvec"},
+                               trip_rates_path=dvec_fldr / "hb_trip_rates_production_dvector.dvec",
+                               mode_time_splits_path=dvec_fldr / "hb_mode_time_split_production_hb_fr.dvec")
 
 HBAttr = tem.AttractionModel(trip_rates_paths={
     1: r"T:\ThomasPrince\hb_attraction_triprates_p1.dvec",

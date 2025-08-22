@@ -68,14 +68,11 @@ for entity in entities:
     # === HB Production ===
     population_paths = {year: pop_file(year, entity) for year in model_years}
 
-    HBProd = model.HBProductionModel(
-        population_paths=population_paths,
-        trip_rates_path=Path(r"T:\Yan_Kavana\tem_inputs_isaac\hb_prod_triprates.dvec"),
-        mode_time_splits_path=r"T:\Yan_Kavana\tem_inputs_isaac\mts_prod.dvec",
-        adjustment_path=r"T:\Yan_Kavana\tem_inputs_isaac\trip_adj_factors.dvec",
-        mts_adj_path=r"T:\Yan_Kavana\tem_inputs_isaac\mts_adj_factors.dvec",
-        pop_zoning="lsoa_2021",
-    )
+    HBProd = model.HBProductionModel(population=population_paths, trip_rates_path=Path(
+        r"T:\Yan_Kavana\tem_inputs_isaac\hb_prod_triprates.dvec"),
+                                     mode_time_splits_path=r"T:\Yan_Kavana\tem_inputs_isaac\mts_prod.dvec",
+                                     adjustment_path=r"T:\Yan_Kavana\tem_inputs_isaac\trip_adj_factors.dvec",
+                                     mts_adj_path=r"T:\Yan_Kavana\tem_inputs_isaac\mts_adj_factors.dvec")
     HBProd.run(export_pure_production=True, export_reports=False, mts_geo_constraint=gor)
 
     # === Employment & Household Landuse Dictionaries ===

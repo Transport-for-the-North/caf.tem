@@ -1,7 +1,8 @@
 """
-Process Pdoduction model.
+Process Production model.
 
 """
+
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
@@ -18,20 +19,21 @@ import pandas as pd
 
 # Third party imports
 import caf.base as cb
+from caf.base.segmentation import SegmentationError, SegmentationWarning
 import caf.toolkit as ctk
 from caf.tem import utils
 
-from .inputs import ProductionModelPaths, AttractionModelPaths
+from caf.tem.inputs import ProductionModelPaths, AttractionModelPaths, Landuse
 
 
-
-EMPLOYMENT_LANDUSE_DIR = Path(r"F:\Deliverables\Land-Use\241213_Employment\02_Final Outputs")
-POPULATION_LANDUSE_DIR = Path(r"F:\Deliverables\Land-Use\241213_Population\02_Final Outputs")
-POPULATION_V2_LANDUSE_DIR = Path(r"F:\Deliverables\Land-Use\241213_Populationv2\02_Final Outputs")
+# EMPLOYMENT_LANDUSE_DIR = Path(r"F:\Deliverables\Land-Use\241213_Employment\02_Final Outputs")
+# POPULATION_LANDUSE_DIR = Path(r"F:\Deliverables\Land-Use\241213_Population\02_Final Outputs")
+# POPULATION_V2_LANDUSE_DIR = Path(
+#     r"F:\Deliverables\Land-Use\241213_Populationv2\02_Final Outputs"
+# )
 
 # pylint: disable =too-many-instance-attributes,too-many-positional-arguments,too-many-locals,too-many-arguments,too-few-public-methods
-class SegmentationError(Exception):
-    """Error for segmentation objects."""
+
 
 class HBProductionModel:
     """
@@ -74,75 +76,38 @@ class HBProductionModel:
     def __init__(
         self,
         model: ProductionModelPaths,
-        population_paths: dict[int, os.PathLike],
-        pop_trans: pd.DataFrame,
-        pop_zoning: str,
+        population: dict[int, Landuse],
         trip_rates_path: os.PathLike,
         trip_rate_adjustment_path: os.PathLike,
         mts_path: os.PathLike,
         mts_adjustment_path: os.PathLike,
         tem_segmentation: cb.Segmentation,
-        phi_factors_path: os.PathLike,
-        mts_return_home_path: os.PathLike,
-        mts_return_home_adj_factor_path: os.PathLike,
+        translation: pd.DataFrame,
+        phi_factors_path: os.PathLike | None = None,
+        mts_return_home_path: os.PathLike | None = None,
+        mts_return_home_adj_factor_path: os.PathLike | None = None,
     ):
         """
         - Assigns class attributes
         """
         self.model = model
-        self.population_paths, self.trip_rates_path, self.mts_path = self._format_init_paths(
-            population_paths, trip_rates_path, mts_path
-        )
-        self.years = list(self.population_paths.keys())
+        self.population = population
+        self.trip_rates_path = trip_rates_path
+        self.mts_path = mts_path
+        self.years = list(self.population.keys())
         self.tem_segmentation = tem_segmentation
-        self.path_years = self.years
         self.trip_rate_adjustment_path = trip_rate_adjustment_path
-        self.pop_zoning = cb.ZoningSystem.get_zoning(pop_zoning)
         self.model_zoning = cb.ZoningSystem.get_zoning(self.model.model_zoning)
         self.agg_zoning = cb.ZoningSystem.get_zoning(self.model.agg_zoning)
-        self.pop_trans = pop_trans
         self.phi_factors_path = phi_factors_path
         self.mts_return_home_path = mts_return_home_path
-        # self.lsoa_trans = self.pop_trans[['lsoa_2021_id', f'{self.model.model_zoning}_id', f'lsoa_2021_to_{self.model.model_zoning}_pop']]
-        # self.lsoa_trans.rename(columns={f'lsoa_2021_to_{self.model.model_zoning}_pop': f'lsoa_2021_to_{self.model.model_zoning}'}, inplace=True)
-        # self.at_trans = self.pop_trans.groupby([f'{self.model.model_zoning}_id', self.model.agg_zoning])[f'{self.model.model_zoning}_to_lsoa_2021_pop'].sum()
-        # self.at_trans.name = f'{self.model.model_zoning}_to_lsoa_2021'
         self.mts_adjust_path = mts_adjustment_path
-        self.mts_return_home_adj_factor_path =  mts_return_home_adj_factor_path
+        self.mts_return_home_adj_factor_path = mts_return_home_adj_factor_path
+        self.zone_trans = translation
 
         _log_fname = "HBProductionModel_log.log"
         logger_name = f"placeholder.{self.__class__.__name__}"
-        self._logger = logging.getLogger(
-            logger_name
-        )  # TODO logger doesnt't appear to do anything yet... fix
-
-    def _format_init_paths(
-        self,
-        population_paths: dict[int, os.PathLike],
-        trip_rates_path: os.PathLike,
-        mts_path: os.PathLike,
-    ) -> tuple[dict[int, Path], Path, Path]:
-        """
-        - Ensures all paths in population_paths, trip_rates_path, and mts_path
-        """
-        #
-        population_paths = {
-            i: Path(j) for i, j in population_paths.items()
-        }  # Turns the os.PathLike input into Path types
-        trip_rates_path = Path(trip_rates_path)
-        mts_path = Path(mts_path)
-
-        # Raises error if paths given in the constructor are invalid. # TODO use utils and add mts_adj + tr_adj
-        # for key, pop_path in population_paths.items():
-        #     if not pop_path.is_file():
-        #         raise FileNotFoundError(f"{pop_path} is not a valid file.")
-        if not trip_rates_path.is_file():
-            raise FileNotFoundError(f"{trip_rates_path} not a valid file.")
-        if not mts_path.is_file():
-            raise FileNotFoundError(f"{mts_path} is not a valid file.")
-        # TODO test trip_rate_adjustment_path
-
-        return population_paths, trip_rates_path, mts_path
+        self._logger = logging.getLogger(logger_name)
 
     def run(
         self,
@@ -187,7 +152,7 @@ class HBProductionModel:
             Will be written out to: self.export_paths.pure_production[year]
 
         export_mts_production:
-            TODO
+            Whether to export production trip-ends after mode time splits are applied.
 
         export_tem_segmentation:
             Whether to export the notem segmented demand to disk or not.
@@ -222,7 +187,7 @@ class HBProductionModel:
             )  # TODO consider running anyway in case user wants to debug.
             end_time = ctk.timing.current_milli_time()
             time_taken = ctk.timing.time_taken(start_time, end_time)
-            self._logger.info("HB Production Model took:%s" ,time_taken)
+            self._logger.info("HB Production Model took:%s", time_taken)
             self._logger.info("HB Production Model Finished")
             return None
 
@@ -236,12 +201,14 @@ class HBProductionModel:
         mts_adj_factors: cb.DVector = self._read_mts_adjustment()
 
         # Generate the productions for each year
-        for year in self.population_paths.keys():
+        for year in self.years:
             year_start_time = ctk.timing.current_milli_time()
 
             # ## READ INPUTS ## #
             # Read in the population land use for the given year
-            population = self._read_population_landuse(year)
+            population = self.population[year].read_landuse(
+                translation=self.zone_trans, model_zoning=self.model_zoning
+            )
 
             # ## PURE PRODUCTION ## #
             # Creat pure productions
@@ -273,10 +240,10 @@ class HBProductionModel:
             del pure_production, pure_production_adj
             mts_production = self._create_mts_production(
                 tem_seged, mts
-            )  # Only carry on adj from here TODO confirm w Isaac
+            )  # Only carry on adj from here
             mts_production_adj = self._adjust_mts_production(
                 mts_production, mts_adj_factors, geo_constraint=mts_geo_constraint
-            )  # TODO check if HB Prod has mts adj. -> create function for this
+            )
             # Export mts production
             if export_mts_production:
                 mts_production.save(self.model.export_paths.mts_demand[year])
@@ -290,8 +257,6 @@ class HBProductionModel:
 
             # ## TEM SEGMENTATION ## #
             tem_production = self._create_tem_production(mts_production_adj)
-            # Adjust rate
-            # tem_production_adj = self._adjust_production(tem_production, trip_rate_adj_factors)
             # Export tem productions
             if export_tem_segmentation:
                 if return_tripends:
@@ -304,20 +269,18 @@ class HBProductionModel:
                 )
             if return_tripends:
                 tem_return_home_prod = self._create_tem_return_home_production(tem_production)
-                tem_return_home_prod.save(self.model.export_paths.tem_segmented_return_home[year])
+                tem_return_home_prod.save(
+                    self.model.export_paths.tem_segmented_return_home[year]
+                )
 
             year_end_time = ctk.timing.current_milli_time()
             time_taken = ctk.timing.time_taken(year_start_time, year_end_time)
-            self._logger.info(
-                "HB Productions in year %s took: %s\n",
-                year,
-                time_taken
-            )
+            self._logger.info("HB Productions in year %s took: %s\n", year, time_taken)
 
         # End timing
         end_time = ctk.timing.current_milli_time()
         time_taken = ctk.timing.time_taken(start_time, end_time)
-        self._logger.info("HB Production Model took:%s" , time_taken)
+        self._logger.info("HB Production Model took:%s", time_taken)
         self._logger.info("HB Production Model Finished")
 
         return None
@@ -325,9 +288,7 @@ class HBProductionModel:
     # # # FUNCTIONS # # #
 
     def _read_trip_rates(self) -> cb.DVector:
-        trip_rates = cb.DVector.load(
-            self.trip_rates_path
-        )  # TODO - have as global var / pass as zoning so it doesn't get read multiple times. Not urgent.
+        trip_rates = cb.DVector.load(self.trip_rates_path)
         return trip_rates
 
     def _read_mts(self) -> cb.DVector:
@@ -341,13 +302,13 @@ class HBProductionModel:
         # mts = mts.translate_zoning(zoning_system, check_totals=False, no_factors=True)
 
         return mts
+
     def _read_mts_return_home(self) -> cb.DVector:
         """
         - Reads the mode-time split (MTS) DVector, from the path given in the constructor
         - Translates the MTS DVector zoning system to the TEM Model zoning system
         """
         mts = cb.DVector.load(self.mts_return_home_path)
-
         return mts
 
     def _read_trip_rate_adjustment(self):
@@ -357,8 +318,6 @@ class HBProductionModel:
 
         self._logger.info("Loading the trip rates adjustment factors")
         adj_factors = cb.DVector.load(self.trip_rate_adjustment_path)
-        # Ensure zoning system of mts matches the TEM Model zoning system
-        # adj_factors = adj_factors.translate_zoning(self.model_zoning, check_totals=False, no_factors=True)
 
         return adj_factors
 
@@ -369,8 +328,6 @@ class HBProductionModel:
 
         self._logger.info("Loading the MTS adjustment factors")
         adj_factors = cb.DVector.load(self.mts_adjust_path)
-        # Ensure zoning system of mts matches the TEM Model zoning system
-        # adj_factors = adj_factors.translate_zoning(self.model_zoning, check_totals=False, no_factors=True)
 
         return adj_factors
 
@@ -384,26 +341,6 @@ class HBProductionModel:
 
         return adj_factors
 
-    def _read_population_landuse(self, year: int):
-        """Reads in the Population Landuse DVector
-        - Reads the population land use DVector, for one given year, from the path given in the constructor
-        - Translates the population landuse DVector zoning system to the TEM Model zoning system
-        """
-
-        self._logger.info("Year %s:\n  Loading the population data", year)
-        if self.population_paths[year].is_dir():
-            population = utils.read_pop_lu(self.population_paths[year], "Output P11_{}.hdf")[0]
-        else:
-            population = cb.DVector.load(self.population_paths[year])
-        # Ensure zoning system of mts matches the TEM Model zoning system
-        multi_zoned_pop = population.trans_and_comp(
-            [self.model_zoning, self.agg_zoning, "uni", cb.ZoningSystem.get_zoning("gor")],
-            self.pop_trans,
-            "lsoa_2021_to_normits_pop",
-        )
-
-        return multi_zoned_pop
-
     def _create_pure_production(
         self, population: cb.DVector, trip_rates: cb.DVector
     ) -> cb.DVector:
@@ -411,7 +348,9 @@ class HBProductionModel:
         - Multiplies the population landuse by the trip rates, creating pure production
         """
         self._logger.info(" Calculating pure production")
-        pure_production = population * trip_rates
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=SegmentationWarning)
+            pure_production = population * trip_rates
 
         return pure_production
 
@@ -422,9 +361,7 @@ class HBProductionModel:
         if adj_factors is None:
             return production
 
-        self._logger.info(
-            " Adjusting pure production given trip rate adjustments"
-        )  # TODO adjust trip rates in the first place? - easier/ faster, i.e. trip rates * trip rates adjustment before expansion to model zoning.
+        self._logger.info(" Adjusting pure production given trip rate adjustments")
         production_adj = production * adj_factors
 
         return production_adj
@@ -436,7 +373,9 @@ class HBProductionModel:
         - Multiplies the Pure Production by the mode-time split DVector, as passed into the constructor
         """
         self._logger.info(" Applying mode time split")
-        mts_production = pure_production * mts
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=SegmentationWarning)
+            mts_production = pure_production * mts
 
         return mts_production
 
@@ -453,7 +392,6 @@ class HBProductionModel:
         self._logger.info(" Adjusting mode time split")
         adj_factors.fill(0, 1)
         adj = mts_production * adj_factors
-        # TODO currently balances with gor -> may want to use normits / optional / other zoning instead...
         numerator = mts_production.aggregate(["p"])
         denominator = adj.aggregate(["p"])
         if geo_constraint is not None:
@@ -501,39 +439,49 @@ class HBProductionModel:
 
         return tem_production
 
-    def _create_tem_return_home_production(self,tem_production:cb.DVector):
+    def _create_tem_return_home_production(self, tem_production: cb.DVector):
         self._logger.info("Processing return home trips")
 
         # Reading one Phi factor Dvec to get its segmentation
         phi_segmentation = self._read_phi_factor_dvec(1).segmentation.naming_order
 
         aggregation_segments = list(
-            s for s in (
-                    set(self.tem_segmentation) ^ set(phi_segmentation)
-            # symmetric difference: keep segments that are in only one of the two
+            s
+            for s in (
+                set(self.tem_segmentation)
+                ^ set(phi_segmentation)
+                # symmetric difference: keep segments that are in only one of the two
             )
-            if s not in {"m", "tp"}  # manually exclude 'm' and 'tp' even if they are not common
+            if s
+            not in {"m", "tp"}  # manually exclude 'm' and 'tp' even if they are not common
         )
 
-        tem_return_home_tripends_productions = self.return_home_trip_ends(tem_production,aggregation_segments)
+        tem_return_home_tripends_productions = self.return_home_trip_ends(
+            tem_production, aggregation_segments
+        )
         mts_return_home = self._read_mts_return_home()
 
         # Check if 'tp_return' exists in either segmentation
-        tp_in_tem = 'tp_return' in tem_production.segmentation.naming_order
-        tp_in_mts = 'tp_return' in mts_return_home.segmentation.naming_order
+        tp_in_tem = "tp_return" in tem_production.segmentation.naming_order
+        tp_in_mts = "tp_return" in mts_return_home.segmentation.naming_order
 
         if not (tp_in_tem or tp_in_mts):
             raise SegmentationError(
-                "Segment 'tp_return' (Return Time Period) must be present in either the phi factor DVector or the mode-time split DVector.")
+                "Segment 'tp_return' (Return Time Period) must be present in either the phi factor DVector or the mode-time split DVector."
+            )
 
-        tem_return_home_tripends_production_mts = tem_return_home_tripends_productions * mts_return_home
+        tem_return_home_tripends_production_mts = (
+            tem_return_home_tripends_productions * mts_return_home
+        )
         mts_return_home_adj = self._read_mts_return_home_adjustment()
 
-        tem_return_home_tripends_production_adj = self._adjust_mts_production_return_home(tem_return_home_tripends_production_mts,mts_return_home_adj,cb.ZoningSystem.get_zoning('gor'))
+        tem_return_home_tripends_production_adj = self._adjust_mts_production_return_home(
+            tem_return_home_tripends_production_mts,
+            mts_return_home_adj,
+            cb.ZoningSystem.get_zoning("gor"),
+        )
 
         return tem_return_home_tripends_production_adj
-
-
 
     def _read_phi_factor_dvec(self, purpose: int):
         """
@@ -550,10 +498,14 @@ class HBProductionModel:
             Loaded phi factor DVector.
 
         """
-        phi_factors_file_path = Path(os.path.join(self.phi_factors_path, f"phi_factors_P_p{purpose}_reg.dvec"))
+        phi_factors_file_path = Path(
+            os.path.join(self.phi_factors_path, f"phi_factors_P_p{purpose}_reg.dvec")
+        )
 
         if not phi_factors_file_path.exists():
-            raise FileNotFoundError(f"[ERROR] Phi factor file not found: {phi_factors_file_path}")
+            raise FileNotFoundError(
+                f"[ERROR] Phi factor file not found: {phi_factors_file_path}"
+            )
 
         phi_factor = cb.DVector.load(phi_factors_file_path)
         return phi_factor
@@ -583,7 +535,7 @@ class HBProductionModel:
             phi = self._read_phi_factor_dvec(p_val)
 
             # Filter production DVector by current purpose value, keep 'p' segment
-            tem_filtered = tem_production.filter_segment_value('p', p_val, keep_filtered=True)
+            tem_filtered = tem_production.filter_segment_value("p", p_val, keep_filtered=True)
 
             # Multiply and aggregate
             result = tem_filtered * phi
@@ -600,7 +552,6 @@ class HBProductionModel:
             gc.collect()
 
         return trip_ends
-
 
 
 class NHBProductionModel:
@@ -642,6 +593,7 @@ class NHBProductionModel:
         should not exceed the number of cores available.
         Defaults to consts.PROCESS_COUNT.
     """
+
     def __init__(
         self,
         hb_attraction_model: AttractionModelPaths,  # HB Attraction Paths for balancing - not user input - assume these are pure attraction.
@@ -700,14 +652,14 @@ class NHBProductionModel:
 
         _log_fname = "NHBProductionModel_log.log"
         logger_name = f"placeholder.{self.__class__.__name__}"
-        #log_file_path = Path(self.model.export_home) / _log_fname
+        # log_file_path = Path(self.model.export_home) / _log_fname
         self._logger = logging.getLogger(logger_name)
 
     #
     def run(
         self,
         export_nhb_pure_demand: bool = True,
-        #export_fully_segmented: bool = False,
+        # export_fully_segmented: bool = False,
         export_notem_segmentation: bool = True,
         export_reports: bool = True,
     ) -> None:
@@ -768,32 +720,28 @@ class NHBProductionModel:
 
         # ## READ INPUTS ## #
         trip_rates = self._read_trip_rates()
-        # TODO
+
         mts = self._read_mts()
 
         # Generate the nhb productions for each year
         for year in self.years:
 
             # ## READ HB ATTRACTION ## #
-            # TODO
             hbattr = self._read_hb_attraction(year)
 
             # ## PURE PRODUCTION ## #
-            # TODO
             pure_production = self._create_pure_production(hbattr, trip_rates)
-            # TODO
+
             if export_nhb_pure_demand:
                 pure_production.save(self.model.export_paths.pure_demand[year])
             if export_reports:
                 pass  # self._write_reports(pure_production) # TODO this should be a utils function
 
             # ## MODE TIME SPLIT ## #
-            # TODO
             mts_production = self._create_mts_production(pure_production, mts)
 
             # ## TEM SEGMENTATION ## #
-            # TODO
-            # tem_production = self._create_tem_production(mts_production)
+            # For nhb prod post mts is already tem segmentation
 
             if export_notem_segmentation:
                 mts_production.save(self.model.export_paths.tem_segmented[year])
@@ -819,9 +767,7 @@ class NHBProductionModel:
 
         return mts
 
-    def _read_hb_attraction(
-        self, year: int
-    ) -> cb.DVector:  # TODO tidy. Perhaps use segment translation method.
+    def _read_hb_attraction(self, year: int) -> cb.DVector:
         """
         - Reads the TEM Segmented HB Attraction file, as written by the HB Attraction model
         - Removes time period from the HB Attraction DVector segmentation
@@ -834,7 +780,6 @@ class NHBProductionModel:
         if "tp" in segs:
             segs.remove("tp")
             hbattr = hbattr.aggregate(segs)
-        # hbattr.translate_segment("p", "p_hb") TODO something like this could be possible and tidier
         hbattr_data = hbattr.data.reset_index().rename(columns={"p": "p_hb", "m": "m_hb"})
         segs = hbattr.segmentation.names
         segs.remove("p")
@@ -842,9 +787,10 @@ class NHBProductionModel:
         segs.append("p_hb")
         segs.append("m_hb")
         hbattr_data = hbattr_data.set_index(segs)
+        subsets = {"m_hb": hbattr.segmentation.input.subsets["m"]}
         hbattr = cb.DVector(
             segmentation=cb.Segmentation(
-                cb.SegmentationInput(enum_segments=segs, naming_order=segs)
+                cb.SegmentationInput(enum_segments=segs, naming_order=segs, subsets=subsets)
             ),
             import_data=hbattr_data,
             zoning_system=hbattr.zoning_system,
@@ -860,9 +806,11 @@ class NHBProductionModel:
         """
         pure_prod = None
         for p in hbattr.segmentation.get_segment("p_hb").int_values:
-            pure_prod_p = hbattr.filter_segment_value(
-                "p_hb", p, keep_filtered=True
-            ) * trip_rates.filter_segment_value("p_hb", p)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", category=SegmentationWarning)
+                pure_prod_p = hbattr.filter_segment_value(
+                    "p_hb", p, keep_filtered=True
+                ) * trip_rates.filter_segment_value("p_hb", p)
 
             segs = pure_prod_p.segmentation.names
             segs.remove("p_hb")
@@ -875,10 +823,16 @@ class NHBProductionModel:
             segs.remove("m_nhb")
             segs.append("p")
             segs.append("m")
+            subsets = {
+                "p": [11, 12, 13, 14, 15, 16, 17, 18],
+                "m": hbattr.segmentation.input.subsets["m_hb"],
+            }
             pure_production_data = pure_production_data.set_index(segs)
             pure_prod_p = cb.DVector(
                 segmentation=cb.Segmentation(
-                    cb.SegmentationInput(enum_segments=segs, naming_order=segs)
+                    cb.SegmentationInput(
+                        enum_segments=segs, naming_order=segs, subsets=subsets
+                    )
                 ),
                 import_data=pure_production_data,
                 zoning_system=pure_prod_p.zoning_system,
@@ -893,8 +847,9 @@ class NHBProductionModel:
     def _create_mts_production(
         self, pure_production: cb.DVector, mts: cb.DVector
     ) -> cb.DVector:
-
-        mts_production = pure_production * mts
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=SegmentationWarning)
+            mts_production = pure_production * mts
         if not math.isclose(mts_production.sum(), pure_production.sum()):
             warnings.warn("mts has changed the total.")
         return mts_production

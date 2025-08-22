@@ -1,16 +1,17 @@
 """ASSUMPTIONS:
 """
 
+from __future__ import annotations
 import os
-from typing import Literal
+from typing import Literal, Any
 import pandas as pd
 
 
-
 import caf.base as cb
-from .inputs import TEMExportPaths, Scenarios, Landuse
-from .attraction_models import AttractionModel
-from .production_models import HBProductionModel, NHBProductionModel
+from caf.tem.inputs import TEMExportPaths, Scenarios, Landuse
+from caf.tem.attraction_models import AttractionModel
+from caf.tem.production_models import HBProductionModel, NHBProductionModel
+
 
 # pylint: disable =too-many-positional-arguments,too-many-arguments
 class TEM:
@@ -53,15 +54,13 @@ class TEM:
 
     def __init__(
         self,
-        model_years: list[
-            int
-        ],  # TODO should this be an input, if so - do we want checks that all model_years are in path keys for other models?
-        scenario: str,  # TODO - should this be an input, assume that scenario would be core? Scenario could go in Iteration Name?
+        model_years: list[int],
+        scenario: str,
         output_zoning: str,
         agg_zoning: str,
         iteration_name: str,
-        export_home: os.PathLike,  # TODO should this be /Export as default within the directory of the terminal when run is called?
-        return_segmentation: list[str],
+        export_home: os.PathLike,
+        return_segmentation: list[str] | cb.Segmentation,
         trans_file: os.PathLike,
     ):
         self.years = model_years
@@ -72,31 +71,48 @@ class TEM:
         self.export_paths = TEMExportPaths(
             model_years, self.scenario, iteration_name, export_home, output_zoning, agg_zoning
         )
-        self.return_segmentation = cb.Segmentation(
-            cb.SegmentationInput(
-                enum_segments=return_segmentation, naming_order=return_segmentation
+        if isinstance(return_segmentation, cb.Segmentation):
+            self.return_segmentation = return_segmentation
+        else:
+            self.return_segmentation = cb.Segmentation(
+                cb.SegmentationInput(
+                    enum_segments=return_segmentation, naming_order=return_segmentation
+                )
             )
-        )
         self.zone_trans = pd.read_csv(trans_file)
 
         self.hb_production_model: HBProductionModel = None
         self.hb_attraction_model: AttractionModel = None
-        self.nhb_production_model: NHBProductionModelTP = None
+        self.nhb_production_model: NHBProductionModel = None
         self.nhb_attraction_model: AttractionModel = None
         self.attraction_model: AttractionModel = None
 
-    def HBProductionModel(  # TODO default with respect to the NTS-Processing model output folder structure? - similarly for other models?
+    def check_years(self, to_check: dict[int, Any], dict_name: str):
+        years_set = set(self.years)
+        dict_years_set = set(to_check.keys())
+        extra = dict_years_set.difference(years_set)
+        if len(extra) > 0:
+            raise AttributeError(
+                f"There are years in the {dict_name} input not in "
+                f"expected years. Extra years are {extra}."
+            )
+        missing = years_set.difference(dict_years_set)
+        if len(missing) > 0:
+            raise AttributeError(
+                f"There are years missing from {dict_name} input "
+                f"Missing years are {missing}."
+            )
+
+    def HBProductionModel(
         self,
-        population_paths: dict[int, Landuse],
+        population: dict[int, Landuse],
         trip_rates_path: os.PathLike,
         mode_time_splits_path: os.PathLike,
-        phi_factors_path: os.PathLike,
-        mts_return_home_path: os.PathLike,
-        mts_return_home_adj_factor_path: os.PathLike,
+        phi_factors_path: os.PathLike | None = None,
+        mts_return_home_path: os.PathLike | None = None,
+        mts_return_home_adj_factor_path: os.PathLike | None = None,
         adjustment_path: os.PathLike = None,
         mts_adj_path: os.PathLike = None,
-        pop_zoning=None,
-
     ) -> HBProductionModel:
         """
         The Home-Based (HB) Production Model of caf.tem
@@ -116,34 +132,22 @@ class TEM:
             The path to production mode-time splits. As passed into the
             constructor.
 
-        constraint_paths: Dict[int, os.PathLike]
-            Dictionary of {year: constraint_path} pairs. As passed into the
-            constructor.
-
-        process_count: int
-            The number of processes to create in the Pool. As passed into the
-            constructor.
-
-        years: List[int]
-            A list of years that the model will run for. Derived from the keys of
-            land_use_paths
-
         See HBProductionModelPaths for documentation on:
             "path_years, export_home, report_home, export_paths, report_paths"
         """
+        self.check_years(population, "population")
         self.hb_production_model = HBProductionModel(
             self.export_paths.hb_production,
-            population_paths,
-            self.zone_trans,
-            pop_zoning,
+            population,
             trip_rates_path,
             adjustment_path,
             mode_time_splits_path,
             mts_adj_path,
             tem_segmentation=self.return_segmentation,
+            translation=self.zone_trans,
             phi_factors_path=phi_factors_path,
-            mts_return_home_path = mts_return_home_path,
-            mts_return_home_adj_factor_path = mts_return_home_adj_factor_path,
+            mts_return_home_path=mts_return_home_path,
+            mts_return_home_adj_factor_path=mts_return_home_adj_factor_path,
         )
 
         return self.hb_production_model
@@ -196,45 +200,47 @@ class TEM:
         See HBAttractionModelPaths for documentation on:
             "path_years, export_home, report_home, export_paths, report_paths"
         """
+        self.check_years(hh_landuse, "households")
+        self.check_years(emp_landuse, "employment")
         if origin == "hb":
             self.attraction_model = AttractionModel(
-                self.export_paths.hb_production,
-                self.export_paths.hb_attraction,
-                trip_rates_paths,
-                trip_rate_adjustment_path,
-                balance_production,
-                emp_landuse,
-                hh_landuse,
-                mode_time_splits_path,
-                mts_return_home_path,
-                mode_time_splits_adjustment_path,
-                mts_return_home_adj_factor_path,
-                phi_factors_path,
-                self.return_segmentation,
-                mts_uni_path,
-                self.output_zoning,
-                self.agg_zoning,
-                self.zone_trans,
+                production_model=self.export_paths.hb_production,
+                model=self.export_paths.hb_attraction,
+                trip_rates_paths=trip_rates_paths,
+                trip_rate_adj_path=trip_rate_adjustment_path,
+                balance_production=balance_production,
+                emp_landuse=emp_landuse,
+                hh_landuse=hh_landuse,
+                mts_path=mode_time_splits_path,
+                mts_return_home_path=mts_return_home_path,
+                mts_adjustment_path=mode_time_splits_adjustment_path,
+                mts_return_home_adj_factor_path=mts_return_home_adj_factor_path,
+                phi_factors_path=phi_factors_path,
+                tem_segmentation=self.return_segmentation,
+                mts_uni_path=mts_uni_path,
+                model_zoning=self.output_zoning,
+                agg_zoning=self.agg_zoning,
+                translation=self.zone_trans,
             )
         else:
             self.attraction_model = AttractionModel(
-                self.export_paths.nhb_production,
-                self.export_paths.nhb_attraction,
-                trip_rates_paths,
-                trip_rate_adjustment_path,
-                balance_production,
-                emp_landuse,
-                hh_landuse,
-                mode_time_splits_path,
-                mts_return_home_path,
-                mode_time_splits_adjustment_path,
-                mts_return_home_adj_factor_path,
-                phi_factors_path,
-                self.return_segmentation,
-                mts_uni_path,
-                self.output_zoning,
-                self.agg_zoning,
-                self.zone_trans,
+                production_model=self.export_paths.nhb_production,
+                model=self.export_paths.nhb_attraction,
+                trip_rates_paths=trip_rates_paths,
+                trip_rate_adj_path=trip_rate_adjustment_path,
+                balance_production=balance_production,
+                emp_landuse=emp_landuse,
+                hh_landuse=hh_landuse,
+                mts_path=mode_time_splits_path,
+                mts_return_home_path=mts_return_home_path,
+                mts_adjustment_path=mode_time_splits_adjustment_path,
+                mts_return_home_adj_factor_path=mts_return_home_adj_factor_path,
+                phi_factors_path=phi_factors_path,
+                tem_segmentation=self.return_segmentation,
+                mts_uni_path=mts_uni_path,
+                model_zoning=self.output_zoning,
+                agg_zoning=self.agg_zoning,
+                translation=self.zone_trans,
             )
 
         # User Input Test
@@ -367,8 +373,9 @@ class TEM:
             self.nhb_attraction_model.run()
         else:
             print("All child models must be defined before running the Trip End Model.")
-# pylint: enable =too-many-positional-arguments,too-many-arguments
 
+
+# pylint: enable =too-many-positional-arguments,too-many-arguments
 
 
 # class TEMInput(BaseConfig):
