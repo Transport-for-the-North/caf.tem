@@ -1,7 +1,4 @@
-"""
-Process Attraction model.
-
-"""
+"""Process Attraction model."""
 
 # -*- coding: utf-8 -*-
 # Allow class self type hinting
@@ -11,7 +8,6 @@ from __future__ import annotations
 # Builtins
 import os
 import warnings
-import pathlib
 import gc
 import logging
 
@@ -29,16 +25,12 @@ from caf.base.segmentation import SegmentationWarning
 
 from caf.tem.inputs import ProductionModelPaths, AttractionModelPaths, Landuse
 
-
-# pylint: disable =too-many-instance-attributes,too-many-positional-arguments,too-many-locals,too-many-arguments,too-many-branches
-
-
 class AttractionModel:
     """
     Initialize the AttractionModel object used for estimating and balancing trip attractions.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     production_model : ProductionModelPaths
         Paths to files or configurations required for the production-side modeling.
 
@@ -145,7 +137,7 @@ class AttractionModel:
         return_tripends: bool = False,
     ) -> None:
         """
-        Runs the HB/NHB Attraction Model.
+        Run the HB/NHB Attraction Model.
 
         Completes the following steps for each year:
             - Reads in the employment land use data given in the constructor.
@@ -193,7 +185,7 @@ class AttractionModel:
         if not (export_pure_attractions or export_tem_segmentation or export_reports):
             self._logger.info(
                 "All exports set to False. Run not executed."
-            )  # TODO consider running anyway in case user wants to debug.
+            )
             end_time = ctk.timing.current_milli_time()
             time_taken = ctk.timing.time_taken(start_time, end_time)
             self._logger.info("HB Production Model took:%s", time_taken)
@@ -223,7 +215,7 @@ class AttractionModel:
             # Read in the adjustment factors, if passed
             adj_factors_dict: dict[str, cb.DVector] = (
                 self._read_adj_factors()
-            )  # TODO move to utils bc. both attraction and production use this?
+            )
             if self.mts_uni_path is not None:
                 mts_uni = cb.DVector.load(self.mts_uni_path)
 
@@ -335,36 +327,28 @@ class AttractionModel:
     # # # HELPER FUNCTIONS # # #
 
     def _read_trip_rate(self, p: int) -> cb.DVector:
-        """
-        - Reads one purpose-specific trip rates DVector, from the path given in the constructor
-        - Translates the trip rates DVector zoning system to the TEM Model zoning system
-        """
+        """Read one purpose-specific trip rates DVector, from the path given in the constructor."""
         # Each trip rate file is explicitly defined in the input dictionary by purpose HB Attraction Model, similar assumption for NHB
         if self.trip_rates_paths[p].endswith("csv"):
             trip_rate = pd.read_csv(self.trip_rates_paths[p], index_col=0).squeeze()
             trip_rate.index.name = self.agg_zoning.column_name
         else:
             trip_rate = cb.DVector.load(self.trip_rates_paths[p])
-            # trip_rate.save(self.trip_rates_paths[p])
 
         return trip_rate
 
     def _read_mts(self) -> cb.DVector:
-        """
-        - Reads the mode-time split (MTS) DVector, from the path given in the constructor
-        """
+        """Read the mode-time split (MTS) DVector, from the path given in the constructor."""
         mts = cb.DVector.load(self.mts_path)
         return mts
 
     def _read_mts_return_home(self) -> cb.DVector:
-        """
-        - Reads the mode-time split (MTS) DVector, from the path given in the constructor
-        """
+        """Read the mode-time split (MTS) DVector, from the path given in the constructor."""
         mts = cb.DVector.load(self.mts_return_home_path)
         return mts
 
     def _read_adj_factors(self) -> dict[str, cb.DVector]:
-        """ """
+        """Read trip-rate adjustment factors."""
         adj_factors_dict: dict[str, cb.DVector] = {"tr": None, "mts": None}
         if self.tr_adjustment_path is not None:
             with warnings.catch_warnings():
@@ -385,7 +369,7 @@ class AttractionModel:
         return adj_factors_dict
 
     def _read_mts_return_home_adjustment(self):
-        """Reads in MTS adjustment factors"""
+        """Read MTS adjustment factors."""
         if self.mts_return_home_adj_factor_path is None:
             return None
 
@@ -399,7 +383,6 @@ class AttractionModel:
         adj_factors: cb.DVector,
         geo_constraint: cb.ZoningSystem = None,
     ) -> cb.DVector:
-        """ """
         if adj_factors is None:
             return mts_production
 
@@ -418,107 +401,13 @@ class AttractionModel:
 
         return mts_production_adj
 
-    def _read_emp_lu(self, year):
-        """
-        - Reads the employment land use DVector, for one given year, from the path given in the constructor
-        - Checks if "uni" is a column in the translation vector
-            -
-        - Translates the employment landuse DVector(s) zoning system to the TEM Model zoning system
-        - Returns a dictionary of landuses, one for employment, one for education (non-uni), one for education (uni)
-        """
-        # Read the employment landuse DVector for the given year
-        emp_landuse = cb.DVector.load(self.emp_landuse_paths[year]).add_segments(
-            [cb.segmentation.SegmentsSuper("total").get_segment()]
-        )
-        # Rename Segmentation
-        emp_landuse = cb.DVector(
-            segmentation=emp_landuse.segmentation,
-            import_data=emp_landuse.data,
-            zoning_system=cb.ZoningSystem.get_zoning("lsoa_2021"),
-        )
-        emp_landuse = emp_landuse.aggregate(["total", "sic_2_digit", "soc"])
-        d = {}
-        d["emp"] = emp_landuse
-        d["edu"] = emp_landuse.filter_segment_value("sic_2_digit", [86])
-        d["uni"] = None
-        if self.emp_trans is not None and "uni" in self.emp_trans.columns:
-            di = cb.ZoningSystem.get_zoning("lsoa_2021").id_to_name
-            di = {
-                val: key for key, val in di.items()
-            }  # TODO will this will only be the case for Nhan's lsoa trans?
-            trans = self.emp_trans
-            emp_zones = trans.loc[trans["uni"] == 0]["lsoa_2021_id"]
-            uni_zones = trans.loc[trans["uni"] > 0]["lsoa_2021_id"]
-            uni_zones = uni_zones.apply(lambda x: di[x])
-            emp_zones = emp_zones.apply(lambda x: di[x])
-            uni = d["edu"].select_zone(
-                list(uni_zones.values)
-            )  # .data NB. Isaac may have fixed s/t the select_zone function returns DVec with Zoning.
-            edu = d["edu"].select_zone(list(emp_zones.values))  # .data
-
-            # cols = di.values()
-            # empty = pd.DataFrame(columns=cols, index=edu.index).fillna(0)
-            # uni = (uni+empty).fillna(0) # TODO - seems not to work... not sure why
-            # edu = (edu+empty).fillna(0)
-            # uni = cb.DVector(segmentation=d["edu"].segmentation, import_data=uni, zoning_system=cb.ZoningSystem.get_zoning("lsoa_2021"))
-            # edu = cb.DVector(segmentation=d["edu"].segmentation, import_data=edu, zoning_system=cb.ZoningSystem.get_zoning("lsoa_2021"))
-            d["edu"] = edu
-            d["uni"] = uni
-
-        # Translate the employment landuse to the TEM Model zoning system
-        zoning_system = cb.ZoningSystem.get_zoning(self.model._zoning_system)
-        d["emp"] = d["emp"].translate_zoning(
-            zoning_system, trans_vector=self.emp_trans, check_totals=True, no_factors=False
-        )
-        d["edu"] = d["edu"].translate_zoning(
-            zoning_system, trans_vector=self.emp_trans, check_totals=True, no_factors=False
-        )
-        if d["uni"] is not None:
-            d["uni"] = d["uni"].translate_zoning(
-                zoning_system, trans_vector=self.emp_trans, check_totals=True, no_factors=False
-            )
-
-        return d
-
-    def _read_hh_lu(self, year):
-        """
-        - Reads all household landuse DVectors, for each Government Office Region (GOR), using the file prefix and the directory given in the constructor
-        - Concatenates the household landuse DVectors
-        - Translates the concatenated household DVector zoning system to the TEM Model zoning system
-        DVector files, in the directory, should be formated: {hh_landuse_prefix}_{gor_code}.{hdf/dvec}
-        """
-        # Create an empty list of DVectors which will contain household landuse for each Government Office Region (GOR)
-        hh_list: list[cb.DVector] = []
-        # For each GOR...
-        for gor in self.hh_landuse_paths[year].keys():
-            dvec = cb.DVector.load(pathlib.Path(self.hh_landuse_paths[year][gor]))
-            if "total" not in dvec.segmentation.names:
-                dvec = dvec.add_segments(
-                    [cb.segmentation.SegmentsSuper("total").get_segment()]
-                )
-            hh_list.append(dvec)
-        # Horizontally concatonate each GOR's household landuse DVector
-        data = pd.concat([d.data for d in hh_list], axis=1)
-        hh_landuse = cb.DVector(
-            import_data=data,
-            segmentation=hh_list[0].segmentation,
-            zoning_system=cb.ZoningSystem.get_zoning("lsoa_2021"),
-        )
-        # Translate the household landuse to the TEM Model zoning system
-        zoning_system = cb.ZoningSystem.get_zoning(
-            self.model._zoning_system
-        )  # pylint: disable =protected-access
-        hh_landuse = hh_landuse.translate_zoning(
-            zoning_system, trans_vector=self.hh_trans, check_totals=True, no_factors=False
-        )  # pylint: enable =protected-access
-
-        return hh_landuse
-
     # Returns a year-specific dictionary of pure demand, for each purpose as the key
     def _create_attr_dict(
         self, landuses: dict[str, cb.DVector | dict], trip_rates: dict[int, cb.DVector]
     ) -> dict[int, cb.DVector]:
-        """Creates the dictionary of pure attractions by purpose
+        """
+        Create the dictionary of pure attractions by purpose.
+
         - Multiplies the purpose-specific landuse by the purpose-specific trip rates, creating attraction
         - Adds purpose segmentation to each DVector, based on the trip rates key
         - Reduces the attraction segmentation to p and soc, or otherwise to p if soc is not in the purpose-specific trip rate segmentation
@@ -553,9 +442,7 @@ class AttractionModel:
         return attr_dict
 
     def _adjust_attraction_dict(self, attr_dict, adj_factors: cb.DVector):
-        """
-        - TODO
-        """
+        """Apply trip-rate adjustment factors to the attraction dictionary."""
         attr_dict_adj: dict[int, cb.DVector] = {}
         if adj_factors is not None:
             for p in attr_dict.keys():
@@ -568,11 +455,8 @@ class AttractionModel:
     def _export_pure_attractions(
         self, attr_dict: dict[int, cb.DVector], year: int, adj: bool = False
     ) -> None:
-        """
-        - Concatonates the DVectors stored in the Pure Attractions dictionary, aggregated to p segmentation
-        - Saves the concatonated DVector to the pure_demand export path for the given year
-        """
-        # Concatonate the (optionally balanced) Pure Attraction by purpose
+        """Concatenate the DVectors stored in the Pure Attractions dictionary and save."""
+        # Concatenate the (optionally balanced) Pure Attraction by purpose
         for p in attr_dict.keys():
             try:
                 output_pure = output_pure.concat(attr_dict[p].aggregate(["p"]))
@@ -590,9 +474,7 @@ class AttractionModel:
         mts: cb.DVector,
         mts_uni: cb.DVector | None = None,
     ) -> dict[int, cb.DVector]:
-        """
-        - Multiplies the attraction DVector with the mts DVector, as read from the path given in the constructor
-        """
+        """Multiply the attraction DVector with the mts DVector, as read from the path given in the constructor."""
         mts_dict: dict[int, cb.DVector] = {}
         for p, trips in attr_dict.items():
             if mts_uni is None:
@@ -611,7 +493,7 @@ class AttractionModel:
     def _check_mts_dict(
         self, attr_dict: dict[int, cb.DVector], mts_dict: dict[int, cb.DVector]
     ) -> None:
-        # Checks that sum of all purpose-specific DVectors match following the application of MTS to Pure Attractions
+        """Check that sum of all purpose-specific DVectors match following the application of MTS to Pure Attractions."""
         for p in mts_dict.keys():
             if not mts_dict[p].sum_is_close(attr_dict[p], 0.01, 100):
                 print(
@@ -627,14 +509,9 @@ class AttractionModel:
     ) -> dict[int, cb.DVector]:
         mts_dict_adj: dict[int, cb.DVector] = (
             {}
-        )  # TODO mts_dict_adj = mts_dict, removes need for else
+        )
         if adj_factors is not None:
-            for (
-                p
-            ) in (
-                mts_dict.keys()
-            ):  # TODO - this definitely needs tidying. Perhaps there's an inbuilt DVector function to use instead?
-                mts = mts_dict[p]
+            for p, mts in mts_dict.items:
                 if "total" not in mts.segmentation.names:
                     mts = mts.add_segments(
                         [cb.segmentation.SegmentsSuper("total").get_segment()]
@@ -658,30 +535,24 @@ class AttractionModel:
     def _export_mts_attractions(
         self, attr_dict: dict[int, cb.DVector], year: int, adj: bool = False
     ) -> None:
-        """TODO fix description re: mts
-        - Concatonates the DVectors stored in the Pure Attractions dictionary, aggregated to p segmentation
-        - Saves the concatonated DVector to the pure_demand export path for the given year
-        """
-        # Concatonate the (optionally balanced) Pure Attraction by purpose
+        """Concatenate the DVectors stored in the MTS attractions dictionary and save."""
         for p in attr_dict.keys():
             try:
-                output_pure = output_pure.concat(attr_dict[p].aggregate(["p", "m", "tp"]))
+                output_mts = output_mts.concat(attr_dict[p].aggregate(["p", "m", "tp"]))
             except NameError:
-                output_pure = attr_dict[p].aggregate(
+                output_mts = attr_dict[p].aggregate(
                     ["p", "m", "tp"]
                 )  # Initialises the output object
         # Write MTS Attractions
         out_path = self.model.export_paths.mts_demand[year]
         if adj:
             out_path = self.model.export_paths.mts_demand_adj[year]
-        output_pure.save(out_path)
+        output_mts.save(out_path)
 
     def _create_seg_dict(
         self, mts_dict: dict[int, cb.DVector], tem_production: cb.DVector
     ) -> dict[int, cb.DVector]:
-        """
-        - Applies the split_by_other method to each DVector in mts_dict, expanding the segmentation to match that of TEM Segmented Production
-        """
+        """Apply the split_by_other method to each DVector in mts_dict, expanding the segmentation to match that of TEM Segmented Production."""
         seg_dict: dict[int, cb.DVector] = {}
         for p, mts in mts_dict.items():
             agg_seg = list(self.tem_segmentation.overlap(mts.segmentation))
@@ -690,14 +561,14 @@ class AttractionModel:
             seg_dict[p] = mts.split_by_other(
                 tem_production.filter_segment_value("p", [p]),
                 agg_zone=cb.ZoningSystem.get_zoning("gor"),
-            )  # TODO want zoning for splitting and balancing to both be arguments / levers re: issues down the line, optional arg default "gor". splitting = gor, balancing = gb currently (remove zoning)
+            )
 
         return seg_dict
 
     def _check_seg_dict(
         self, mts_dict: dict[int, cb.DVector], seg_dict: dict[int, cb.DVector]
     ) -> None:
-        # Checks that sum of all purpose-specific DVectors match following the application of TEM Production Segmentation
+        """Check that the sum of all purpose-specific DVectors match following the application of TEM Production Segmentation."""
         for p in seg_dict.keys():
             if not seg_dict[p].sum_is_close(mts_dict[p], 0.01, 100):
                 print(
@@ -706,14 +577,12 @@ class AttractionModel:
                 )
 
     def _create_tem_dvec(self, seg_dict: dict[int, cb.DVector]) -> cb.DVector:
-        """
-        -
-        """
+        """Concatenate attraction trip-ends at TEM segmentation into a single DVector."""
         for p in seg_dict.keys():
             try:
                 tem_dvec = tem_dvec.concat(
                     seg_dict[p]
-                )  # .aggregate(list(self.tem_segmentation.overlap(seg_dict[p].segmentation))))
+                )
             except NameError:
                 tem_dvec = seg_dict[p]  # .aggregate(self.tem_segmentation)
 
@@ -723,7 +592,9 @@ class AttractionModel:
         self, tem_dvec: cb.DVector, tem_production: cb.DVector
     ) -> cb.DVector:
         """
-        IF balance_prodcution is TRUE
+        Potentially balance attraction to production based on arguments.
+
+        If balance_prodcution is TRUE
         - Divides the TEM Production by the TEM Attraction with zoning removed (Great Britain level), producing segmentation balancing factors.
         - Multiplies the TEM Attractions by the factors.
         IF balance_production is BalancingZones OR ZoningSystem
@@ -788,15 +659,17 @@ class AttractionModel:
 
         return tem_return_home_tripends_attraction_adj
 
-    def return_home_trip_ends(self, tem_attraction, agg_segments):
+    def return_home_trip_ends(self, tem_attraction: cb.DVector, agg_segments: list[str]):
         """
-        Computes return-home trip ends by applying phi factors to filtered production vectors,
-        then aggregating over the specified segment groups.
+        Compute return-home trip ends.
+
+        Applies phi factors to filtered production vectors, then aggregates over
+        the specified segment groups.
 
         Parameters
         ----------
-        tem_production : cb.DVector
-            The production DVector containing 'p' as a segment.
+        tem_attraction : cb.DVector
+            The attraction DVector containing 'p' as a segment.
 
         agg_segments : list[str]
             List of segment names to aggregate over (e.g., ['p_return', 'tp_return']).
@@ -833,7 +706,7 @@ class AttractionModel:
 
     def _read_phi_factor_dvec(self, purpose: int):
         """
-        Reads a phi factor DVector file for the given purpose segment.
+        Read a phi factor DVector file for the given purpose segment.
 
         Parameters
         ----------
@@ -857,6 +730,3 @@ class AttractionModel:
 
         phi_factor = cb.DVector.load(phi_factors_file_path)
         return phi_factor
-
-
-# pylint: enable =too-many-instance-attributes,too-many-positional-arguments,too-many-locals,too-many-arguments,too-many-instance-attributes,too-many-branches
