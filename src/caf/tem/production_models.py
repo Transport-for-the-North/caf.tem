@@ -1,7 +1,4 @@
-"""
-Process Production model.
-
-"""
+"""Process Production model."""
 
 # -*- coding: utf-8 -*-
 from __future__ import annotations
@@ -24,13 +21,6 @@ import caf.toolkit as ctk
 from caf.tem import utils
 
 from caf.tem.inputs import ProductionModelPaths, AttractionModelPaths, Landuse
-
-
-# EMPLOYMENT_LANDUSE_DIR = Path(r"F:\Deliverables\Land-Use\241213_Employment\02_Final Outputs")
-# POPULATION_LANDUSE_DIR = Path(r"F:\Deliverables\Land-Use\241213_Population\02_Final Outputs")
-# POPULATION_V2_LANDUSE_DIR = Path(
-#     r"F:\Deliverables\Land-Use\241213_Populationv2\02_Final Outputs"
-# )
 
 # pylint: disable =too-many-instance-attributes,too-many-positional-arguments,too-many-locals,too-many-arguments,too-few-public-methods
 
