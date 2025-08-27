@@ -550,7 +550,7 @@ class HBProductionModel:
             Loaded phi factor DVector.
 
         """
-        phi_factors_file_path = Path(os.path.join(self.phi_factors_path, f"phi_factors_P_p{purpose}_reg.dvec"))
+        phi_factors_file_path = Path(os.path.join(self.phi_factors_path, f"phi_factors_P_p{purpose}_reg_phi.dvec"))
 
         if not phi_factors_file_path.exists():
             raise FileNotFoundError(f"[ERROR] Phi factor file not found: {phi_factors_file_path}")
