@@ -77,14 +77,14 @@ NHBProd = model.NHBProductionModel(
 NHBProd.run()
 
 NHBAttr = model.AttractionModel(trip_rates_paths={
-    1: r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\attractions\hb\trip_rates\trip_rates_attraction_p1_nhb_alpha.dvec",
-    2: r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\attractions\hb\trip_rates\trip_rates_attraction_p2_nhb_alpha.dvec",
-    3: r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\attractions\hb\trip_rates\trip_rates_attraction_p3_nhb_alpha.dvec",
-    4: r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\attractions\hb\trip_rates\trip_rates_attraction_p4_nhb_alpha.dvec",
-    5: r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\attractions\hb\trip_rates\trip_rates_attraction_p5_nhb_alpha.dvec",
-    6: r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\attractions\hb\trip_rates\trip_rates_attraction_p6_nhb_alpha.dvec",
-    7: r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\attractions\hb\trip_rates\trip_rates_attraction_p7_nhb_alpha.dvec",
-    8: r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\attractions\hb\trip_rates\trip_rates_attraction_p8_nhb_alpha.dvec"
+    11: r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\attractions\hb\trip_rates\trip_rates_attraction_p1_nhb_alpha.dvec",
+    12: r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\attractions\hb\trip_rates\trip_rates_attraction_p2_nhb_alpha.dvec",
+    13: r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\attractions\hb\trip_rates\trip_rates_attraction_p3_nhb_alpha.dvec",
+    14: r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\attractions\hb\trip_rates\trip_rates_attraction_p4_nhb_alpha.dvec",
+    15: r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\attractions\hb\trip_rates\trip_rates_attraction_p5_nhb_alpha.dvec",
+    16: r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\attractions\hb\trip_rates\trip_rates_attraction_p6_nhb_alpha.dvec",
+    17: r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\attractions\hb\trip_rates\trip_rates_attraction_p7_nhb_alpha.dvec",
+    18: r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\attractions\hb\trip_rates\trip_rates_attraction_p8_nhb_alpha.dvec"
 }, emp_landuse={2023: emp}, hh_landuse={2023: hh},
     mode_time_splits_path=r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\attractions\nhb\mode_time_splits\mode_time_split_attraction_nhb_reg_rho.dvec", #provide all
     trip_rate_adjustment_path=r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\others\trip_rate_adjustments_a_nhb_adj.dvec",
