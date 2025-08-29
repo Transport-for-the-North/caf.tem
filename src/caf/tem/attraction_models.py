@@ -194,7 +194,7 @@ class AttractionModel:
 
         # Ensure production balance file exists... (if balance_production is True)
         for year in self.model.path_years:
-            if not os.path.exists(self.production_model.export_paths.tem_segmented[year]):
+            if not os.path.exists(self.production_model.export_paths.tem_segmented_from_home[year]):
                 raise FileNotFoundError(
                     "The TEM Segmented Productions file is not found. Run the Home Based Production Model to create this file first."
                 )
@@ -273,7 +273,7 @@ class AttractionModel:
             # Load the Adjusted TEM Production from the HB/NHB Production Model Output
 
             tem_production = cb.DVector.load(
-                self.production_model.export_paths.tem_segmented[year]
+                self.production_model.export_paths.tem_segmented_from_home[year]
             )
             if (
                 mts_dict_adj.keys()
@@ -310,14 +310,14 @@ class AttractionModel:
             if export_reports:
                 utils.write_reports(
                     balanced_dvec.aggregate_comp_zones(self.model_zoning),
-                    report_paths.tem_segmented,
+                    report_paths.tem_segmented_from_home,
                     year,
                 )
             if export_tem_segmentation:
-                if return_tripends:
-                    balanced_dvec.save(export_paths.tem_segmented_from_home[year])
-                else:
-                    balanced_dvec.save(export_paths.tem_segmented[year])
+                #if return_tripends:
+                balanced_dvec.save(export_paths.tem_segmented_from_home[year])
+                #else:
+                    #balanced_dvec.save(export_paths.tem_segmented[year])
             if return_tripends:
                 tem_return_home_attr = self._create_tem_return_home_attraction(balanced_dvec)
                 tem_return_home_attr.save(export_paths.tem_segmented_return_home[year])
@@ -511,7 +511,7 @@ class AttractionModel:
             {}
         )
         if adj_factors is not None:
-            for p, mts in mts_dict.items:
+            for p, mts in mts_dict.items():
                 if "total" not in mts.segmentation.names:
                     mts = mts.add_segments(
                         [cb.segmentation.SegmentsSuper("total").get_segment()]

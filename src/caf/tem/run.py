@@ -18,8 +18,14 @@ input_dir = Path(r"C:\Users\Kephale\Desktop\Alok\TFN\tem\Inputs")
 
 gor = cb.ZoningSystem.get_zoning("gor")
 
+pop = Landuse(land_use=r"C:\Users\Kephale\Desktop\Alok\TFN\tem\Inputs\landuse\pop.dvec",
+              type='pop',
+              segmentation=['adult_nssec', 'gender_3', 'ns_sec', 'soc', 'aws', 'hh_type'],
+              out_zoning=[model.output_zoning, model.agg_zoning, gor],
+              )
+
 HBProd = model.HBProductionModel(
-    population_paths={2023: Path(r"C:\Users\Kephale\Desktop\Alok\TFN\tem\Inputs\landuse\pop.dvec")}, #provide
+    population={2023: pop}, #provide
     trip_rates_path=Path(r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\productions\hb\trip_rates\hb_trip_rates_production_trip_rates.dvec"), #provide
     mode_time_splits_path=r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\productions\hb\mode_time_splits\mode_time_split_production_hb_fr_reg_rho.dvec", #provide
     phi_factors_path= Path(r"C:\Users\Kephale\Desktop\Alok\TFN\tem\Inputs\phi_factors"),
@@ -27,10 +33,9 @@ HBProd = model.HBProductionModel(
     mts_return_home_adj_factor_path=r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\others\mode_time_split_adjustments_p_hb_to_adj.dvec",
     adjustment_path=r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\others\trip_rate_adjustments_p_hb_fr_adj.dvec",
     mts_adj_path = r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\others\mode_time_split_adjustments_p_hb_fr_adj.dvec",
-    pop_zoning='lsoa_2021'
 )
 
-HBProd.run(export_pure_production=False, export_reports=False, mts_geo_constraint=gor,return_tripends=False)
+HBProd.run(export_pure_production=False, export_reports=False, mts_geo_constraint=gor,return_tripends=True)
 
 emp = Landuse(
     land_use=r"C:\Users\Kephale\Desktop\Alok\TFN\tem\Inputs\landuse\emp.dvec",  # provide
@@ -98,4 +103,4 @@ NHBAttr = model.AttractionModel(trip_rates_paths={
     mts_uni_path=r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\attractions\nhb\mode_time_splits\mode_time_split_attraction_nhb_uni_reg_rho.dvec",
     origin='nhb')
 
-NHBAttr.run()
+NHBAttr.run(mts_geo_constraint=gor)

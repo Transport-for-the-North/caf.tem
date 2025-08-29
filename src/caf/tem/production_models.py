@@ -249,13 +249,13 @@ class HBProductionModel:
             tem_production = self._create_tem_production(mts_production_adj)
             # Export tem productions
             if export_tem_segmentation:
-                if return_tripends:
-                    tem_production.save(self.model.export_paths.tem_segmented_from_home[year])
-                else:
-                    tem_production.save(self.model.export_paths.tem_segmented[year])
+                #if return_tripends:
+                tem_production.save(self.model.export_paths.tem_segmented_from_home[year])
+                #else:
+                    #tem_production.save(self.model.export_paths.tem_segmented[year])
             if export_reports:
                 utils.write_reports(
-                    mts_production, self.model.report_paths.tem_segmented, year
+                    mts_production, self.model.report_paths.tem_segmented_from_home, year
                 )
             if return_tripends:
                 tem_return_home_prod = self._create_tem_return_home_production(tem_production)
@@ -628,7 +628,7 @@ class NHBProductionModel:
 
         ## Assign
         self.hb_attraction_model = hb_attraction_model
-        self.hb_attraction_paths = hb_attraction_model.export_paths.tem_segmented
+        self.hb_attraction_paths = hb_attraction_model.export_paths.tem_segmented_from_home
         self.trip_rates_path = trip_rates_path
         self.mts_path = mts_path
         self.balance_production = balance_production
@@ -732,7 +732,7 @@ class NHBProductionModel:
             # For nhb prod post mts is already tem segmentation
 
             if export_notem_segmentation:
-                mts_production.save(self.model.export_paths.tem_segmented[year])
+                mts_production.save(self.model.export_paths.tem_segmented_from_home[year])
 
     # # # FUNCTIONS # # #
 
@@ -761,7 +761,7 @@ class NHBProductionModel:
         - Removes time period from the HB Attraction DVector segmentation
         - Changes the purpose and mode segmentations, to explicit home-based purpose and home-based mode segmentations
         """
-        hbattr = cb.DVector.load(self.hb_attraction_model.export_paths.tem_segmented[year])
+        hbattr = cb.DVector.load(self.hb_attraction_model.export_paths.tem_segmented_from_home[year])
         if hbattr.segmentation != self.return_segmentation:
             hbattr = hbattr.aggregate(self.return_segmentation)
         segs = hbattr.segmentation.names
