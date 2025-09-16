@@ -58,7 +58,8 @@ SegTuple = Tuples(
     m_nhb=mode_nhb,
     tp_return=time_period_return,
 )
-custom_segments = ["p_return", "tp_return", "m_hb", "p_hb", "p_nhb", "m_nhb"]
+custom_segments = Tuples._fields
+
 
 def filter_segments(custom_seg_list, df):
     """
@@ -85,6 +86,7 @@ def filter_segments(custom_seg_list, df):
         filtered_seg_list.append(seg_copy)
 
     return filtered_seg_list
+
 
 class HBProductionModel:
     """
@@ -310,17 +312,19 @@ class HBProductionModel:
             tem_production = self._create_tem_production(mts_production_adj)
             # Export tem productions
             if export_tem_segmentation:
-                #if return_tripends:
+                # if return_tripends:
                 tem_production.save(self.model.export_paths.tem_segmented_from_home[year])
-                #else:
-                    #tem_production.save(self.model.export_paths.tem_segmented[year])
+                # else:
+                # tem_production.save(self.model.export_paths.tem_segmented[year])
             if export_reports:
                 utils.write_reports(
                     mts_production, self.model.report_paths.tem_segmented_from_home, year
                 )
             if return_tripends:
                 tem_return_home_prod = self._create_tem_return_home_production(tem_production)
-                tem_return_home_prod_= tem_return_home_prod.rename_segment({"p_return":"p","tp_return":"tp"})
+                tem_return_home_prod_ = tem_return_home_prod.rename_segment(
+                    {"p_return": "p", "tp_return": "tp"}
+                )
                 tem_return_home_prod_.save(
                     self.model.export_paths.tem_segmented_return_home[year]
                 )
@@ -570,7 +574,7 @@ class HBProductionModel:
         tem_return_home_tripends_productions = self.return_home_trip_ends(
             tem_production, aggregation_segments
         )
-        mts_return_home = self._read_mts_return_home(normalize= True)
+        mts_return_home = self._read_mts_return_home(normalize=True)
 
         # Check if 'tp_return' exists in either segmentation
         tp_in_tem = "tp_return" in tem_production.segmentation.naming_order
@@ -609,7 +613,9 @@ class HBProductionModel:
             Loaded phi factor DVector.
 
         """
-        phi_factors_file_path = Path(os.path.join(self.phi_factors_path, f"phi_factors_P_p{p}_reg_phi.dvec"))
+        phi_factors_file_path = Path(
+            os.path.join(self.phi_factors_path, f"phi_factors_P_p{p}_reg_phi.dvec")
+        )
 
         if not phi_factors_file_path.exists():
             raise FileNotFoundError(
@@ -882,7 +888,9 @@ class NHBProductionModel:
         - Removes time period from the HB Attraction DVector segmentation
         - Changes the purpose and mode segmentations, to explicit home-based purpose and home-based mode segmentations
         """
-        hbattr = cb.DVector.load(self.hb_attraction_model.export_paths.tem_segmented_from_home[year])
+        hbattr = cb.DVector.load(
+            self.hb_attraction_model.export_paths.tem_segmented_from_home[year]
+        )
         if hbattr.segmentation != self.return_segmentation:
             hbattr = hbattr.aggregate(self.return_segmentation)
         segs = hbattr.segmentation.names
@@ -893,7 +901,7 @@ class NHBProductionModel:
 
         return hbattr
 
-    def  _create_pure_production(
+    def _create_pure_production(
         self, hbattr: cb.DVector, trip_rates: cb.DVector
     ) -> cb.DVector:
         """
@@ -908,7 +916,7 @@ class NHBProductionModel:
                 ) * trip_rates.filter_segment_value("p_hb", p)
 
             segs = pure_prod_p.segmentation.names
-            #segs.remove("p_hb")
+            # segs.remove("p_hb")
             segs.remove("m_hb")
             pure_prod_p = pure_prod_p.aggregate(segs)
             pure_prod_p = pure_prod_p.rename_segment({"p_nhb": "p", "m_nhb": "m"})

@@ -524,7 +524,7 @@ def create_mts_attraction_return_home_dvec(
 
 
 def create_mts_return_home_adj_factor_dvectors(
-    csv_path: Union[str, pathlib.Path]
+    csv_path: Union[str, pathlib.Path],
 ) -> Tuple[cb.DVector, cb.DVector]:
     """
     Reads a single CSV containing both production ('p') and attraction ('a') MTS adjustment factors,

@@ -60,7 +60,8 @@ SegTuple = Tuples(
     m_nhb=mode_nhb,
     tp_return=time_period_return,
 )
-custom_segments = ["p_return", "tp_return", "m_hb", "p_hb", "p_nhb", "m_nhb"]
+custom_segments = Tuples._fields
+
 
 def filter_segments(custom_seg_list, df):
     """
@@ -88,7 +89,8 @@ def filter_segments(custom_seg_list, df):
 
     return filtered_seg_list
 
-class AttractionModel:# pylint:disable=too-many-instance-attributes
+
+class AttractionModel:  # pylint:disable=too-many-instance-attributes
     """
     Initialize the AttractionModel object used for estimating and balancing trip attractions.
 
@@ -148,7 +150,7 @@ class AttractionModel:# pylint:disable=too-many-instance-attributes
         (e.g., from model zones to aggregated zones).
     """
 
-    def __init__(# pylint:disable=too-many-arguments,too-many-positional-arguments,too-many-locals
+    def __init__(  # pylint:disable=too-many-arguments,too-many-positional-arguments,too-many-locals
         self,
         production_model: ProductionModelPaths,
         model: AttractionModelPaths,
@@ -191,7 +193,7 @@ class AttractionModel:# pylint:disable=too-many-instance-attributes
         logger_name = f"{self.__class__.__name__}"
         self._logger = logging.getLogger(logger_name)
 
-    def run(# pylint:disable=too-many-positional-arguments,too-many-locals,too-many-branches
+    def run(  # pylint:disable=too-many-positional-arguments,too-many-locals,too-many-branches
         self,
         export_pure_attractions: bool = True,
         export_tem_segmentation: bool = True,
@@ -246,9 +248,7 @@ class AttractionModel:# pylint:disable=too-many-instance-attributes
         self._logger.info("Starting attraction Model")
 
         if not (export_pure_attractions or export_tem_segmentation or export_reports):
-            self._logger.info(
-                "All exports set to False. Run not executed."
-            )
+            self._logger.info("All exports set to False. Run not executed.")
             end_time = ctk.timing.current_milli_time()
             time_taken = ctk.timing.time_taken(start_time, end_time)
             self._logger.info("HB Production Model took:%s", time_taken)
@@ -257,7 +257,9 @@ class AttractionModel:# pylint:disable=too-many-instance-attributes
 
         # Ensure production balance file exists... (if balance_production is True)
         for year in self.model.path_years:
-            if not os.path.exists(self.production_model.export_paths.tem_segmented_from_home[year]):
+            if not os.path.exists(
+                self.production_model.export_paths.tem_segmented_from_home[year]
+            ):
                 raise FileNotFoundError(
                     "The TEM Segmented Productions file is not found. Run the Home Based Production Model to create this file first."
                 )
@@ -276,9 +278,7 @@ class AttractionModel:# pylint:disable=too-many-instance-attributes
             warnings.simplefilter("ignore", category=SegmentationWarning)
             mts: cb.DVector = cb.DVector.load(self.mts_path)
             # Read in the adjustment factors, if passed
-            adj_factors_dict: dict[str, cb.DVector] = (
-                self._read_adj_factors()
-            )
+            adj_factors_dict: dict[str, cb.DVector] = self._read_adj_factors()
             if self.mts_uni_path is not None:
                 mts_uni = cb.DVector.load(self.mts_uni_path)
 
@@ -377,13 +377,15 @@ class AttractionModel:# pylint:disable=too-many-instance-attributes
                     year,
                 )
             if export_tem_segmentation:
-                #if return_tripends:
+                # if return_tripends:
                 balanced_dvec.save(export_paths.tem_segmented_from_home[year])
-                #else:
-                    #balanced_dvec.save(export_paths.tem_segmented[year])
+                # else:
+                # balanced_dvec.save(export_paths.tem_segmented[year])
             if return_tripends:
                 tem_return_home_attr = self._create_tem_return_home_attraction(balanced_dvec)
-                tem_return_home_attr_ = tem_return_home_attr.rename_segment({"p_return": "p", "tp_return": "tp"})
+                tem_return_home_attr_ = tem_return_home_attr.rename_segment(
+                    {"p_return": "p", "tp_return": "tp"}
+                )
                 tem_return_home_attr_.save(export_paths.tem_segmented_return_home[year])
 
             return None
@@ -439,7 +441,7 @@ class AttractionModel:# pylint:disable=too-many-instance-attributes
 
         # Reshape 1..20 columns into long format
         mts_data = trips_data.melt(
-            id_vars=[ "p_return", "m", "tp_return"],
+            id_vars=["p_return", "m", "tp_return"],
             value_vars=list(range(1, 21)),
             var_name="tfn_at",
             value_name="trips",
@@ -454,7 +456,7 @@ class AttractionModel:# pylint:disable=too-many-instance-attributes
 
         # Pivot back to wide format (tfn_at as columns, rho as values)
         by_mode_reshaped = mts_data.pivot_table(
-            index=[ "p_return", "tp_return", "m"],
+            index=["p_return", "tp_return", "m"],
             columns="tfn_at",
             values="rho",
             aggfunc="sum",
@@ -635,9 +637,7 @@ class AttractionModel:# pylint:disable=too-many-instance-attributes
         adj_factors: cb.DVector,
         geo_constraint: cb.ZoningSystem | None = None,
     ) -> dict[int, cb.DVector]:
-        mts_dict_adj: dict[int, cb.DVector] = (
-            {}
-        )
+        mts_dict_adj: dict[int, cb.DVector] = {}
         if adj_factors is not None:
             for p, mts in mts_dict.items():
                 if "total" not in mts.segmentation.names:
@@ -708,9 +708,7 @@ class AttractionModel:# pylint:disable=too-many-instance-attributes
         """Concatenate attraction trip-ends at TEM segmentation into a single DVector."""
         for p in seg_dict.keys():
             try:
-                tem_dvec = tem_dvec.concat(
-                    seg_dict[p]
-                )
+                tem_dvec = tem_dvec.concat(seg_dict[p])
             except NameError:
                 tem_dvec = seg_dict[p]  # .aggregate(self.tem_segmentation)
 
@@ -763,7 +761,7 @@ class AttractionModel:# pylint:disable=too-many-instance-attributes
         tem_return_home_tripends_attraction = self.return_home_trip_ends(
             tem_attraction, aggregation_segments
         )
-        mts_return_home = self._read_mts_return_home(normalize = True)
+        mts_return_home = self._read_mts_return_home(normalize=True)
 
         # Check if 'tp_return' exists in either segmentation
         tp_in_tem = "tp_return" in tem_attraction.segmentation.naming_order
@@ -848,7 +846,9 @@ class AttractionModel:# pylint:disable=too-many-instance-attributes
 
         """
 
-        phi_factors_file_path = Path(os.path.join(self.phi_factors_path, f"phi_factors_A_p{p}_reg_phi.dvec"))
+        phi_factors_file_path = Path(
+            os.path.join(self.phi_factors_path, f"phi_factors_A_p{p}_reg_phi.dvec")
+        )
 
         if not phi_factors_file_path.exists():
             raise FileNotFoundError(

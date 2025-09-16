@@ -1,5 +1,4 @@
-"""ASSUMPTIONS:
-"""
+"""ASSUMPTIONS:"""
 
 from __future__ import annotations
 import os
@@ -114,7 +113,7 @@ class TEM:
                 f"Missing years are {missing}."
             )
 
-    def HBProductionModel(# pylint: disable =invalid-name
+    def HBProductionModel(  # pylint: disable =invalid-name
         self,
         population: dict[int, Landuse],
         trip_rates_path: os.PathLike,
@@ -163,7 +162,7 @@ class TEM:
 
         return self.hb_production_model
 
-    def AttractionModel(# pylint: disable =invalid-name
+    def AttractionModel(  # pylint: disable =invalid-name
         self,
         trip_rates_paths: dict[int, os.PathLike],
         emp_landuse: dict[int, Landuse],
@@ -264,7 +263,7 @@ class TEM:
 
         return self.attraction_model
 
-    def NHBProductionModel(# pylint: disable =invalid-name
+    def NHBProductionModel(  # pylint: disable =invalid-name
         self,
         trip_rates_path: os.PathLike,
         mode_time_splits_path: os.PathLike,
@@ -303,7 +302,7 @@ class TEM:
 
         return self.nhb_production_model
 
-    def NHBAttractionModel(# pylint: disable =invalid-name
+    def NHBAttractionModel(  # pylint: disable =invalid-name
         self,
         trip_rates_paths: dict[int, os.PathLike],  # path with respect to purpose
         emp_landuse_paths: dict[int, os.PathLike],  # path with respect to year
@@ -346,7 +345,7 @@ class TEM:
             "path_years, export_home, report_home, export_paths, report_paths"
         """
 
-        self.nhb_attraction_model = AttractionModel(# pylint: disable =no-value-for-parameter
+        self.nhb_attraction_model = AttractionModel(  # pylint: disable =no-value-for-parameter
             self.export_paths.nhb_production,
             self.export_paths.nhb_attraction,
             trip_rates_paths,

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Module containing input classes for trip-end models, mainly around imports and 
+Module containing input classes for trip-end models, mainly around imports and
 exports.
 """
 from __future__ import annotations
