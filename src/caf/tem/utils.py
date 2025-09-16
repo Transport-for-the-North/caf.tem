@@ -200,50 +200,6 @@ def read_pop_lu(
     return dvec, trans
 
 
-def read_hh_lu(
-    dir_: pathlib.Path | str,
-    file_name: str,
-    out_seg: cb.Segmentation = SEG_HH,
-    geographies=GOR,
-):
-    """
-    Reads and aggregates household-level look-up data from multiple regional files,
-    combines them into a single DVector, and returns the result.
-
-    Parameters:
-    ----------
-    dir_ : pathlib.Path or str
-        The directory path where the household data files are located.
-
-    file_name : str
-        A string template for the file name, which must include a placeholder for region names
-        (e.g., "households_{}.csv").
-
-    out_seg : cb.Segmentation, optional
-        The segmentation to which the input data should be aggregated. Defaults to SEG_HH.
-
-    geographies : iterable of str, optional
-        The list of region codes to iterate over. Each region should correspond to a file that
-        can be resolved by applying it to the file_name template.
-
-    Returns:
-    -------
-    dvec : cb.DVector
-        A combined DVector object containing aggregated household data in the specified segmentation and
-        using the "lsoa_2021" zoning system.
-    """
-    dvecs = []
-    for region in geographies:
-        dvec = cb.DVector.load(pathlib.Path(dir_) / file_name.format(region))
-        dvec = dvec.aggregate(out_seg)
-        print(f"    {region:8}: lu {dvec.data.sum(axis=1).sum():.2f}")
-        dvecs.append(dvec)
-    overall_data = pd.concat([d.data for d in dvecs], axis=1)
-    zoning = cb.ZoningSystem.get_zoning("lsoa_2021")
-    overall_data.rename(columns=zoning.name_to_id, inplace=True)
-    dvec = cb.DVector(import_data=overall_data, segmentation=out_seg, zoning_system=zoning)
-    return dvec
-
 
 def read_lu_emp(dir_: pathlib.Path | str, file_name: str):
     """
