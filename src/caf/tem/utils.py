@@ -201,38 +201,7 @@ def read_pop_lu(
 
 
 
-def read_lu_emp(dir_: pathlib.Path | str, file_name: str):
-    """
-    Load and process employment land use data from disk.
 
-    Parameters
-    ----------
-    dir_ : pathlib.Path or str
-        Directory path where the employment data file is located.
-    file_name : str
-        Name of the file to load.
-
-    Returns
-    -------
-    cb.DVector
-        A DVector object aggregated by employment categories (SEG_EMP),
-        with zoning system set to "lsoa_2021" and segmentation updated to TT_EMP.
-
-    """
-
-    dvec = cb.DVector.load(pathlib.Path(dir_) / file_name)
-    dvec = dvec.aggregate(SEG_EMP).data
-    out = pd.DataFrame(dvec.groupby(level="soc").sum().sum(axis=1)).rename(columns={0: "emp"})
-    out["prop"] = out["emp"].div(out["emp"].sum()) * 100
-    print(f'    GB: lu {out["emp"].sum():.2f}')
-    print(out)
-
-    zoning = cb.ZoningSystem.get_zoning("lsoa_2021")
-    dvec.rename(columns=zoning.name_to_id, inplace=True)
-    dvec = cb.DVector(
-        import_data=dvec, segmentation=cb.Segmentation(TT_EMP), zoning_system=zoning
-    )
-    return dvec
 
 
 def return_home(pa: cb.DVector, phi_factors: cb.DVector, mode_split: cb.DVector | None = None):
