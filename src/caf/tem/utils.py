@@ -126,28 +126,7 @@ def file_exists(file_path: os.PathLike) -> bool:
     return True
 
 
-def check_file_exists(
-    file_path: os.PathLike,
-) -> None:
-    """
-    Checks if a file exists at the given path. Throws an error if not.
 
-    Parameters
-    ----------
-    file_path:
-        path to the file to check.
-
-    find_similar:
-        Whether to look for files with the same name, but a different file
-        type extension. If True, this will call find_filename() using the
-        default alternate file types: ['.pbz2', '.csv']
-
-    Returns
-    -------
-    None
-    """
-    if not file_exists(file_path):
-        raise FileNotFoundError(f"Cannot find a path to: {file_path}")
 
 
 def read_pop_lu(
