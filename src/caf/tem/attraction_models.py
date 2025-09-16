@@ -10,13 +10,13 @@ import os
 import warnings
 import gc
 import logging
-
+from collections import namedtuple
+import copy
 from pathlib import Path
 
 # Third party imports
 import pandas as pd
-from collections import namedtuple
-import copy
+
 
 import caf.base as cb
 import caf.toolkit as ctk
@@ -88,7 +88,7 @@ def filter_segments(custom_seg_list, df):
 
     return filtered_seg_list
 
-class AttractionModel:
+class AttractionModel:# pylint:disable=too-many-instance-attributes
     """
     Initialize the AttractionModel object used for estimating and balancing trip attractions.
 
@@ -148,7 +148,7 @@ class AttractionModel:
         (e.g., from model zones to aggregated zones).
     """
 
-    def __init__(
+    def __init__(# pylint:disable=too-many-arguments,too-many-positional-arguments,too-many-locals
         self,
         production_model: ProductionModelPaths,
         model: AttractionModelPaths,
@@ -191,7 +191,7 @@ class AttractionModel:
         logger_name = f"{self.__class__.__name__}"
         self._logger = logging.getLogger(logger_name)
 
-    def run(
+    def run(# pylint:disable=too-many-positional-arguments,too-many-locals,too-many-branches
         self,
         export_pure_attractions: bool = True,
         export_tem_segmentation: bool = True,
@@ -385,6 +385,8 @@ class AttractionModel:
                 tem_return_home_attr = self._create_tem_return_home_attraction(balanced_dvec)
                 tem_return_home_attr_ = tem_return_home_attr.rename_segment({"p_return": "p", "tp_return": "tp"})
                 tem_return_home_attr_.save(export_paths.tem_segmented_return_home[year])
+
+            return None
 
         # ## END ## #
 
@@ -830,13 +832,13 @@ class AttractionModel:
 
         return trip_ends
 
-    def _read_phi_factor_dvec(self, purpose: int):
+    def _read_phi_factor_dvec(self, p: int):
         """
         Read a phi factor DVector file for the given purpose segment.
 
         Parameters
         ----------
-        purpose : int
+        p : int
             Purpose segment value (e.g., 1 to 8).
 
         Returns
@@ -846,7 +848,7 @@ class AttractionModel:
 
         """
 
-        phi_factors_file_path = Path(os.path.join(self.phi_factors_path, f"phi_factors_A_p{purpose}_reg_phi.dvec"))
+        phi_factors_file_path = Path(os.path.join(self.phi_factors_path, f"phi_factors_A_p{p}_reg_phi.dvec"))
 
         if not phi_factors_file_path.exists():
             raise FileNotFoundError(

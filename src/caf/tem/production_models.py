@@ -10,11 +10,10 @@ import warnings
 import logging
 import gc
 import copy
-
-from typing import Dict
+from collections import namedtuple
 from pathlib import Path
 import pandas as pd
-from collections import namedtuple
+
 
 # Third party imports
 import caf.base as cb
@@ -595,13 +594,13 @@ class HBProductionModel:
 
         return tem_return_home_tripends_production_adj
 
-    def _read_phi_factor_dvec(self, purpose: int):
+    def _read_phi_factor_dvec(self, p: int):
         """
         Reads a phi factor DVector file for the given purpose segment.
 
         Parameters
         ----------
-        purpose : int
+        p : int
             Purpose segment value (e.g., 1 to 8).
 
         Returns
@@ -610,7 +609,7 @@ class HBProductionModel:
             Loaded phi factor DVector.
 
         """
-        phi_factors_file_path = Path(os.path.join(self.phi_factors_path, f"phi_factors_P_p{purpose}_reg_phi.dvec"))
+        phi_factors_file_path = Path(os.path.join(self.phi_factors_path, f"phi_factors_P_p{p}_reg_phi.dvec"))
 
         if not phi_factors_file_path.exists():
             raise FileNotFoundError(
@@ -890,25 +889,6 @@ class NHBProductionModel:
         if "tp" in segs:
             segs.remove("tp")
             hbattr = hbattr.aggregate(segs)
-        """
-        hbattr_data = hbattr.data.reset_index().rename(columns={"p": "p_hb", "m": "m_hb"})
-        segs = hbattr.segmentation.names
-        segs.remove("p")
-        segs.remove("m")
-        segs.append("p_hb")
-        segs.append("m_hb")
-        custom_seg = [seg for seg in segs if seg in custom_segments]
-        enum_seg = [seg for seg in segs if seg not in custom_segments]
-        custom_seg_list = [getattr(SegTuple, seg_name) for seg_name in custom_seg]
-        custom_seg_list_filtered = filter_segments(custom_seg_list,hbattr_data)
-        hbattr_data = hbattr_data.set_index(segs)
-        hbattr = cb.DVector(
-            segmentation=cb.Segmentation(
-                cb.SegmentationInput(enum_segments=enum_seg, naming_order=segs, custom_segments=custom_seg_list_filtered)
-            ),
-            import_data=hbattr_data,
-            zoning_system=hbattr.zoning_system,
-        )"""
         hbattr = hbattr.rename_segment({"p": "p_hb", "m": "m_hb"})
 
         return hbattr
@@ -931,28 +911,6 @@ class NHBProductionModel:
             #segs.remove("p_hb")
             segs.remove("m_hb")
             pure_prod_p = pure_prod_p.aggregate(segs)
-            """
-            pure_production_data = pure_prod_p.data.reset_index().rename(
-                columns={"m_nhb": "m", "p_nhb": "p"}
-            )
-            segs.remove("p_nhb")
-            segs.remove("m_nhb")
-            segs.append("p")
-            segs.append("m")
-            subsets = {
-                "p": [11, 12, 13, 14, 15, 16, 17, 18],
-                "m": hbattr.segmentation.input.subsets["m_hb"],
-            }
-            pure_production_data = pure_production_data.set_index(segs)
-            pure_prod_p = cb.DVector(
-                segmentation=cb.Segmentation(
-                    cb.SegmentationInput(
-                        enum_segments=segs, naming_order=segs, subsets=subsets
-                    )
-                ),
-                import_data=pure_production_data,
-                zoning_system=pure_prod_p.zoning_system,
-            )"""
             pure_prod_p = pure_prod_p.rename_segment({"p_nhb": "p", "m_nhb": "m"})
             if pure_prod is None:
                 pure_prod = pure_prod_p

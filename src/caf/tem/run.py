@@ -1,7 +1,8 @@
+from pathlib import Path
 import caf.tem as ct
 from caf.tem.inputs import Landuse
 import caf.base as cb
-from pathlib import Path
+
 
 model = ct.TEM(
     model_years=[2023],

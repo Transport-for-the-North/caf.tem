@@ -88,6 +88,17 @@ class TEM:
         self.attraction_model: AttractionModel = None
 
     def check_years(self, to_check: dict[int, Any], dict_name: str):
+        """
+        Validate that the years in a provided dictionary match the model's expected years.
+
+        Parameters
+        ----------
+        to_check : dict[int, Any]
+            A dictionary keyed by year.
+        dict_name : str
+            A descriptive name of the dictionary being checked (used in error messages).
+
+        """
         years_set = set(self.years)
         dict_years_set = set(to_check.keys())
         extra = dict_years_set.difference(years_set)
@@ -103,7 +114,7 @@ class TEM:
                 f"Missing years are {missing}."
             )
 
-    def HBProductionModel(
+    def HBProductionModel(# pylint: disable =invalid-name
         self,
         population: dict[int, Landuse],
         trip_rates_path: os.PathLike,
@@ -152,7 +163,7 @@ class TEM:
 
         return self.hb_production_model
 
-    def AttractionModel(
+    def AttractionModel(# pylint: disable =invalid-name
         self,
         trip_rates_paths: dict[int, os.PathLike],
         emp_landuse: dict[int, Landuse],
@@ -253,7 +264,7 @@ class TEM:
 
         return self.attraction_model
 
-    def NHBProductionModel(
+    def NHBProductionModel(# pylint: disable =invalid-name
         self,
         trip_rates_path: os.PathLike,
         mode_time_splits_path: os.PathLike,
@@ -292,7 +303,7 @@ class TEM:
 
         return self.nhb_production_model
 
-    def NHBAttractionModel(
+    def NHBAttractionModel(# pylint: disable =invalid-name
         self,
         trip_rates_paths: dict[int, os.PathLike],  # path with respect to purpose
         emp_landuse_paths: dict[int, os.PathLike],  # path with respect to year
@@ -335,7 +346,7 @@ class TEM:
             "path_years, export_home, report_home, export_paths, report_paths"
         """
 
-        self.nhb_attraction_model = AttractionModel(
+        self.nhb_attraction_model = AttractionModel(# pylint: disable =no-value-for-parameter
             self.export_paths.nhb_production,
             self.export_paths.nhb_attraction,
             trip_rates_paths,
