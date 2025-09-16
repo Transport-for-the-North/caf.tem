@@ -936,37 +936,3 @@ class NHBProductionModel:
         if not math.isclose(mts_production.sum(), pure_production.sum()):
             warnings.warn("mts has changed the total.")
         return mts_production
-
-    def _generate_nhb_productions(
-        self,
-        hb_attractions: cb.DVector,
-    ) -> cb.DVector:
-        """
-        -
-        Applies NHB trip rates to hb_attractions
-
-        Parameters
-        ----------
-        hb_attractions:
-            Dvector containing the data to apply the trip rates to.
-
-        Returns
-        -------
-        pure_NHB_demand:
-            Returns the product of HB attractions and NHB trip rate Dvector
-            ie., pure NHB demand
-        """
-
-        # Define the zoning and segmentations we want to use
-        nhb_trip_rate_seg = cb.Segmentation(self.tem_segs.trip_rates)
-        pure_seg = cb.Segmentation(self.tem_segs.prod_pure)
-
-        # Reading NHB trip rates
-        trip_rates_dvec = cb.DVector.load(self.trip_rates_path)
-        if trip_rates_dvec.segmentation != nhb_trip_rate_seg:
-            raise cb.segmentation.SegmentationError(
-                "Unexpected segmentation in trip rates DVector."
-            )
-
-        # Multiply
-        return (hb_attractions * trip_rates_dvec).aggregate(pure_seg)
