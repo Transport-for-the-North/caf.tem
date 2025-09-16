@@ -8,7 +8,7 @@ model = ct.TEM(
     scenario="Core",
     output_zoning="normits",
     agg_zoning="tfn_at",
-    iteration_name="full_test_aj",
+    iteration_name="full_test_aj_1",
     export_home=r"C:\Users\Kephale\Desktop\Alok\TFN\tem\Outputs",
     return_segmentation=["p", "m", "tp", "hh_type","soc"],
     trans_file=r"C:\Users\Kephale\Desktop\Alok\TFN\tem\Inputs\normits_lsoa21_trans.csv"
@@ -29,13 +29,13 @@ HBProd = model.HBProductionModel(
     trip_rates_path=Path(r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\productions\hb\trip_rates\hb_trip_rates_production_trip_rates.dvec"), #provide
     mode_time_splits_path=r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\productions\hb\mode_time_splits\mode_time_split_production_hb_fr_reg_rho.dvec", #provide
     phi_factors_path= Path(r"C:\Users\Kephale\Desktop\Alok\TFN\tem\Inputs\phi_factors"),
-    mts_return_home_path=r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\productions\hb\mode_time_splits\mode_time_split_production_hb_to_reg_rho.dvec",
+    mts_return_home_path=r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\productions\hb\mode_time_splits\mode_time_split_production_hb_to_reg_trips.est.dvec",
     mts_return_home_adj_factor_path=r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\others\mode_time_split_adjustments_p_hb_to_adj.dvec",
     adjustment_path=r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\others\trip_rate_adjustments_p_hb_fr_adj.dvec",
     mts_adj_path = r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\others\mode_time_split_adjustments_p_hb_fr_adj.dvec",
 )
 
-HBProd.run(export_pure_production=False, export_reports=False, mts_geo_constraint=gor,return_tripends=True)
+HBProd.run(export_pure_production=True, export_reports=False, mts_geo_constraint=gor,return_tripends=True)
 
 emp = Landuse(
     land_use=r"C:\Users\Kephale\Desktop\Alok\TFN\tem\Inputs\landuse\emp.dvec",  # provide
@@ -55,7 +55,7 @@ hh = Landuse(
 
 
 HBAttr = model.AttractionModel(trip_rates_paths={
-    1: r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\attractions\hb\trip_rates\trip_rates_attraction_p1_hb_alpha.dvec", # move from T drive
+    1: r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\attractions\hb\trip_rates\trip_rates_attraction_p1_hb_alpha.dvec",
     2: r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\attractions\hb\trip_rates\trip_rates_attraction_p2_hb_alpha.dvec",
     3: r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\attractions\hb\trip_rates\trip_rates_attraction_p3_hb_alpha.dvec",
     4: r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\attractions\hb\trip_rates\trip_rates_attraction_p4_hb_alpha.dvec",
@@ -70,13 +70,13 @@ HBAttr = model.AttractionModel(trip_rates_paths={
     trip_rate_adjustment_path=r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\others\trip_rate_adjustments_a_hb_fr_adj.dvec",
     mode_time_splits_adjustment_path=r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\others\mode_time_split_adjustments_a_hb_fr_adj.dvec",
     mts_uni_path=r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\attractions\hb\mode_time_splits\mode_time_split_attraction_hb_fr_uni_reg_rho.dvec",
-    mts_return_home_path=r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\attractions\hb\mode_time_splits\mode_time_split_attraction_hb_to_reg_rho.dvec",
+    mts_return_home_path=r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\attractions\hb\mode_time_splits\mode_time_split_attraction_hb_to_reg_trips.est.dvec",
     mts_return_home_adj_factor_path =r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\others\mode_time_split_adjustments_a_hb_to_adj.dvec",
     phi_factors_path = r"C:\Users\Kephale\Desktop\Alok\TFN\tem\Inputs\phi_factors",
     )
 
 HBAttr.run(
-    export_pure_attractions=False, mts_geo_constraint=gor, return_tripends=True
+    export_pure_attractions=True, mts_geo_constraint=gor, return_tripends=True
 )  # this still doesn't work - seems to be an issue with cb.DVector
 
 NHBProd = model.NHBProductionModel(

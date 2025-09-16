@@ -15,6 +15,8 @@ from pathlib import Path
 
 # Third party imports
 import pandas as pd
+from collections import namedtuple
+import copy
 
 import caf.base as cb
 import caf.toolkit as ctk
@@ -24,6 +26,67 @@ from caf.tem import utils
 from caf.base.segmentation import SegmentationWarning
 
 from caf.tem.inputs import ProductionModelPaths, AttractionModelPaths, Landuse
+
+purpose = cb.segments.SegmentsSuper("p").get_segment()
+p_return = purpose.copy()
+p_return.name = "p_return"
+
+purpose_hb = purpose.copy()
+purpose_hb.values = {i: j for i, j in purpose_hb.values.items() if i < 10}
+purpose_hb.name = "p_hb"
+
+purpose_nhb = purpose.copy()
+purpose_nhb.values = {i: j for i, j in purpose_nhb.values.items() if i > 10}
+purpose_nhb.name = "p_nhb"
+
+time_period = cb.segments.SegmentsSuper("tp").get_segment().copy()
+time_period_return = time_period.copy()
+time_period_return.name = "tp_return"
+
+mode = cb.segments.SegmentsSuper("m").get_segment().copy()
+mode_hb = mode.copy()
+mode_hb.name = "m_hb"
+
+mode_nhb = mode.copy()
+mode_nhb.name = "m_nhb"
+
+Tuples = namedtuple("segtuple", ["p_return", "p_hb", "p_nhb", "m_hb", "m_nhb", "tp_return"])
+
+SegTuple = Tuples(
+    p_return=p_return,
+    p_hb=purpose_hb,
+    p_nhb=purpose_nhb,
+    m_hb=mode_hb,
+    m_nhb=mode_nhb,
+    tp_return=time_period_return,
+)
+custom_segments = ["p_return", "tp_return", "m_hb", "p_hb", "p_nhb", "m_nhb"]
+
+def filter_segments(custom_seg_list, df):
+    """
+    Filters segment objects by keeping only values present in df_reshaped.
+
+    Parameters
+    ----------
+    custom_seg_list : list
+        List of segment objects (each having .name and .values attributes).
+    df : pd.DataFrame
+        DataFrame to filter categories against.
+
+    Returns
+    -------
+    list
+        List of filtered segment copies.
+    """
+    filtered_seg_list = []
+    for seg in custom_seg_list:
+        seg_copy = copy.deepcopy(seg)
+        col_name = seg_copy.name
+        seg_unique = set(df[col_name].unique())
+        seg_copy.values = {i: j for i, j in seg_copy.values.items() if i in seg_unique}
+        filtered_seg_list.append(seg_copy)
+
+    return filtered_seg_list
 
 class AttractionModel:
     """
@@ -320,7 +383,8 @@ class AttractionModel:
                     #balanced_dvec.save(export_paths.tem_segmented[year])
             if return_tripends:
                 tem_return_home_attr = self._create_tem_return_home_attraction(balanced_dvec)
-                tem_return_home_attr.save(export_paths.tem_segmented_return_home[year])
+                tem_return_home_attr_ = tem_return_home_attr.rename_segment({"p_return": "p", "tp_return": "tp"})
+                tem_return_home_attr_.save(export_paths.tem_segmented_return_home[year])
 
         # ## END ## #
 
@@ -342,9 +406,71 @@ class AttractionModel:
         mts = cb.DVector.load(self.mts_path)
         return mts
 
-    def _read_mts_return_home(self) -> cb.DVector:
-        """Read the mode-time split (MTS) DVector, from the path given in the constructor."""
-        mts = cb.DVector.load(self.mts_return_home_path)
+    def _read_mts_return_home(self, normalize: bool = True) -> cb.DVector:
+        """
+        Reads the mode-time split (MTS) DVector, converts it into a normalized share (rho),
+        and aligns it with the TEM Model zoning system.
+
+        Parameters
+        ----------
+        normalize : bool, default=True
+            If True, normalize trips within (tfn_at, hh_type, p_return, tp_return).
+            If False, normalize trips within (tfn_at, hh_type, p_return).
+
+        Returns
+        -------
+        cb.DVector
+            A DVector containing normalized mode-time splits reshaped by tfn_at.
+        """
+        # Load the raw DVector
+        trips = cb.DVector.load(self.mts_return_home_path)
+        trips_data = trips.data.reset_index()
+
+        # Extract segmentation
+        segs = trips.segmentation.naming_order
+        custom_seg = [seg for seg in segs if seg in custom_segments]
+        enum_seg = [seg for seg in segs if seg not in custom_segments]
+
+        # Filter only relevant custom segments
+        custom_seg_list = [getattr(SegTuple, seg_name) for seg_name in custom_seg]
+        custom_seg_list_filtered = filter_segments(custom_seg_list, trips_data)
+
+        # Reshape 1..20 columns into long format
+        mts_data = trips_data.melt(
+            id_vars=[ "p_return", "m", "tp_return"],
+            value_vars=list(range(1, 21)),
+            var_name="tfn_at",
+            value_name="trips",
+        )
+
+        # Compute group totals depending on normalization setting
+        group_cols = ["tfn_at", "p_return"] + (["tp_return"] if normalize else [])
+        mts_data["total_trips"] = mts_data.groupby(group_cols)["trips"].transform("sum")
+
+        # Normalize to proportions
+        mts_data["rho"] = mts_data["trips"] / mts_data["total_trips"]
+
+        # Pivot back to wide format (tfn_at as columns, rho as values)
+        by_mode_reshaped = mts_data.pivot_table(
+            index=[ "p_return", "tp_return", "m"],
+            columns="tfn_at",
+            values="rho",
+            aggfunc="sum",
+        )
+
+        # Wrap result into a new DVector
+        mts = cb.DVector(
+            segmentation=cb.Segmentation(
+                cb.SegmentationInput(
+                    enum_segments=enum_seg,
+                    naming_order=segs,
+                    custom_segments=custom_seg_list_filtered,
+                )
+            ),
+            import_data=by_mode_reshaped,
+            zoning_system=trips.zoning_system,
+        )
+
         return mts
 
     def _read_adj_factors(self) -> dict[str, cb.DVector]:
@@ -635,7 +761,7 @@ class AttractionModel:
         tem_return_home_tripends_attraction = self.return_home_trip_ends(
             tem_attraction, aggregation_segments
         )
-        mts_return_home = self._read_mts_return_home()
+        mts_return_home = self._read_mts_return_home(normalize = True)
 
         # Check if 'tp_return' exists in either segmentation
         tp_in_tem = "tp_return" in tem_attraction.segmentation.naming_order
