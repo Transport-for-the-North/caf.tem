@@ -129,58 +129,6 @@ def file_exists(file_path: os.PathLike) -> bool:
 
 
 
-def read_pop_lu(
-    dir_: pathlib.Path,
-    file_name: str,
-    out_zoning: cb.ZoningSystem | None = None,
-    geographies=("EM", "EoE", "Lon", "NE", "NW", "SE", "SW", "Wales", "WM", "YH", "Scotland"),
-):
-    """
-    Reads population-level data from multiple regional files, converts them to TT-format DVector objects,
-    and optionally translates the output to a specified zoning system.
-
-    Parameters:
-    ----------
-    dir_ : pathlib.Path
-        The directory path where the input population files are stored.
-
-    file_name : str
-        A string template for the file name, which should include a placeholder for the region (e.g., "population_{}.csv").
-
-    out_zoning : cb.ZoningSystem, optional
-        The desired output zoning system to which the aggregated DVector will be translated. If None, no translation is performed.
-
-    geographies : tuple of str, optional
-        The list of region codes to iterate over. Each region should correspond to a valid file when substituted into the file_name template.
-
-    Returns:
-    -------
-    dvec : cb.DVector
-        A combined and optionally translated DVector containing TT-format population data.
-
-    trans : pd.Series or None
-        The translation vector used for zoning conversion, or None if no translation was performed.
-    """
-    dvecs = []
-    for region in geographies:
-        dvec = cb.DVector.load(pathlib.Path(dir_) / file_name.format(region))
-        dvec_tt = lu_to_tt(dvec)
-        dvecs.append(dvec_tt)
-    overall_data = pd.concat([d.data for d in dvecs], axis=1)
-    zoning = cb.ZoningSystem.get_zoning("lsoa_2021")
-    overall_data.rename(columns=zoning.name_to_id, inplace=True)
-    dvec = cb.DVector(
-        import_data=overall_data, segmentation=cb.Segmentation(TT), zoning_system=zoning
-    )
-    trans = None
-    if out_zoning is not None:
-        trans = dvec.zoning_system.translate(out_zoning)
-        dvec = dvec.translate_zoning(out_zoning, trans_vector=trans)
-    return dvec, trans
-
-
-
-
 
 
 def return_home(pa: cb.DVector, phi_factors: cb.DVector, mode_split: cb.DVector | None = None):
