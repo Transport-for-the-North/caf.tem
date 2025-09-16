@@ -131,38 +131,7 @@ def file_exists(file_path: os.PathLike) -> bool:
 
 
 
-def return_home(pa: cb.DVector, phi_factors: cb.DVector, mode_split: cb.DVector | None = None):
-    """
-    Computes return trips from outbound home-based trips using phi factors and optional mode split.
 
-    Args:
-        pa (cb.DVector): The outbound home-based production-attraction trip matrix.
-        phi_factors (cb.DVector): Factors used to convert outbound trips into return trips.
-        mode_split (cb.DVector, optional): Mode share factors for further disaggregation by mode.
-
-    Returns:
-        cb.DVector: A new DVector representing return trips segmented according to `pa`.
-    """
-    pa_seg = pa.segmentation.naming_order
-    temp_seg = list(map(lambda x: x + "_to" if x in ["p", "tp"] else x, pa_seg))
-    hb_to = (pa * phi_factors).aggregate(temp_seg)
-    hb_to_data = (
-        hb_to.data.reset_index().rename(columns={"p_to": "p", "tp_to": "tp"}).set_index(pa_seg)
-    )
-    hb_to = cb.DVector(
-        import_data=hb_to_data, segmentation=pa_seg, zoning_system=pa.zoning_system
-    )
-    if mode_split is not None:
-        if "m" in pa_seg:
-            pa_seg.remove("m")
-            hb_to = hb_to.aggregate(pa_seg)
-        hb_to = hb_to * mode_split
-    if not math.isclose(pa.sum(), hb_to.sum()):
-        warnings.warn(
-            f"Return trips don't match outbound trips. Out = {pa.sum()}, return = {hb_to.sum()}"
-        )
-
-    return hb_to
 
 
 def phi_to_dvec(
