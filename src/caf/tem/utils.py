@@ -126,14 +126,6 @@ def file_exists(file_path: os.PathLike) -> bool:
     return True
 
 
-
-
-
-
-
-
-
-
 def phi_to_dvec(
     phi_path: Union[pathlib.Path, str], output_fld: Union[pathlib.Path, str]
 ) -> None:
