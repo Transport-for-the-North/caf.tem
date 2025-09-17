@@ -10,8 +10,6 @@ import os
 import warnings
 import gc
 import logging
-from collections import namedtuple
-import copy
 from pathlib import Path
 
 # Third party imports
@@ -24,70 +22,12 @@ from caf.base.segmentation import SegmentationError
 
 from caf.tem import utils
 from caf.base.segmentation import SegmentationWarning
+from caf.nts.utils import Tuples, SegTuple
 
 from caf.tem.inputs import ProductionModelPaths, AttractionModelPaths, Landuse
 
-purpose = cb.segments.SegmentsSuper("p").get_segment()
-p_return = purpose.copy()
-p_return.name = "p_return"
 
-purpose_hb = purpose.copy()
-purpose_hb.values = {i: j for i, j in purpose_hb.values.items() if i < 10}
-purpose_hb.name = "p_hb"
-
-purpose_nhb = purpose.copy()
-purpose_nhb.values = {i: j for i, j in purpose_nhb.values.items() if i > 10}
-purpose_nhb.name = "p_nhb"
-
-time_period = cb.segments.SegmentsSuper("tp").get_segment().copy()
-time_period_return = time_period.copy()
-time_period_return.name = "tp_return"
-
-mode = cb.segments.SegmentsSuper("m").get_segment().copy()
-mode_hb = mode.copy()
-mode_hb.name = "m_hb"
-
-mode_nhb = mode.copy()
-mode_nhb.name = "m_nhb"
-
-Tuples = namedtuple("segtuple", ["p_return", "p_hb", "p_nhb", "m_hb", "m_nhb", "tp_return"])
-
-SegTuple = Tuples(
-    p_return=p_return,
-    p_hb=purpose_hb,
-    p_nhb=purpose_nhb,
-    m_hb=mode_hb,
-    m_nhb=mode_nhb,
-    tp_return=time_period_return,
-)
 custom_segments = Tuples._fields
-
-
-def filter_segments(custom_seg_list, df):
-    """
-    Filters segment objects by keeping only values present in df_reshaped.
-
-    Parameters
-    ----------
-    custom_seg_list : list
-        List of segment objects (each having .name and .values attributes).
-    df : pd.DataFrame
-        DataFrame to filter categories against.
-
-    Returns
-    -------
-    list
-        List of filtered segment copies.
-    """
-    filtered_seg_list = []
-    for seg in custom_seg_list:
-        seg_copy = copy.deepcopy(seg)
-        col_name = seg_copy.name
-        seg_unique = set(df[col_name].unique())
-        seg_copy.values = {i: j for i, j in seg_copy.values.items() if i in seg_unique}
-        filtered_seg_list.append(seg_copy)
-
-    return filtered_seg_list
 
 
 class AttractionModel:  # pylint:disable=too-many-instance-attributes
@@ -437,7 +377,7 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
 
         # Filter only relevant custom segments
         custom_seg_list = [getattr(SegTuple, seg_name) for seg_name in custom_seg]
-        custom_seg_list_filtered = filter_segments(custom_seg_list, trips_data)
+        custom_seg_list_filtered = utils.filter_segments(custom_seg_list, trips_data)
 
         # Reshape 1..20 columns into long format
         mts_data = trips_data.melt(

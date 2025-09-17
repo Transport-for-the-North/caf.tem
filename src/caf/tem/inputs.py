@@ -309,7 +309,7 @@ class TEMModelPaths:
             tem_segmented_from_home=self._generate_report_paths(self._tem_segmented_from_home),
         )
 
-    def _generate_report_paths(  # TODO should this be a class, rather than function?
+    def _generate_report_paths(
         self,
         report_name: str,
     ) -> tuple[dict[int, str], dict[int, str], dict[int, str]]:

@@ -9,8 +9,6 @@ import math
 import warnings
 import logging
 import gc
-import copy
-from collections import namedtuple
 from pathlib import Path
 import pandas as pd
 
@@ -20,72 +18,13 @@ import caf.base as cb
 from caf.base.segmentation import SegmentationError, SegmentationWarning
 import caf.toolkit as ctk
 from caf.tem import utils
+from caf.nts.utils import Tuples, SegTuple
 
 from caf.tem.inputs import ProductionModelPaths, AttractionModelPaths, Landuse
 
 # pylint: disable =too-many-instance-attributes,too-many-positional-arguments,too-many-locals,too-many-arguments,too-few-public-methods
 
-purpose = cb.segments.SegmentsSuper("p").get_segment()
-p_return = purpose.copy()
-p_return.name = "p_return"
-
-purpose_hb = purpose.copy()
-purpose_hb.values = {i: j for i, j in purpose_hb.values.items() if i < 10}
-purpose_hb.name = "p_hb"
-
-purpose_nhb = purpose.copy()
-purpose_nhb.values = {i: j for i, j in purpose_nhb.values.items() if i > 10}
-purpose_nhb.name = "p_nhb"
-
-time_period = cb.segments.SegmentsSuper("tp").get_segment().copy()
-time_period_return = time_period.copy()
-time_period_return.name = "tp_return"
-
-mode = cb.segments.SegmentsSuper("m").get_segment().copy()
-mode_hb = mode.copy()
-mode_hb.name = "m_hb"
-
-mode_nhb = mode.copy()
-mode_nhb.name = "m_nhb"
-
-Tuples = namedtuple("segtuple", ["p_return", "p_hb", "p_nhb", "m_hb", "m_nhb", "tp_return"])
-
-SegTuple = Tuples(
-    p_return=p_return,
-    p_hb=purpose_hb,
-    p_nhb=purpose_nhb,
-    m_hb=mode_hb,
-    m_nhb=mode_nhb,
-    tp_return=time_period_return,
-)
 custom_segments = Tuples._fields
-
-
-def filter_segments(custom_seg_list, df):
-    """
-    Filters segment objects by keeping only values present in df_reshaped.
-
-    Parameters
-    ----------
-    custom_seg_list : list
-        List of segment objects (each having .name and .values attributes).
-    df : pd.DataFrame
-        DataFrame to filter categories against.
-
-    Returns
-    -------
-    list
-        List of filtered segment copies.
-    """
-    filtered_seg_list = []
-    for seg in custom_seg_list:
-        seg_copy = copy.deepcopy(seg)
-        col_name = seg_copy.name
-        seg_unique = set(df[col_name].unique())
-        seg_copy.values = {i: j for i, j in seg_copy.values.items() if i in seg_unique}
-        filtered_seg_list.append(seg_copy)
-
-    return filtered_seg_list
 
 
 class HBProductionModel:
@@ -234,10 +173,8 @@ class HBProductionModel:
             or export_mts_production
             or export_reports
         ):
-            # End timing TODO move to a function rather than have here, similarly at end of run() method
-            self._logger.info(
-                "All exports set to False. Run not executed."
-            )  # TODO consider running anyway in case user wants to debug.
+            # End timing
+            self._logger.info("All exports set to False. Run not executed.")
             end_time = ctk.timing.current_milli_time()
             time_taken = ctk.timing.time_taken(start_time, end_time)
             self._logger.info("HB Production Model took:%s", time_taken)
@@ -386,7 +323,7 @@ class HBProductionModel:
 
         # Filter only relevant custom segments
         custom_seg_list = [getattr(SegTuple, seg_name) for seg_name in custom_seg]
-        custom_seg_list_filtered = filter_segments(custom_seg_list, trips_data)
+        custom_seg_list_filtered = utils.filter_segments(custom_seg_list, trips_data)
 
         # Reshape 1..20 columns into long format
         mts_data = trips_data.melt(
@@ -850,7 +787,7 @@ class NHBProductionModel:
             if export_nhb_pure_demand:
                 pure_production.save(self.model.export_paths.pure_demand[year])
             if export_reports:
-                pass  # self._write_reports(pure_production) # TODO this should be a utils function
+                pass  # self._write_reports(pure_production)
 
             # ## MODE TIME SPLIT ## #
             mts_production = self._create_mts_production(pure_production, mts)

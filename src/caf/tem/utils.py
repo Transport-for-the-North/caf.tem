@@ -14,6 +14,7 @@ from __future__ import annotations
 
 # Built-in
 import math
+import copy
 import os
 import pathlib
 import warnings
@@ -395,3 +396,30 @@ def create_mts_return_home_adj_factor_dvectors(
     )
 
     return dvec_prod, dvec_attr
+
+
+def filter_segments(custom_seg_list, df):
+    """
+    Filters segment objects by keeping only values present in df_reshaped.
+
+    Parameters
+    ----------
+    custom_seg_list : list
+        List of segment objects (each having .name and .values attributes).
+    df : pd.DataFrame
+        DataFrame to filter categories against.
+
+    Returns
+    -------
+    list
+        List of filtered segment copies.
+    """
+    filtered_seg_list = []
+    for seg in custom_seg_list:
+        seg_copy = copy.deepcopy(seg)
+        col_name = seg_copy.name
+        seg_unique = set(df[col_name].unique())
+        seg_copy.values = {i: j for i, j in seg_copy.values.items() if i in seg_unique}
+        filtered_seg_list.append(seg_copy)
+
+    return filtered_seg_list
