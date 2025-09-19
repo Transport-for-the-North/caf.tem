@@ -17,6 +17,7 @@ import pandas as pd
 
 # Third Party
 import caf.base as cb
+import caf.toolkit as ctk
 
 
 # pylint: disable =too-many-positional-arguments,too-few-public-methods
@@ -604,6 +605,8 @@ class TEMExportPaths:
             model_zoning=model_zoning,
             agg_zoning=agg_zoning,
         )
+
+class MainConfig(Base)
 
 
 # pylint: enable =too-many-positional-arguments,too-few-public-methods
