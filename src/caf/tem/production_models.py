@@ -97,9 +97,7 @@ class HBProductionModel:
         self.mts_return_home_adj_factor_path = mts_return_home_adj_factor_path
         self.zone_trans = translation
 
-        _log_fname = "HBProductionModel_log.log"
-        logger_name = f"placeholder.{self.__class__.__name__}"
-        self._logger = logging.getLogger(logger_name)
+        self._logger = logging.getLogger(__name__)
 
     def run(
         self,
@@ -529,10 +527,11 @@ class HBProductionModel:
             raise SegmentationError(
                 "Segment 'tp_return' (Return Time Period) must be present in either the phi factor DVector or the mode-time split DVector."
             )
-
-        tem_return_home_tripends_production_mts = (
-            tem_return_home_tripends_productions * mts_return_home
-        )
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=SegmentationWarning)
+            tem_return_home_tripends_production_mts = (
+                tem_return_home_tripends_productions * mts_return_home
+            )
         mts_return_home_adj = self._read_mts_return_home_adjustment()
 
         tem_return_home_tripends_production_adj = self._adjust_mts_production_return_home(
@@ -598,7 +597,9 @@ class HBProductionModel:
             tem_filtered = tem_production.filter_segment_value("p", p_val, keep_filtered=True)
 
             # Multiply and aggregate
-            result = tem_filtered * phi
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", category=SegmentationWarning)
+                result = tem_filtered * phi
             result = result.aggregate(segs=agg_segments)
 
             # Accumulate results
@@ -709,12 +710,8 @@ class NHBProductionModel:
         self.model_zoning = self.model.model_zoning
         self.agg_zoning = self.model.agg_zoning
 
-        _log_fname = "NHBProductionModel_log.log"
-        logger_name = f"placeholder.{self.__class__.__name__}"
-        # log_file_path = Path(self.model.export_home) / _log_fname
-        self._logger = logging.getLogger(logger_name)
+        self._logger = logging.getLogger(__name__)
 
-    #
     def run(
         self,
         export_pure_demand: bool = True,
@@ -880,5 +877,6 @@ class NHBProductionModel:
             warnings.simplefilter("ignore", category=SegmentationWarning)
             mts_production = pure_production * mts
         if not math.isclose(mts_production.sum(), pure_production.sum()):
-            warnings.warn("mts has changed the total.")
+            warnings.warn(f"mts has changed the total. Pre-mts={pure_production.sum()}"
+                          f"post-mts={mts_production.sum()}.", stacklevel=2)
         return mts_production

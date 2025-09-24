@@ -129,9 +129,7 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
         self.agg_zoning = agg_zoning
         self.zone_trans = translation
 
-        _log_fname = "AttractionModel_log.log"
-        logger_name = f"{self.__class__.__name__}"
-        self._logger = logging.getLogger(logger_name)
+        self._logger = logging.getLogger(__name__)
 
     def run(  # pylint:disable=too-many-positional-arguments,too-many-locals,too-many-branches
         self,
@@ -302,7 +300,7 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
             for p, v in seg_dict.items():
                 seg_dict_sum += v.sum()
             if not tem_dvec.sum_is_close(seg_dict_sum, 0.01, 100):
-                print(
+                self._logger.warning(
                     f"The sum of the TEM Segmented segmented attraction (split by TEM Production) does not match the expected sum.\n"
                     f"Expected: {seg_dict_sum}\nGot: {tem_dvec.sum()}"
                 )
@@ -341,6 +339,7 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
     def _read_trip_rate(self, p: int) -> cb.DVector:
         """Read one purpose-specific trip rates DVector, from the path given in the constructor."""
         # Each trip rate file is explicitly defined in the input dictionary by purpose HB Attraction Model, similar assumption for NHB
+        self._logger.info(f"Loading in purpose {p} trip rates.")
         if self.trip_rates_paths[p].name.endswith("csv"):
             trip_rate = pd.read_csv(self.trip_rates_paths[p], index_col=0).squeeze()
             trip_rate.index.name = self.agg_zoning.column_name
@@ -351,10 +350,11 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
 
     def _read_mts(self) -> cb.DVector:
         """Read the mode-time split (MTS) DVector, from the path given in the constructor."""
+        self._logger.info(f"Loading mode time splits from {self.mts_path}.")
         mts = cb.DVector.load(self.mts_path)
         return mts
 
-    def _read_mts_return_home(self, normalize: bool = True) -> cb.DVector:
+    def _read_mts_return_home(self, mts_segs: list[str]) -> cb.DVector:
         """
         Reads the mode-time split (MTS) DVector, converts it into a normalized share (rho),
         and aligns it with the TEM Model zoning system.
@@ -371,55 +371,13 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
             A DVector containing normalized mode-time splits reshaped by tfn_at.
         """
         # Load the raw DVector
+        self._logger.info(f"Loading return home mode time splits from {self.mts_return_home_path}.")
         trips = cb.DVector.load(self.mts_return_home_path)
-        trips_data = trips.data.reset_index()
+        full_seg = trips.segmentation.naming_order
+        agg_segs = [i for i in full_seg if i not in mts_segs]
 
-        # Extract segmentation
-        segs = trips.segmentation.naming_order
-        custom_seg = [seg for seg in segs if seg in custom_segments]
-        enum_seg = [seg for seg in segs if seg not in custom_segments]
-
-        # Filter only relevant custom segments
-        custom_seg_list = [getattr(SegTuple, seg_name) for seg_name in custom_seg]
-        custom_seg_list_filtered = utils.filter_segments(custom_seg_list, trips_data)
-
-        # Reshape 1..20 columns into long format
-        mts_data = trips_data.melt(
-            id_vars=["p_return", "m", "tp_return"],
-            value_vars=list(range(1, 21)),
-            var_name="tfn_at",
-            value_name="trips",
-        )
-
-        # Compute group totals depending on normalization setting
-        group_cols = ["tfn_at", "p_return"] + (["tp_return"] if normalize else [])
-        mts_data["total_trips"] = mts_data.groupby(group_cols)["trips"].transform("sum")
-
-        # Normalize to proportions
-        mts_data["rho"] = mts_data["trips"] / mts_data["total_trips"]
-
-        # Pivot back to wide format (tfn_at as columns, rho as values)
-        by_mode_reshaped = mts_data.pivot_table(
-            index=["p_return", "tp_return", "m"],
-            columns="tfn_at",
-            values="rho",
-            aggfunc="sum",
-        )
-
-        # Wrap result into a new DVector
-        mts = cb.DVector(
-            segmentation=cb.Segmentation(
-                cb.SegmentationInput(
-                    enum_segments=enum_seg,
-                    naming_order=segs,
-                    custom_segments=custom_seg_list_filtered,
-                )
-            ),
-            import_data=by_mode_reshaped,
-            zoning_system=trips.zoning_system,
-        )
-
-        return mts
+        mts = trips / trips.aggregate(agg_segs)
+        return mts#.rename_segment({'p_return':'p', 'tp_return':'tp'})
 
     def _read_adj_factors(self) -> dict[str, cb.DVector]:
         """Read trip-rate adjustment factors."""
@@ -570,7 +528,7 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
         """Check that sum of all purpose-specific DVectors match following the application of MTS to Pure Attractions."""
         for p in mts_dict.keys():
             if not mts_dict[p].sum_is_close(attr_dict[p], 0.01, 100):
-                print(
+                self._logger.warning(
                     f"The sum of mode-time split, of the Pure Attractions for purpose {p}, does not match the expected sum.\n"
                     f"Expected: {attr_dict[p].sum()}\nGot: {mts_dict[p].sum()}\n"
                 )
@@ -643,7 +601,7 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
         """Check that the sum of all purpose-specific DVectors match following the application of TEM Production Segmentation."""
         for p in seg_dict.keys():
             if not seg_dict[p].sum_is_close(mts_dict[p], 0.01, 100):
-                print(
+                self._logger.warning(
                     f"The sum of Segmented MTS Attractions, of the pre-segmented MTS Attractions for purpose {p}, does not match the expected sum.\n"
                     f"Expected: {mts_dict[p].sum()}\nGot: {seg_dict[p].sum()}\n"
                 )
@@ -707,20 +665,26 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
         tem_return_home_tripends_attraction = self.return_home_trip_ends(
             tem_attraction, aggregation_segments
         )
-        mts_return_home = self._read_mts_return_home(normalize=True)
+        mts_segs = [i for i in['m','tp_return'] if i not in tem_return_home_tripends_attraction.segmentation.names]
+        if len(mts_segs) > 0:
 
-        # Check if 'tp_return' exists in either segmentation
-        tp_in_tem = "tp_return" in tem_attraction.segmentation.naming_order
-        tp_in_mts = "tp_return" in mts_return_home.segmentation.naming_order
+            mts_return_home = self._read_mts_return_home(mts_segs=mts_segs)
 
-        if not (tp_in_tem or tp_in_mts):
-            raise SegmentationError(
-                "Segment 'tp_return' (Return Time Period) must be present in either the phi factor DVector or the mode-time split DVector."
-            )
+            # Check if 'tp_return' exists in either segmentation
+            tp_in_tem = "tp_return" in tem_attraction.segmentation.naming_order
+            tp_in_mts = "tp_return" in mts_return_home.segmentation.naming_order
 
-        tem_return_home_tripends_attraction_mts = (
-            tem_return_home_tripends_attraction * mts_return_home
-        )
+            if not (tp_in_tem or tp_in_mts):
+                raise SegmentationError(
+                    "Segment 'tp_return' (Return Time Period) must be present in either the phi factor DVector or the mode-time split DVector."
+                )
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", category=SegmentationWarning)
+                tem_return_home_tripends_attraction_mts = (
+                    tem_return_home_tripends_attraction * mts_return_home
+                )
+        else:
+            tem_return_home_tripends_attraction_mts = tem_return_home_tripends_attraction
         mts_return_home_adj = self._read_mts_return_home_adjustment()
 
         tem_return_home_tripends_attraction_adj = self._adjust_mts_attraction_return_home(
@@ -761,7 +725,9 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
             tem_filtered = tem_attraction.filter_segment_value("p", p_val, keep_filtered=True)
 
             # Multiply and aggregate
-            result = tem_filtered * phi
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", category=SegmentationWarning)
+                result = tem_filtered * phi
             result = result.aggregate(segs=agg_segments)
 
             # Accumulate results
