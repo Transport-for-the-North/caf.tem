@@ -1,4 +1,9 @@
-"""Process Production model."""
+"""Process Production model.
+
+This module defines classes for Home-Based (HB) and Non-Home-Based (NHB) production modeling
+within the Trip End Model (TEM) framework. It provides methods for reading input data,
+applying trip rates, mode-time splits, adjustments, and exporting results.
+"""
 
 # -*- coding: utf-8 -*-
 from __future__ import annotations
@@ -29,40 +34,36 @@ custom_segments = Tuples._fields
 
 class HBProductionModel:
     """
-    The Home-Based (HB) Production Model class of caf.tem
+    Home-Based (HB) Production Model for the Trip End Model (TEM).
 
-    Paramaters
+    This class handles the estimation of home-based trip productions by reading population
+    and trip rate data, applying segmentation and adjustment factors, multiplying population
+    by trip rates, applying mode-time splits, and exporting results.
+
+    Parameters
     ----------
-    model : caf.tem.ProductionModelPaths
-        The HB Production Model paths for exporting data.
-        These are automatically created in the Trip End Model (TEM), of which this HB Production Model is a child.
-
-    population_paths : Dict[int, os.PathLike]
-        Dictionary of {year: population_data_path} pairs.
-        Population data should be in DVector format with either .dvec or .hdf extension.
-
-    pop_trans_path : os.Pathlike
-        The path to the translation vector between the zoning of the input population DVector and the Trip End Model's Output Zoning.
-        The translation vector should be a .csv file.
-
+    model : ProductionModelPaths
+        Paths for exporting HB production model data.
+    population : dict[int, Landuse]
+        Mapping of year to population land use data.
     trip_rates_path : os.PathLike
-        The path to the production trip rates.
-        Trip rates data should be in DVector format with either .dvec or .hdf extension.
-
-    trip_rates_adjustment_path : os.PathLike
-        TODO description
-
+        Path to the production trip rates DVector file.
+    trip_rate_adjustment_path : os.PathLike
+        Path to adjustment factors for trip rates.
     mts_path : os.PathLike
-        The path to HB production mode-time splits (MTS).
-        MTS data should be in DVector format with either .dvec or .hdf extension.
-
+        Path to mode-time split (MTS) DVector file.
     mts_adjustment_path : os.PathLike
-        TODO description
-
-    tem_segmentation : list[str]
-        TODO
-
-
+        Path to adjustment factors for MTS.
+    tem_segmentation : cb.Segmentation
+        Segmentation object for TEM output.
+    translation : pd.DataFrame
+        DataFrame for translating zone identifiers.
+    phi_factors_path : os.PathLike, optional
+        Path to phi factor files for return-home calculations.
+    mts_return_home_path : os.PathLike, optional
+        Path to MTS return-home DVector file.
+    mts_return_home_adj_factor_path : os.PathLike, optional
+        Path to adjustment factors for MTS return-home.
     """
 
     def __init__(
@@ -79,9 +80,7 @@ class HBProductionModel:
         mts_return_home_path: os.PathLike | None = None,
         mts_return_home_adj_factor_path: os.PathLike | None = None,
     ):
-        """
-        - Assigns class attributes
-        """
+        # ## Assign ## #
         self.model = model
         self.population = population
         self.trip_rates_path = trip_rates_path
@@ -109,51 +108,32 @@ class HBProductionModel:
         return_tripends: bool = False,
     ) -> None:
         """
-        Runs the HB Production model.
+        Run the HB Production model for each year.
 
-        Completes the following steps for each year:
-            - Reads in the land use population data given in the constructor.
-            - Reads in the trip rates data given in the constructor.
-            - Multiplies the population and trip rates on relevant segments,
-              producing "pure demand".
-            - Optionally writes out a pickled DVector of "pure demand" at
-              self.export_paths.pure_production[year]
-            - Optionally writes out a number of "pure demand" reports, if
-              reports is True.
-            - Reads in the mode-time splits given in the constructor.
-            - Multiplies the "pure demand" and mode-time splits on relevant
-              segments, producing "fully segmented demand".
-            - Optionally writes out a pickled DVector of "fully segmented demand"
-              at self.export_paths.fully_segmented[year] if export_fully_segmented
-              is True.
-            - Aggregates this demand into self._tem_segmentation_name segmentation,
-              producing "notem segmented demand".
-            - Optionally writes out a number of "notem segmented demand"
-              reports, if reports is True.
-            - Optionally writes out a pickled DVector of "notem segmented demand"
-              at self.export_paths.notem_segmented[year] if export_notem_segmentation
-              is True.
-            - Finally, returns "notem segmented demand" as a DVector.
+        Steps:
+            - Reads population and trip rates.
+            - Multiplies population by trip rates to create pure production.
+            - Applies adjustment factors.
+            - Exports pure production and reports if requested.
+            - Applies mode-time splits (MTS) and adjustments.
+            - Exports MTS production and reports if requested.
+            - Aggregates to TEM segmentation and exports if requested.
+            - Optionally processes return-home trip ends.
 
         Parameters
         ----------
-        export_pure_production:
-            Whether to export the pure demand to disk or not.
-            Will be written out to: self.export_paths.pure_production[year]
-
-        export_mts_production:
-            Whether to export production trip-ends after mode time splits are applied.
-
-        export_tem_segmentation:
-            Whether to export the notem segmented demand to disk or not.
-            Will be written out to: self.export_paths.notem_segmented[year]
-
-        export_return_home_productions:
-            Weather to process return home Productions
-
-        export_reports:
-            Whether to output reports while running. All reports will be
-            written out to self.report_home.
+        export_pure_production : bool
+            Export pure production to disk.
+        export_mts_production : bool
+            Export MTS production to disk.
+        export_tem_segmentation : bool
+            Export TEM-segmented production to disk.
+        export_reports : bool
+            Output reports during processing.
+        mts_geo_constraint : cb.ZoningSystem, optional
+            Zoning system for constraining MTS adjustment.
+        return_tripends : bool
+            Whether to process return-home productions.
 
         Returns
         -------
@@ -284,13 +264,25 @@ class HBProductionModel:
     # # # FUNCTIONS # # #
 
     def _read_trip_rates(self) -> cb.DVector:
+        """
+        Read the trip rates DVector from the specified path.
+
+        Returns
+        -------
+        cb.DVector
+            Loaded trip rates vector.
+        """
         trip_rates = cb.DVector.load(self.trip_rates_path)
         return trip_rates
 
     def _read_mts(self) -> cb.DVector:
         """
-        - Reads the mode-time split (MTS) DVector, from the path given in the constructor
-        - Translates the MTS DVector zoning system to the TEM Model zoning system
+        Read the mode-time split (MTS) DVector from the specified path.
+
+        Returns
+        -------
+        cb.DVector
+            Loaded MTS vector.
         """
         mts = cb.DVector.load(self.mts_path)
         # Ensure zoning system of mts matches the TEM Model zoning system
@@ -299,75 +291,38 @@ class HBProductionModel:
 
         return mts
 
-    def _read_mts_return_home(self, normalize: bool = True) -> cb.DVector:
+    def _read_mts_return_home(self, mts_segs: list[str]) -> cb.DVector:
         """
-        Reads the mode-time split (MTS) DVector, converts it into a normalized share (rho),
-        and aligns it with the TEM Model zoning system.
+        Read the mode-time split DVector for return-home trips and normalize it.
 
         Parameters
         ----------
-        normalize : bool, default=True
-            If True, normalize trips within (tfn_at, hh_type, p_return, tp_return).
-            If False, normalize trips within (tfn_at, hh_type, p_return).
+        mts_segs : list[str]
+            Segments to normalize over.
 
         Returns
         -------
         cb.DVector
-            A DVector containing normalized mode-time splits reshaped by tfn_at.
+            Normalized mode-time splits reshaped by tfn_at.
         """
         # Load the raw DVector
+        self._logger.info(f"Loading return home mode time splits from {self.mts_return_home_path}.")
         trips = cb.DVector.load(self.mts_return_home_path)
-        trips_data = trips.data.reset_index()
+        full_seg = trips.segmentation.naming_order
+        agg_segs = [i for i in full_seg if i not in mts_segs]
 
-        # Extract segmentation
-        segs = trips.segmentation.naming_order
-        custom_seg = [seg for seg in segs if seg in custom_segments]
-        enum_seg = [seg for seg in segs if seg not in custom_segments]
-
-        # Filter only relevant custom segments
-        custom_seg_list = [getattr(SegTuple, seg_name) for seg_name in custom_seg]
-        custom_seg_list_filtered = utils.filter_segments(custom_seg_list, trips_data)
-
-        # Reshape 1..20 columns into long format
-        mts_data = trips_data.melt(
-            id_vars=["hh_type", "p_return", "m", "tp_return"],
-            value_vars=list(range(1, 21)),
-            var_name="tfn_at",
-            value_name="trips",
-        )
-
-        # Compute group totals depending on normalization setting
-        group_cols = ["tfn_at", "hh_type", "p_return"] + (["tp_return"] if normalize else [])
-        mts_data["total_trips"] = mts_data.groupby(group_cols)["trips"].transform("sum")
-
-        # Normalize to proportions
-        mts_data["rho"] = mts_data["trips"] / mts_data["total_trips"]
-
-        # Pivot back to wide format (tfn_at as columns, rho as values)
-        by_mode_reshaped = mts_data.pivot_table(
-            index=["hh_type", "p_return", "tp_return", "m"],
-            columns="tfn_at",
-            values="rho",
-            aggfunc="sum",
-        )
-
-        # Wrap result into a new DVector
-        mts = cb.DVector(
-            segmentation=cb.Segmentation(
-                cb.SegmentationInput(
-                    enum_segments=enum_seg,
-                    naming_order=segs,
-                    custom_segments=custom_seg_list_filtered,
-                )
-            ),
-            import_data=by_mode_reshaped,
-            zoning_system=trips.zoning_system,
-        )
-
+        mts = trips / trips.aggregate(agg_segs)
         return mts
 
     def _read_trip_rate_adjustment(self):
-        """Reads in trip rates adjustment factors"""
+        """
+        Read trip rate adjustment factors from the specified path.
+
+        Returns
+        -------
+        cb.DVector or None
+            Adjustment factors or None if not provided.
+        """
         if self.trip_rate_adjustment_path is None:
             return None
 
@@ -377,7 +332,14 @@ class HBProductionModel:
         return adj_factors
 
     def _read_mts_adjustment(self):
-        """Reads in MTS adjustment factors"""
+        """
+        Read MTS adjustment factors from the specified path.
+
+        Returns
+        -------
+        cb.DVector or None
+            Adjustment factors or None if not provided.
+        """
         if self.mts_adjust_path is None:
             return None
 
@@ -387,7 +349,14 @@ class HBProductionModel:
         return adj_factors
 
     def _read_mts_return_home_adjustment(self):
-        """Reads in MTS adjustment factors"""
+        """
+        Read MTS adjustment factors for return-home trips.
+
+        Returns
+        -------
+        cb.DVector or None
+            Adjustment factors or None if not provided.
+        """
         if self.mts_adjust_path is None:
             return None
 
@@ -399,8 +368,20 @@ class HBProductionModel:
     def _create_pure_production(
         self, population: cb.DVector, trip_rates: cb.DVector
     ) -> cb.DVector:
-        """Creates Pure Production
-        - Multiplies the population landuse by the trip rates, creating pure production
+        """
+        Create pure production by multiplying population by trip rates.
+
+        Parameters
+        ----------
+        population : cb.DVector
+            Population land use vector.
+        trip_rates : cb.DVector
+            Trip rates vector.
+
+        Returns
+        -------
+        cb.DVector
+            Pure production vector.
         """
         self._logger.info(" Calculating pure production")
         with warnings.catch_warnings():
@@ -410,8 +391,20 @@ class HBProductionModel:
         return pure_production
 
     def _adjust_production(self, production, adj_factors):
-        """Adjusts the Pure Production
-        -
+        """
+        Adjust pure production using adjustment factors.
+
+        Parameters
+        ----------
+        production : cb.DVector
+            Pure production vector.
+        adj_factors : cb.DVector or None
+            Adjustment factors.
+
+        Returns
+        -------
+        cb.DVector
+            Adjusted production vector.
         """
         if adj_factors is None:
             return production
@@ -425,7 +418,19 @@ class HBProductionModel:
         self, pure_production: cb.DVector, mts: cb.DVector
     ) -> cb.DVector:
         """
-        - Multiplies the Pure Production by the mode-time split DVector, as passed into the constructor
+        Apply mode-time split to pure production.
+
+        Parameters
+        ----------
+        pure_production : cb.DVector
+            Pure production vector.
+        mts : cb.DVector
+            Mode-time split vector.
+
+        Returns
+        -------
+        cb.DVector
+            MTS production vector.
         """
         self._logger.info(" Applying mode time split")
         with warnings.catch_warnings():
@@ -440,7 +445,23 @@ class HBProductionModel:
         adj_factors: cb.DVector,
         geo_constraint: cb.ZoningSystem = None,
     ) -> cb.DVector:
-        """ """
+        """
+        Adjust MTS production using adjustment factors and optional geographic constraint.
+
+        Parameters
+        ----------
+        mts_production : cb.DVector
+            MTS production vector.
+        adj_factors : cb.DVector or None
+            Adjustment factors.
+        geo_constraint : cb.ZoningSystem, optional
+            Zoning system for constraining adjustment.
+
+        Returns
+        -------
+        cb.DVector
+            Adjusted MTS production vector.
+        """
         if adj_factors is None:
             return mts_production
 
@@ -465,7 +486,23 @@ class HBProductionModel:
         adj_factors: cb.DVector,
         geo_constraint: cb.ZoningSystem = None,
     ) -> cb.DVector:
-        """ """
+        """
+        Adjust MTS production for return-home trips using adjustment factors.
+
+        Parameters
+        ----------
+        mts_production : cb.DVector
+            MTS production vector for return-home trips.
+        adj_factors : cb.DVector or None
+            Adjustment factors.
+        geo_constraint : cb.ZoningSystem, optional
+            Zoning system for constraining adjustment.
+
+        Returns
+        -------
+        cb.DVector
+            Adjusted MTS production vector for return-home trips.
+        """
         if adj_factors is None:
             return mts_production
 
@@ -486,8 +523,18 @@ class HBProductionModel:
         return mts_production_adj
 
     def _create_tem_production(self, mts_production: cb.DVector) -> cb.DVector:
-        """TEM Production
-        - Aggregates MTS Production to TEM Segmentation
+        """
+        Aggregate MTS production to TEM segmentation.
+
+        Parameters
+        ----------
+        mts_production : cb.DVector
+            MTS production vector.
+
+        Returns
+        -------
+        cb.DVector
+            TEM-segmented production vector.
         """
         self._logger.info(" Aggregating to TEM Output Segmentation")
         tem_production = mts_production.aggregate(self.tem_segmentation)
@@ -495,6 +542,19 @@ class HBProductionModel:
         return tem_production
 
     def _create_tem_return_home_production(self, tem_production: cb.DVector):
+        """
+        Create TEM-segmented return-home production vector.
+
+        Parameters
+        ----------
+        tem_production : cb.DVector
+            TEM-segmented production vector.
+
+        Returns
+        -------
+        cb.DVector
+            Adjusted return-home production vector.
+        """
         self._logger.info("Processing return home trips")
 
         # Reading one Phi factor Dvec to get its segmentation
@@ -517,21 +577,25 @@ class HBProductionModel:
         tem_return_home_tripends_productions = self.return_home_trip_ends(
             tem_production, aggregation_segments
         )
-        mts_return_home = self._read_mts_return_home(normalize=True)
+        mts_segs = [i for i in['m','tp_return'] if i not in tem_return_home_tripends_productions.segmentation.names]
+        if len(mts_segs) > 0:
+            mts_return_home = self._read_mts_return_home(mts_segs)
 
-        # Check if 'tp_return' exists in either segmentation
-        tp_in_tem = "tp_return" in tem_production.segmentation.naming_order
-        tp_in_mts = "tp_return" in mts_return_home.segmentation.naming_order
+            # Check if 'tp_return' exists in either segmentation
+            tp_in_tem = "tp_return" in tem_production.segmentation.naming_order
+            tp_in_mts = "tp_return" in mts_return_home.segmentation.naming_order
 
-        if not (tp_in_tem or tp_in_mts):
-            raise SegmentationError(
-                "Segment 'tp_return' (Return Time Period) must be present in either the phi factor DVector or the mode-time split DVector."
-            )
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", category=SegmentationWarning)
-            tem_return_home_tripends_production_mts = (
-                tem_return_home_tripends_productions * mts_return_home
-            )
+            if not (tp_in_tem or tp_in_mts):
+                raise SegmentationError(
+                    "Segment 'tp_return' (Return Time Period) must be present in either the phi factor DVector or the mode-time split DVector."
+                )
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", category=SegmentationWarning)
+                tem_return_home_tripends_production_mts = (
+                    tem_return_home_tripends_productions * mts_return_home
+                )
+        else:
+            tem_return_home_tripends_production_mts = tem_return_home_tripends_productions
         mts_return_home_adj = self._read_mts_return_home_adjustment()
 
         tem_return_home_tripends_production_adj = self._adjust_mts_production_return_home(
@@ -544,7 +608,7 @@ class HBProductionModel:
 
     def _read_phi_factor_dvec(self, p: int):
         """
-        Reads a phi factor DVector file for the given purpose segment.
+        Read a phi factor DVector file for the given purpose segment.
 
         Parameters
         ----------
@@ -556,6 +620,10 @@ class HBProductionModel:
         cb.DVector
             Loaded phi factor DVector.
 
+        Raises
+        ------
+        FileNotFoundError
+            If the phi factor file does not exist.
         """
         phi_factors_file_path = Path(
             os.path.join(self.phi_factors_path, f"phi_factors_P_p{p}_reg_phi.dvec")
@@ -571,8 +639,10 @@ class HBProductionModel:
 
     def return_home_trip_ends(self, tem_production, agg_segments):
         """
-        Computes return-home trip ends by applying phi factors to filtered production vectors,
-        then aggregating over the specified segment groups.
+        Compute return-home trip ends by applying phi factors.
+         
+        Applied phi_factors to filtered production vectors, then aggregates over the specified 
+        segment groups.
 
         Parameters
         ----------
@@ -617,87 +687,36 @@ class HBProductionModel:
 
 class NHBProductionModel:
     """
-    Sets up and validates arguments for the NHB Production model.
+    Non-Home-Based (NHB) Production Model for the Trip End Model (TEM).
+
+    This class sets up and validates arguments for the NHB production model, reads input data,
+    applies trip rates and mode-time splits, and exports results.
 
     Parameters
     ----------
-    hb_attraction_paths:
-        Dictionary of {year: notem_segmented_HB_attractions_data} pairs.
-        These paths should come from nd.HBAttraction model and should
-        be pickled Dvector paths.
-
-    population_paths:
-        Dictionary of {year: land_use_population_data} pairs.
-
-    trip_rates_path:
-        The path to the NHB production trip rates.
-        Should have the columns as defined in:
-        NHBProductionModel._target_cols['nhb_trip_rate']
-
-    mts_path:
-        The path to NHB production time split.
-        Should have the columns as defined in:
-        NHBProductionModel._target_cols['tp']
-
-    export_home:
-        Path to export NHB Production outputs.
-
-    constraint_paths:
-        Dictionary of {year: constraint_path} pairs.
-        Must contain the same keys as land_use_paths, but it can contain
-        more (any extras will be ignored).
-        If set - will be used to constrain the productions - a report will
-        be written before and after.
-
-    process_count:
-        The number of processes to create in the Pool. Typically this
-        should not exceed the number of cores available.
-        Defaults to consts.PROCESS_COUNT.
+    hb_attraction_model : AttractionModelPaths
+        Paths to HB attraction model outputs for balancing.
+    model : ProductionModelPaths
+        Paths for exporting NHB production model data.
+    trip_rates_path : os.PathLike
+        Path to NHB production trip rates.
+    balance_production : Any
+        Balancing configuration or object.
+    mts_path : str
+        Path to NHB production time split.
+    return_segmentation : Any
+        Segmentation object for return trips.
     """
 
     def __init__(
         self,
-        hb_attraction_model: AttractionModelPaths,  # HB Attraction Paths for balancing - not user input - assume these are pure attraction.
+        hb_attraction_model: AttractionModelPaths,
         model: ProductionModelPaths,
         trip_rates_path: os.PathLike,
         balance_production,
         mts_path: str,
         return_segmentation,
     ) -> None:
-        _log_fname = "HBProductionModel_log.log"
-        """The Home-Based Production Model of NoTEM
-
-        The production model can be ran by calling the class run() method.
-
-        Attributes
-        ----------
-        population_paths: Dict[int, os.PathLike]:
-            Dictionary of {year: land_use_employment_data} pairs. As passed
-            into the constructor.
-
-        trip_rates_path: str
-            The path to the production trip rates. As passed into the constructor.
-
-        mts_path: str
-            The path to production mode-time splits. As passed into the
-            constructor.
-
-        constraint_paths: Dict[int, os.PathLike]
-            Dictionary of {year: constraint_path} pairs. As passed into the
-            constructor.
-
-        process_count: int
-            The number of processes to create in the Pool. As passed into the
-            constructor.
-
-        years: List[int]
-            A list of years that the model will run for. Derived from the keys of
-            land_use_paths
-
-        See HBProductionModelPaths for documentation on:
-            "path_years, export_home, report_home, export_paths, report_paths"
-        """
-
         ## Assign
         self.hb_attraction_model = hb_attraction_model
         self.hb_attraction_paths = hb_attraction_model.export_paths.tem_segmented_from_home
@@ -719,52 +738,25 @@ class NHBProductionModel:
         export_reports: bool = True,
     ) -> None:
         """
-        Runs the NHB Production model.
+        Run the NHB Production model for each year.
 
-        Completes the following steps for each year:
-            - Reads in the notem segmented HB attractions compressed pickle
-              given in the constructor.
-            - Removes time period segmentation from the above data.
-            - Reads in the land use population data given in the constructor,
-              extracts the mapping of msoa_zone_id to tfn_at.
-            - Reads in the NHB trip rates data given in the constructor.
-            - Multiplies the HB attractions and NHB trip rates on relevant segments,
-              producing "pure NHB demand".
-            - Optionally writes out a pickled DVector of "pure NHB demand" at
-              self.export_paths.pure_demand[year]
-            - Optionally writes out a number of "pure demand" reports, if
-              reports is True.
-            - Reads in the time splits given in the constructor.
-            - Multiplies the "pure NHB demand" and time splits on relevant
-              segments, producing "fully segmented demand".
-            - Optionally writes out a pickled DVector of "fully segmented demand"
-              at self.export_paths.fully_segmented[year] if export_fully_segmented
-              is True.
-            - Renames nhb_p and nhb_m as p and m respectively,
-              producing "notem segmented demand".
-            - Optionally writes out a number of "notem segmented demand"
-              reports, if reports is True.
-            - Optionally writes out a pickled DVector of "notem segmented demand"
-              at self.export_paths.notem_segmented[year] if export_notem_segmentation
-              is True.
+        Steps:
+            - Reads HB attraction data.
+            - Removes time period segmentation.
+            - Reads NHB trip rates.
+            - Multiplies HB attractions by NHB trip rates to create pure NHB demand.
+            - Exports pure demand and reports if requested.
+            - Applies mode-time splits (MTS).
+            - Exports TEM-segmented production if requested.
 
         Parameters
         ----------
-        export_nhb_pure_demand:
-            Whether to export the pure NHB demand to disk or not.
-            Will be written out to: self.export_paths.pure_demand[year]
-
-        export_fully_segmented:
-            Whether to export the fully segmented demand to disk or not.
-            Will be written out to: self.export_paths.fully_segmented[year]
-
-        export_notem_segmentation:
-            Whether to export the notem segmented demand to disk or not.
-            Will be written out to: self.export_paths.notem_segmented[year]
-
-        export_reports:
-            Whether to output reports while running. All reports will be
-            written out to self.report_home.
+        export_pure_demand : bool
+            Export pure NHB demand to disk.
+        export_tem_segmentation : bool
+            Export TEM-segmented NHB production to disk.
+        export_reports : bool
+            Output reports during processing.
 
         Returns
         -------
@@ -808,7 +800,12 @@ class NHBProductionModel:
 
     def _read_trip_rates(self) -> cb.DVector:
         """
-        - TODO
+        Read the NHB trip rates DVector from the specified path.
+
+        Returns
+        -------
+        cb.DVector
+            Loaded NHB trip rates vector.
         """
         self._logger.info("Loading the trip rates data")
         trip_rates = cb.DVector.load(self.trip_rates_path)
@@ -817,8 +814,12 @@ class NHBProductionModel:
 
     def _read_mts(self) -> cb.DVector:
         """
-        - Reads the mode-time split (MTS) DVector, from the path given in the constructor
-        - Translates the MTS DVector zoning system to the TEM Model zoning system
+        Read the mode-time split (MTS) DVector for NHB production.
+
+        Returns
+        -------
+        cb.DVector
+            Loaded MTS vector.
         """
         self._logger.info("Loading the mode time split data")
         mts = cb.DVector.load(self.mts_path)
@@ -827,9 +828,19 @@ class NHBProductionModel:
 
     def _read_hb_attraction(self, year: int) -> cb.DVector:
         """
-        - Reads the TEM Segmented HB Attraction file, as written by the HB Attraction model
-        - Removes time period from the HB Attraction DVector segmentation
-        - Changes the purpose and mode segmentations, to explicit home-based purpose and home-based mode segmentations
+        Read and process the TEM-segmented HB Attraction file for a given year.
+
+        Removes time period from segmentation and renames segments for NHB processing.
+
+        Parameters
+        ----------
+        year : int
+            Year key.
+
+        Returns
+        -------
+        cb.DVector
+            Processed HB attraction vector.
         """
         hbattr = cb.DVector.load(
             self.hb_attraction_model.export_paths.tem_segmented_from_home[year]
@@ -848,7 +859,19 @@ class NHBProductionModel:
         self, hbattr: cb.DVector, trip_rates: cb.DVector
     ) -> cb.DVector:
         """
-        - TODO
+        Create pure NHB production by multiplying HB attractions by NHB trip rates.
+
+        Parameters
+        ----------
+        hbattr : cb.DVector
+            HB attraction vector.
+        trip_rates : cb.DVector
+            NHB trip rates vector.
+
+        Returns
+        -------
+        cb.DVector
+            Pure NHB production vector.
         """
         pure_prod = None
         for p in hbattr.segmentation.get_segment("p_hb").int_values:
@@ -873,6 +896,21 @@ class NHBProductionModel:
     def _create_mts_production(
         self, pure_production: cb.DVector, mts: cb.DVector
     ) -> cb.DVector:
+        """
+        Apply mode-time split to pure NHB production.
+
+        Parameters
+        ----------
+        pure_production : cb.DVector
+            Pure NHB production vector.
+        mts : cb.DVector
+            Mode-time split vector.
+
+        Returns
+        -------
+        cb.DVector
+            MTS NHB production vector.
+        """
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=SegmentationWarning)
             mts_production = pure_production * mts
