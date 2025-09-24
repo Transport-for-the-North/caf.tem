@@ -1,54 +1,59 @@
-"""ASSUMPTIONS:"""
+"""Trip End Model (TEM) main class and interface.
+
+This module defines the main TEM class, which coordinates the setup and execution of
+the Home-Based (HB) and Non-Home-Based (NHB) production and attraction models.
+It provides methods for validating input years, initializing child models, and
+managing model configuration and outputs.
+"""
 
 from __future__ import annotations
 import os
 from typing import Literal, Any
 import pandas as pd
 
-
 import caf.base as cb
 from caf.tem.inputs import TEMExportPaths, Scenarios, Landuse
 from caf.tem.attraction_models import AttractionModel
 from caf.tem.production_models import HBProductionModel, NHBProductionModel
 
-
 # pylint: disable =too-many-positional-arguments,too-many-arguments
 class TEM:
     """
-    The Trip End Model (TEM) of caf.tem
+    The Trip End Model (TEM) for the caf.tem package.
+
+    This class manages the configuration, validation, and orchestration of the
+    Home-Based (HB) and Non-Home-Based (NHB) production and attraction models.
+    It provides methods to initialize and run each sub-model, and ensures that
+    all input data is consistent and correctly segmented.
 
     Attributes
     ----------
-    model_years: dict[int]
+    years : list[int]
         The years to run the TEM for.
-
-    scenario: str
-        The TAG Scenario. Core, High, Low, Regional, or Technology.
-
-    output_zoning: str
-        The zoning system for outputs.
-
-    iteration_name: str
-        A name for this TEM Output.
-
-    export_home: os.PathLike
-        The parent directory for exports of this TEM.
-
-    return_segmentation: list[str]
-        Segmentations to return in the output.
-
-
-    Child Models
-    ----------
-    From this parent model class, define:
-    - a Home Based (HB) Production Model
-    - a HB Attraction Model
-    - a non-Home Based (NHB) Production Model
-    - a NHB Attraction Model
-
-
-    ----------
-    Run the TEM by calling the class' run() method once all child models (HB/NHB, Production/Attraction) have been set up.
+    scenario : Scenarios
+        The scenario for the model run (e.g., Core, High, Low, Regional, Technology).
+    output_zoning : cb.ZoningSystem
+        The zoning system for model outputs.
+    agg_zoning : str
+        The aggregation zoning system for reporting.
+    iteration_name : str
+        A name for this TEM output run.
+    export_paths : TEMExportPaths
+        Object managing export and report paths for all sub-models.
+    return_segmentation : cb.Segmentation
+        Segmentation to use for return trips and outputs.
+    zone_trans : pd.DataFrame
+        DataFrame mapping between different zoning systems.
+    hb_production_model : HBProductionModel or None
+        The Home-Based Production Model instance.
+    hb_attraction_model : AttractionModel or None
+        The Home-Based Attraction Model instance.
+    nhb_production_model : NHBProductionModel or None
+        The Non-Home-Based Production Model instance.
+    nhb_attraction_model : AttractionModel or None
+        The Non-Home-Based Attraction Model instance.
+    attraction_model : AttractionModel or None
+        The currently active Attraction Model instance.
     """
 
     def __init__(
@@ -62,6 +67,28 @@ class TEM:
         return_segmentation: list[str] | cb.Segmentation,
         trans_file: os.PathLike,
     ):
+        """
+        Initialize the TEM class and set up configuration and paths.
+
+        Parameters
+        ----------
+        model_years : list[int]
+            The years to run the TEM for.
+        scenario : str
+            The scenario name (must match a value in Scenarios).
+        output_zoning : cb.ZoningSystem
+            The zoning system for model outputs.
+        agg_zoning : str
+            The aggregation zoning system for reporting.
+        iteration_name : str
+            A name for this TEM output run.
+        export_home : os.PathLike
+            The parent directory for exports of this TEM.
+        return_segmentation : list[str] or cb.Segmentation
+            Segmentation(s) to use for return trips and outputs.
+        trans_file : os.PathLike
+            Path to the zone translation CSV file.
+        """
         self.years = model_years
         self.scenario = Scenarios(scenario)
         self.output_zoning = output_zoning
@@ -102,6 +129,10 @@ class TEM:
         dict_name : str
             A descriptive name of the dictionary being checked (used in error messages).
 
+        Raises
+        ------
+        AttributeError
+            If there are extra or missing years in the input dictionary.
         """
         years_set = set(self.years)
         dict_years_set = set(to_check.keys())
@@ -118,7 +149,7 @@ class TEM:
                 f"Missing years are {missing}."
             )
 
-    def HBProductionModel(  # pylint: disable =invalid-name
+    def HBProductionModel(
         self,
         population: dict[int, Landuse],
         trip_rates_path: os.PathLike,
@@ -130,25 +161,34 @@ class TEM:
         mts_adj_path: os.PathLike = None,
     ) -> HBProductionModel:
         """
-        The Home-Based (HB) Production Model of caf.tem
+        Initialize and return the Home-Based (HB) Production Model.
 
-        Run the HB Production Model by calling the object's run() method.
+        This method sets up the HBProductionModel with the provided population and trip rate data,
+        mode-time splits, and optional adjustment and return-home files.
 
-        Attributes
+        Parameters
         ----------
-        population_paths: Dict[int, os.PathLike]:
-            Dictionary of {year: land_use_employment_data} pairs. As passed
-            into the constructor.
+        population : dict[int, Landuse]
+            Dictionary mapping year to Landuse objects for population.
+        trip_rates_path : os.PathLike
+            Path to the production trip rates file.
+        mode_time_splits_path : os.PathLike
+            Path to the mode-time splits file.
+        phi_factors_path : os.PathLike, optional
+            Path to phi factor files for return-home calculations.
+        mts_return_home_path : os.PathLike, optional
+            Path to MTS return-home DVector file.
+        mts_return_home_adj_factor_path : os.PathLike, optional
+            Path to adjustment factors for MTS return-home.
+        adjustment_path : os.PathLike, optional
+            Path to adjustment factors for trip rates.
+        mts_adj_path : os.PathLike, optional
+            Path to adjustment factors for MTS.
 
-        trip_rates_path: str
-            The path to the production trip rates. As passed into the constructor.
-
-        mode_time_splits_path: str
-            The path to production mode-time splits. As passed into the
-            constructor.
-
-        See HBProductionModelPaths for documentation on:
-            "path_years, export_home, report_home, export_paths, report_paths"
+        Returns
+        -------
+        HBProductionModel
+            An initialized HBProductionModel object.
         """
         self.check_years(population, "population")
         self.hb_production_model = HBProductionModel(
@@ -167,7 +207,7 @@ class TEM:
 
         return self.hb_production_model
 
-    def AttractionModel(  # pylint: disable =invalid-name
+    def AttractionModel(
         self,
         trip_rates_paths: dict[int, os.PathLike],
         emp_landuse: dict[int, Landuse],
@@ -183,37 +223,47 @@ class TEM:
         origin: Literal["hb", "nhb"] = "hb",
     ) -> AttractionModel:
         """
-        The Home Based (HB) Attraction Model of caf.tem
+        Initialize and return the Attraction Model (HB or NHB).
 
-        Run the attraction model by calling the class' run() method.
+        This method sets up the AttractionModel with the provided trip rates, land use data,
+        mode-time splits, and optional adjustment and return-home files.
 
-        Attributes
+        Parameters
         ----------
-        trip_rates_paths: Dict[int, os.PathLike]
-            Dictionary of {purpose: trip_rates_data} pairs. As passed into the constructor.
+        trip_rates_paths : dict[int, os.PathLike]
+            Dictionary mapping purpose to trip rates file paths.
+        emp_landuse : dict[int, Landuse]
+            Dictionary mapping year to employment Landuse objects.
+        hh_landuse : dict[int, Landuse]
+            Dictionary mapping year to household Landuse objects.
+        mode_time_splits_path : os.PathLike
+            Path to the mode-time splits file.
+        balance_production : bool, optional
+            Whether to balance attractions to productions (default: True).
+        trip_rate_adjustment_path : os.PathLike, optional
+            Path to adjustment factors for trip rates.
+        mode_time_splits_adjustment_path : os.PathLike, optional
+            Path to adjustment factors for mode-time splits.
+        mts_uni_path : os.PathLike, optional
+            Path to university-specific MTS data.
+        mts_return_home_path : os.PathLike, optional
+            Path to MTS return-home DVector file.
+        mts_return_home_adj_factor_path : os.PathLike, optional
+            Path to adjustment factors for MTS return-home.
+        phi_factors_path : os.PathLike, optional
+            Path to phi factor files for return-home calculations.
+        origin : Literal["hb", "nhb"], optional
+            Whether this is a home-based or non-home-based model (default: "hb").
 
-        emp_landuse: Dict[int, os.PathLike]:
-            Dictionary of {year: land_use_employment_data} pairs. As passed into the constructor.
+        Returns
+        -------
+        AttractionModel
+            An initialized AttractionModel object.
 
-        hh_landuse: Dict[int, os.PathLike]
-            Dictionary of {year: hh_landuse_directory}. As passed into the constructor.
-
-        hh_landuse_prefix: str
-            The prefix of the household landuse data files. As passed into the constructor.
-            Suffixes of household landuse data files are Government Office Region (GOR) codes
-            (i.e. in ["EM", "EoE", "Lon", "NE", "NW", "SE", "SW", "Wales", "WM", "YH", "Scotland"]).
-
-        production_balance_paths: Dict[int, os.PathLike]:
-            Dictionary of {year: path_to_production_to_control_to} pairs. As passed into the constructor.
-
-        hb_mode_time_splits_path: os.PathLike
-            The path to attraction mode time splits file. As passed into the constructor.
-
-        balance_production: bool=True
-            Whether to balance the attractions to the productions.
-
-        See HBAttractionModelPaths for documentation on:
-            "path_years, export_home, report_home, export_paths, report_paths"
+        Raises
+        ------
+        KeyError
+            If a trip rates key is not in the expected segmentation values.
         """
         self.check_years(hh_landuse, "households")
         self.check_years(emp_landuse, "employment")
@@ -268,33 +318,30 @@ class TEM:
 
         return self.attraction_model
 
-    def NHBProductionModel(  # pylint: disable =invalid-name
+    def NHBProductionModel(
         self,
         trip_rates_path: os.PathLike,
         mode_time_splits_path: os.PathLike,
         balance_production: bool = True,
     ) -> NHBProductionModel:
         """
-        Initializes and returns the NHB (Non-Home-Based) Production Model.
+        Initialize and return the Non-Home-Based (NHB) Production Model.
 
-        This method creates an instance of `NHBProductionModelTP`
+        This method sets up the NHBProductionModel with the provided trip rates and mode-time splits.
 
         Parameters
         ----------
         trip_rates_path : os.PathLike
-            Path to the trip rates input file.
-
+            Path to the NHB production trip rates file.
         mode_time_splits_path : os.PathLike
-            Path to the mode-time split input file.
-
+            Path to the mode-time splits file.
         balance_production : bool, optional
-            Whether to balance production totals to match attractions,
-            by default True.
+            Whether to balance production totals to match attractions (default: True).
 
         Returns
         -------
-        NHBProductionModelTP
-            An initialized NHB production model object.
+        NHBProductionModel
+            An initialized NHBProductionModel object.
         """
         self.nhb_production_model = NHBProductionModel(
             self.export_paths.hb_attraction,
@@ -307,9 +354,7 @@ class TEM:
 
         return self.nhb_production_model
 
-
 # pylint: enable =too-many-positional-arguments,too-many-arguments
-
 
 # class TEMInput(BaseConfig):
 #     model_years: list[int]
