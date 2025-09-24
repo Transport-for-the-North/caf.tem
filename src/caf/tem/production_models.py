@@ -306,7 +306,9 @@ class HBProductionModel:
             Normalized mode-time splits reshaped by tfn_at.
         """
         # Load the raw DVector
-        self._logger.info(f"Loading return home mode time splits from {self.mts_return_home_path}.")
+        self._logger.info(
+            f"Loading return home mode time splits from {self.mts_return_home_path}."
+        )
         trips = cb.DVector.load(self.mts_return_home_path)
         full_seg = trips.segmentation.naming_order
         agg_segs = [i for i in full_seg if i not in mts_segs]
@@ -577,7 +579,11 @@ class HBProductionModel:
         tem_return_home_tripends_productions = self.return_home_trip_ends(
             tem_production, aggregation_segments
         )
-        mts_segs = [i for i in['m','tp_return'] if i not in tem_return_home_tripends_productions.segmentation.names]
+        mts_segs = [
+            i
+            for i in ["m", "tp_return"]
+            if i not in tem_return_home_tripends_productions.segmentation.names
+        ]
         if len(mts_segs) > 0:
             mts_return_home = self._read_mts_return_home(mts_segs)
 
@@ -640,8 +646,8 @@ class HBProductionModel:
     def return_home_trip_ends(self, tem_production, agg_segments):
         """
         Compute return-home trip ends by applying phi factors.
-         
-        Applied phi_factors to filtered production vectors, then aggregates over the specified 
+
+        Applied phi_factors to filtered production vectors, then aggregates over the specified
         segment groups.
 
         Parameters
@@ -915,6 +921,9 @@ class NHBProductionModel:
             warnings.simplefilter("ignore", category=SegmentationWarning)
             mts_production = pure_production * mts
         if not math.isclose(mts_production.sum(), pure_production.sum()):
-            warnings.warn(f"mts has changed the total. Pre-mts={pure_production.sum()}"
-                          f"post-mts={mts_production.sum()}.", stacklevel=2)
+            warnings.warn(
+                f"mts has changed the total. Pre-mts={pure_production.sum()}"
+                f"post-mts={mts_production.sum()}.",
+                stacklevel=2,
+            )
         return mts_production

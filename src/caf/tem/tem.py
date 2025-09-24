@@ -16,6 +16,7 @@ from caf.tem.inputs import TEMExportPaths, Scenarios, Landuse
 from caf.tem.attraction_models import AttractionModel
 from caf.tem.production_models import HBProductionModel, NHBProductionModel
 
+
 # pylint: disable =too-many-positional-arguments,too-many-arguments
 class TEM:
     """
@@ -353,6 +354,7 @@ class TEM:
         )
 
         return self.nhb_production_model
+
 
 # pylint: enable =too-many-positional-arguments,too-many-arguments
 

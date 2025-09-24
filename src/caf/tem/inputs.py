@@ -755,6 +755,7 @@ class MainConfig(config_base.BaseConfig):
 
         Allows arbitrary types and defines JSON encoders for custom objects.
         """
+
         arbitrary_types_allowed = True
         json_encoders = {
             cb.ZoningSystem: lambda z: z.name,

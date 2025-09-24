@@ -8,7 +8,7 @@ LOG = logging.getLogger(__name__)
 
 def main(params: MainConfig):
     details = ctk.ToolDetails(__package__, ct.__version__)
-    with ctk.LogHelper(__package__, details, log_file=params.export_home / 'tem.log'):
+    with ctk.LogHelper(__package__, details, log_file=params.export_home / "tem.log"):
         model = ct.TEM(
             model_years=params.model_years,
             scenario=params.scenario,

@@ -344,7 +344,9 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
             Loaded trip rate vector.
         """
         # Each trip rate file is explicitly defined in the input dictionary by purpose HB Attraction Model, similar assumption for NHB
-        self._logger.info(f"Loading in purpose {p} trip rates from {self.trip_rates_paths[p]}.")
+        self._logger.info(
+            f"Loading in purpose {p} trip rates from {self.trip_rates_paths[p]}."
+        )
         if self.trip_rates_paths[p].name.endswith("csv"):
             trip_rate = pd.read_csv(self.trip_rates_paths[p], index_col=0).squeeze()
             trip_rate.index.name = self.agg_zoning.column_name
@@ -381,7 +383,9 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
             Normalized mode-time splits reshaped by tfn_at.
         """
         # Load the raw DVector
-        self._logger.info(f"Loading return home mode time splits from {self.mts_return_home_path}.")
+        self._logger.info(
+            f"Loading return home mode time splits from {self.mts_return_home_path}."
+        )
         trips = cb.DVector.load(self.mts_return_home_path)
         full_seg = trips.segmentation.naming_order
         agg_segs = [i for i in full_seg if i not in mts_segs]
@@ -726,7 +730,7 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
     ) -> dict[int, cb.DVector]:
         """
         Apply the split_by_other method to each DVector in mts_dict.
-         
+
         Expands the segmentation to match that of TEM Segmented Production.
 
         Parameters
@@ -869,7 +873,11 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
         tem_return_home_tripends_attraction = self.return_home_trip_ends(
             tem_attraction, aggregation_segments
         )
-        mts_segs = [i for i in['m','tp_return'] if i not in tem_return_home_tripends_attraction.segmentation.names]
+        mts_segs = [
+            i
+            for i in ["m", "tp_return"]
+            if i not in tem_return_home_tripends_attraction.segmentation.names
+        ]
         if len(mts_segs) > 0:
 
             mts_return_home = self._read_mts_return_home(mts_segs=mts_segs)
