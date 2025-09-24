@@ -1,7 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-Module containing input classes for trip-end models, mainly around imports and
-exports.
+Module containing input classes and configuration utilities for trip-end models.
+
+This module provides data containers, path management classes, and configuration
+validation for the Trip End Model (TEM) framework. It supports importing and exporting
+land use data, scenario management, and standardized output/reporting paths for
+production and attraction models.
 """
 
 from __future__ import annotations
@@ -26,6 +30,19 @@ from pydantic import BeforeValidator, model_validator
 # pylint: disable =too-many-positional-arguments,too-few-public-methods
 # # # CLASSES # # #
 def create_segmentation(seg_list: list[str] | cb.Segmentation):
+    """
+    Create a cb.Segmentation object from a list of segment names or return the input if already a Segmentation.
+
+    Parameters
+    ----------
+    seg_list : list[str] or cb.Segmentation
+        List of segment names or an existing Segmentation object.
+
+    Returns
+    -------
+    cb.Segmentation
+        The resulting segmentation object.
+    """
     if isinstance(seg_list, cb.Segmentation):
         return seg_list
     inp = cb.SegmentationInput(enum_segments=seg_list, naming_order=seg_list)
@@ -33,6 +50,19 @@ def create_segmentation(seg_list: list[str] | cb.Segmentation):
 
 
 def create_zoningsystem(zoning: str | cb.ZoningSystem | list[str, cb.ZoningSystem]):
+    """
+    Create a cb.ZoningSystem object (or list of them) from a string, existing ZoningSystem, or list.
+
+    Parameters
+    ----------
+    zoning : str, cb.ZoningSystem, or list[str, cb.ZoningSystem]
+        Zoning system name(s) or object(s).
+
+    Returns
+    -------
+    cb.ZoningSystem or list[cb.ZoningSystem]
+        The resulting zoning system(s).
+    """
     if isinstance(zoning, cb.ZoningSystem):
         return zoning
     if isinstance(zoning, list):
@@ -52,41 +82,25 @@ def create_zoningsystem(zoning: str | cb.ZoningSystem | list[str, cb.ZoningSyste
 @dataclass
 class Landuse:
     """
-    A data container for handling different types of land use inputs (e.g., population, employment, households)
+    Data container for handling different types of land use inputs (e.g., population, employment, households)
     along with associated metadata for processing and transformation.
 
-    Attributes:
-        type (Literal["pop", "emp", "hh"]):
-            Specifies the type of land use. Must be one of:
-            - "pop": Population
-            - "emp": Employment
-            - "hh": Households
-
-        land_use (os.PathLike | cb.DVector):
-            The actual land use data. Can be either:
-            - A path to a file containing land use data
-            - A `cb.DVector` object (custom data vector used internally)
-
-        trans_tag (str, optional):
-            An optional tag used for transformation processes. Can help distinguish different data processing steps.
-
-        prefix (str, optional):
-            An optional prefix used when naming output fields or files. Helps to avoid naming collisions in outputs.
-
-        segmentation (cb.Segmentation, optional):
-            An optional segmentation object that splits the land use data based on predefined segments,
-            such as income levels, activity types, etc.
-
-        geographies (str, optional):
-            The name of the geographical unit associated with the land use data (e.g., zone ID, MSOA, LSOA, etc.).
-
-        out_zoning (cb.ZoningSystem | str | list[cb.ZoningSystem | str] | None, optional):
-            Defines the zoning system(s) to which the land use data should be mapped or output.
-            This can be:
-            - A single `cb.ZoningSystem` object
-            - A string representing a known zoning system
-            - A list of such zoning system objects or strings
-            - Or left as `None` if no output zoning conversion is required
+    Parameters
+    ----------
+    type : Literal["pop", "emp", "hh"]
+        Specifies the type of land use ("pop", "emp", or "hh").
+    land_use : os.PathLike or cb.DVector
+        Path to land use data or a DVector object.
+    trans_tag : str, optional
+        Optional tag for transformation processes.
+    prefix : str, optional
+        Optional prefix for output fields or files.
+    segmentation : cb.Segmentation, optional
+        Segmentation object for splitting land use data.
+    geographies : str or list[str], optional
+        Name(s) of the geographical unit(s) for the land use data.
+    out_zoning : cb.ZoningSystem, str, list, or None, optional
+        Zoning system(s) for mapping or output.
     """
 
     type: Literal["pop", "emp", "hh"]
@@ -109,17 +123,22 @@ class Landuse:
         model_zoning: cb.ZoningSystem | None = None,
     ):
         """
-        Reads and processes land use data from the specified source, applying optional translation and
+        Read and process land use data from the specified source, applying optional translation and
         aligning it with the model's zoning system if provided.
 
-        Parameters:
-            translation (pd.DataFrame | None, optional):
-                A translation table (typically a pandas DataFrame)
+        Parameters
+        ----------
+        translation : pd.DataFrame or None, optional
+            Translation table for mapping zones.
+        init_zoning : cb.ZoningSystem or None, optional
+            Initial zoning system for the data.
+        model_zoning : cb.ZoningSystem or None, optional
+            Model zoning system for alignment.
 
-            model_zoning (cb.ZoningSystem, optional)
-
-        Returns:
-            None
+        Returns
+        -------
+        cb.DVector
+            The processed land use data as a DVector.
         """
         if isinstance(self.land_use, cb.DVector):
             return self.land_use
@@ -165,7 +184,22 @@ class Landuse:
 
 @enum.unique
 class Scenarios(enum.Enum):
-    """Define different Scenario."""
+    """
+    Enumeration of scenario names for model runs.
+
+    Members
+    -------
+    CORE : str
+        Core scenario.
+    HIGH : str
+        High growth scenario.
+    LOW : str
+        Low growth scenario.
+    REGIONAL : str
+        Regional scenario.
+    TECHNOLOGY : str
+        Technology scenario.
+    """
 
     CORE = "Core"
     HIGH = "High"
@@ -175,24 +209,24 @@ class Scenarios(enum.Enum):
 
 
 class TEMModelPaths:
-    """Base Path Class for all TEM models.
+    """
+    Base path management class for all TEM models.
 
-    This class forms the base path class that all TEM model path classes
-    are built off of. It defines a number of constants to ensure all
-    TEM models follow the same output structure and naming conventions.
+    This class defines the structure and naming conventions for export and report
+    paths used by all TEM models, ensuring consistency across outputs.
 
     Attributes
     ----------
-    path_years: list[int]
-        A list of years that paths will be generated for.
-
-    export_home: os.PathLike
-        The home directory of all exports. Is used as a basis for
-        all export path building.
-
-    report_home: os.PathLike
-        The home directory of all reports. Is used as a basis for
-        all report path building.
+    path_years : list[int]
+        List of years for which paths are generated.
+    export_home : os.PathLike
+        Home directory for all exports.
+    report_home : os.PathLike
+        Home directory for all reports.
+    export_paths : namedtuple
+        Named tuple of export paths for various outputs.
+    report_paths : namedtuple
+        Named tuple of report paths for various outputs.
     """
 
     # Segmentation names
@@ -234,18 +268,23 @@ class TEMModelPaths:
         agg_zoning: str,
         _trip_origin,
     ):
-        """Validates input attributes and builds class
+        """
+        Initialize the TEMModelPaths and validate input directories.
 
         Parameters
         ----------
-        path_years:
-            A list of the years the models are running for.
-
-        export_home:
-            The home directory of all the export paths.
-
-        report_home:
-            The home directory of all the model reports paths.
+        path_years : list[int]
+            Years for which the model will run.
+        export_home : os.PathLike
+            Directory for export outputs.
+        report_home : os.PathLike
+            Directory for report outputs.
+        model_zoning : str
+            Name of the model zoning system.
+        agg_zoning : str
+            Name of the aggregation zoning system.
+        _trip_origin : str
+            Trip origin type (e.g., 'hb' or 'nhb').
         """
         # Assign attributes
         self.path_years = path_years
@@ -273,7 +312,11 @@ class TEMModelPaths:
 
     def _create_export_paths(self) -> None:
         """
-        Creates self.export_paths
+        Create and assign export paths for all model outputs.
+
+        Returns
+        -------
+        None
         """
         # Init
         base_fname = self._base_output_fname
@@ -330,7 +373,11 @@ class TEMModelPaths:
 
     def _create_report_paths(self) -> None:
         """
-        Creates self.report_paths
+        Create and assign report paths for all model outputs.
+
+        Returns
+        -------
+        None
         """
         self.report_paths = self.ExportPaths(
             home=self.report_home,
@@ -350,27 +397,17 @@ class TEMModelPaths:
         report_name: str,
     ) -> tuple[dict[int, str], dict[int, str], dict[int, str]]:
         """
-        Creates report file paths for each of years
+        Generate report file paths for each year and report type.
 
         Parameters
         ----------
-        report_name:
-            The name to use in the report filename. Filenames will be named
-            as: [report_name, year, report_type], joined with '_'.
+        report_name : str
+            Name to use in the report filename.
 
         Returns
         -------
-        segment_total_paths:
-            A dictionary of paths where the key is the year and the value is
-            the path to the segment total reports for year.
-
-        ca_sector_total_paths:
-            A dictionary of paths where the key is the year and the value is
-            the path to the ca sector segment total reports for year.
-
-        ie_sector_total_paths:
-            A dictionary of paths where the key is the year and the value is
-            the path to the IE sector segment total reports for year.
+        ReportPaths
+            Named tuple of dictionaries mapping years to report file paths.
         """
         # Init
         base_fname = self._base_report_fname
@@ -408,36 +445,29 @@ class TEMModelPaths:
 
 
 class ProductionModelPaths(TEMModelPaths):
-    """Path Class for the TEM HB Production Model.
+    """
+    Path management class for the TEM HB Production Model.
 
-    This class defines and builds the export and reporting paths for
-    the TEMModelPaths. If the outputs of HBProductionModel are needed,
-    create an instance of this class to generate all paths.
+    Generates export and report paths for the Home-Based Production Model.
 
     Attributes
     ----------
-    export_paths: os.PathLike
-        A namedtuple object (TEMModelPaths.ExportPaths) with the following
-        attributes (dictionary keys are path_years):
-        - home: The home directory of all exports
-        - pure_demand: A dictionary of export paths for pure_demand DVectors
-        - tem_segmented: A dictionary of export paths for tem_segmented DVectors
-
-    report_paths: os.PathLike
-        A namedtuple object (TEMModelPaths.ExportPaths) with the following
-        attributes (dictionary keys are path_years):
-        - home: The home directory of all exports
-        - pure_demand: A TEMModelPaths.ReportPaths object
-        - tem_segmented: A TEMModelPaths.ReportPaths object
-
-    See TEMModelPaths for documentation on:
-    path_years, export_home, report_home
+    export_paths : namedtuple
+        Export paths for model outputs.
+    report_paths : namedtuple
+        Report paths for model outputs.
     """
 
     def __init__(self, _trip_origin, *args, **kwargs):
-        """Generates the export and report paths
+        """
+        Initialize and generate export and report paths.
 
-        See super for more detail
+        Parameters
+        ----------
+        _trip_origin : str
+            Trip origin type (e.g., 'hb').
+        *args, **kwargs :
+            Passed to TEMModelPaths.
         """
         # Set up superclass
         super().__init__(_trip_origin=_trip_origin, *args, **kwargs)
@@ -448,37 +478,27 @@ class ProductionModelPaths(TEMModelPaths):
 
 
 class AttractionModelPaths(TEMModelPaths):
-    """Path Class for the TEM NHB Attraction Model.
+    """
+    Path management class for the TEM NHB Attraction Model.
 
-    This class defines and builds the export and reporting paths for
-    the TEMModelPaths. If the outputs of NHBAttractionModel are needed,
-    create an instance of this class to generate all paths.
+    Generates export and report paths for the Non-Home-Based Attraction Model.
 
     Attributes
     ----------
-    export_paths: os.PathLike
-        A namedtuple object (TEMModelPaths.ExportPaths) with the following
-        attributes (dictionary keys are path_years):
-        - home: The home directory of all exports
-        - pure_demand: A dictionary of export paths for pure_demand DVectors
-        - tem_segmented: A dictionary of export paths for tem_segmented DVectors
-
-    report_paths: os.PathLike
-        A namedtuple object (TEMModelPaths.ExportPaths) with the following
-        attributes (dictionary keys are path_years):
-        - home: The home directory of all exports
-        - pure_demand: A TEMModelPaths.ReportPaths object
-
-        - tem_segmented: A TEMModelPaths.ReportPaths object
-
-    See TEMModelPaths for documentation on:
-    path_years, export_home, report_home
+    export_paths : namedtuple
+        Export paths for model outputs.
+    report_paths : namedtuple
+        Report paths for model outputs.
     """
 
     def __init__(self, *args, **kwargs):
-        """Generates the export and report paths
+        """
+        Initialize and generate export and report paths.
 
-        See super for more detail
+        Parameters
+        ----------
+        *args, **kwargs :
+            Passed to TEMModelPaths.
         """
         # Set up superclass
         super().__init__(*args, **kwargs)
@@ -489,48 +509,29 @@ class AttractionModelPaths(TEMModelPaths):
 
 
 class TEMExportPaths:
-    """Path Class for the TEM Model.
+    """
+    Path management class for all TEM sub-models.
 
-    This class defines and builds the export and reporting paths for
-    all TEM sub-models. It creates and stores an instance of:
-    HBProductionModelPaths, NHBProductionModelPaths,
-    HBAttractionModelPaths, NHBAttractionModelPaths.
-    If the outputs of TEM are needed, create an instance of this
-    class to generate all paths.
+    Builds and stores export and report paths for all sub-models (HB/NHB production and attraction).
 
     Attributes
     ----------
-    path_years:
-        A list of the years the models are running for. As passed into the
-        constructor.
-
-    scenario:
-        The name of the scenario to run for. As passed in to the constructor.
-
-    iteration_name:
-        The name of this iteration of the TEM models. Constructor argument
-        of the same name will have 'iter' prepended to create this name.
-        e.g. if '3i' was passed in, this would become 'iter3i'.
-
-    export_home:
-        The home directory of all the export paths. Nested folder of the
-        passed in export_home, iteration_name, and scenario
-
-    hb_production:
-        An instance of HBProductionModelPaths. See docs for more info on how
-        to access paths.
-
-    nhb_production:
-        An instance of NHBProductionModelPaths. See docs for more info on how
-        to access paths.
-
-    hb_attraction:
-        An instance of HBAttractionModelPaths. See docs for more info on how
-        to access paths.
-
-    nhb_attraction:
-        An instance of NHBAttractionModelPaths. See docs for more info on how
-        to access paths.
+    path_years : list[int]
+        Years for which the model will run.
+    scenario : Scenarios
+        Scenario name.
+    iteration_name : str
+        Name of the model iteration.
+    export_home : os.PathLike
+        Root export directory.
+    hb_production : ProductionModelPaths
+        Paths for HB production model.
+    nhb_production : ProductionModelPaths
+        Paths for NHB production model.
+    hb_attraction : AttractionModelPaths
+        Paths for HB attraction model.
+    nhb_attraction : AttractionModelPaths
+        Paths for NHB attraction model.
     """
 
     # Define the names of the export dirs
@@ -551,24 +552,22 @@ class TEMExportPaths:
         agg_zoning: str,
     ):
         """
-        Builds the export paths for all the TEM sub-models
+        Build export and report paths for all TEM sub-models.
 
         Parameters
         ----------
-        path_years:
-            A list of the years the models are running for.
-
-        scenario:
-            The scenario to run for.
-
-        iteration_name:
-            The name of this iteration of the TEM models. Will have 'iter'
-            prepended to create the folder name. e.g. if iteration_name was
-            set to '3i' the iteration folder would be called 'iter3i'.
-
-        export_home:
-            The home directory of all the export paths. A sub-directory will
-            be made for each of the TEM sub models.
+        path_years : list[int]
+            Years for which the model will run.
+        scenario : Scenarios
+            Scenario name.
+        iteration_name : str
+            Name of the model iteration.
+        export_home : os.PathLike
+            Root export directory.
+        model_zoning : str
+            Model zoning system name.
+        agg_zoning : str
+            Aggregation zoning system name.
         """
         # Init
         export_home = pathlib.Path(export_home)
@@ -643,6 +642,59 @@ class TEMExportPaths:
 
 
 class MainConfig(config_base.BaseConfig):
+    """
+    Main configuration class for the TEM model.
+
+    Stores all global and model-specific configuration options, validates consistency,
+    and supports YAML import/export.
+
+    Attributes
+    ----------
+    run_hb_prod : bool
+        Whether to run the HB production model.
+    run_hb_attr : bool
+        Whether to run the HB attraction model.
+    run_nhb_prod : bool
+        Whether to run the NHB production model.
+    run_nhb_attr : bool
+        Whether to run the NHB attraction model.
+    return_home : bool
+        Whether to generate return-home trips.
+    model_years : list[int]
+        List of years for the model run.
+    scenario : str
+        Scenario name.
+    output_zoning : cb.ZoningSystem
+        Output zoning system.
+    agg_zoning : cb.ZoningSystem
+        Aggregation zoning system.
+    iteration_name : str
+        Model iteration name.
+    export_home : pathlib.Path
+        Root export directory.
+    return_segmentation : cb.Segmentation
+        Segmentation for return trips.
+    trans_file : pathlib.Path
+        Path to translation file.
+    export_pure : bool
+        Whether to export pure demand.
+    export_mts : bool
+        Whether to export MTS demand.
+    export_tem : bool
+        Whether to export TEM-segmented demand.
+    export_reports : bool
+        Whether to export reports.
+    mts_geo_constraint : cb.ZoningSystem or None
+        Optional MTS geographic constraint.
+    pop : dict[int, Landuse]
+        Population land use data by year.
+    emp : dict[int, Landuse]
+        Employment land use data by year.
+    hh : dict[int, Landuse]
+        Household land use data by year.
+    (plus all model-specific file paths)
+    """
+
     ### options ###
     run_hb_prod: bool
     run_hb_attr: bool
@@ -698,6 +750,11 @@ class MainConfig(config_base.BaseConfig):
     nhb_attr_mts_uni: pathlib.Path
 
     class Config:
+        """
+        Pydantic configuration for MainConfig.
+
+        Allows arbitrary types and defines JSON encoders for custom objects.
+        """
         arbitrary_types_allowed = True
         json_encoders = {
             cb.ZoningSystem: lambda z: z.name,
@@ -710,6 +767,14 @@ class MainConfig(config_base.BaseConfig):
 
     @model_validator(mode="after")
     def phi_factors_if_return(self):
+        """
+        Validate that phi factors and return-home files are provided if return_home is True.
+
+        Raises
+        ------
+        ValueError
+            If required files are missing for return-home trip generation.
+        """
         if self.return_home:
             if self.hb_prod_phi_factors is None:
                 raise ValueError(
@@ -731,6 +796,14 @@ class MainConfig(config_base.BaseConfig):
 
     @model_validator(mode="after")
     def consistent_years(self):
+        """
+        Validate that population, employment, and household years match model_years.
+
+        Raises
+        ------
+        ValueError
+            If years are inconsistent.
+        """
         if set(self.pop.keys()) != set(self.model_years):
             raise ValueError("Population years must match model_years.")
         if set(self.emp.keys()) != set(self.model_years):
@@ -743,145 +816,3 @@ class MainConfig(config_base.BaseConfig):
 # pylint: enable =too-many-positional-arguments,too-few-public-methods
 
 # # # FUNCTIONS # # #
-if __name__ == "__main__":
-    from pathlib import Path
-
-    # --- Extracted from run.py ---
-    model_years = [2023]
-    scenario = "Core"
-    output_zoning = "normits"
-    agg_zoning = "tfn_at"
-    iteration_name = "full_test_aj_1"
-    export_home = Path(r"C:\Users\Kephale\Desktop\Alok\TFN\tem\Outputs")
-    return_segmentation = ["p", "m", "tp", "hh_type", "soc"]
-    trans_file = Path(r"C:\Users\Kephale\Desktop\Alok\TFN\tem\Inputs\normits_lsoa21_trans.csv")
-    mts_geo_constraint = cb.ZoningSystem.get_zoning("gor")
-
-    pop = {
-        2023: Landuse(
-            land_use=r"C:\Users\Kephale\Desktop\Alok\TFN\tem\Inputs\landuse\pop.dvec",
-            type="pop",
-            segmentation=["adult_nssec", "gender_3", "ns_sec", "soc", "aws", "hh_type"],
-            out_zoning=[output_zoning, agg_zoning, mts_geo_constraint],
-        )
-    }
-    emp = {
-        2023: Landuse(
-            land_use=r"C:\Users\Kephale\Desktop\Alok\TFN\tem\Inputs\landuse\emp.dvec",
-            type="emp",
-            segmentation=["soc", "sic_1_digit", "sic_2_digit"],
-            out_zoning=[output_zoning, agg_zoning, "uni", mts_geo_constraint],
-            trans_tag="uni",
-        )
-    }
-    hh = {
-        2023: Landuse(
-            type="pop",
-            land_use=r"C:\Users\Kephale\Desktop\Alok\TFN\tem\Inputs\landuse",
-            prefix=r"Output P14.1_{}.hdf",
-            geographies=(
-                "EM",
-                "EoE",
-                "Lon",
-                "NE",
-                "NW",
-                "SE",
-                "SW",
-                "Wales",
-                "WM",
-                "YH",
-                "Scotland",
-            ),
-            out_zoning=[output_zoning, agg_zoning, "uni", mts_geo_constraint],
-        )
-    }
-
-    # --- File paths for trip rates, adjustments, etc. ---
-    hb_prod_triprates = Path(
-        r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\productions\hb\trip_rates\hb_trip_rates_production_trip_rates.dvec"
-    )
-    hb_prod_mts = Path(
-        r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\productions\hb\mode_time_splits\mode_time_split_production_hb_fr_reg_rho.dvec"
-    )
-    hb_prod_phi_factors = Path(r"C:\Users\Kephale\Desktop\Alok\TFN\tem\Inputs\phi_factors")
-    hb_prod_mts_return = Path(
-        r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\productions\hb\mode_time_splits\mode_time_split_production_hb_to_reg_trips.est.dvec"
-    )
-    hb_prod_mts_return_adj = Path(
-        r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\others\mode_time_split_adjustments_p_hb_to_adj.dvec"
-    )
-    hb_prod_tr_adj = Path(
-        r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\others\trip_rate_adjustments_p_hb_fr_adj.dvec"
-    )
-    hb_prod_mts_adjustment = Path(
-        r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\others\mode_time_split_adjustments_p_hb_fr_adj.dvec"
-    )
-
-    hb_attr_triprates = {
-        1: Path(r"..."),  # Fill in all 8 paths as in run.py
-        # ...
-    }
-    hb_attr_mts = Path(r"...")  # Fill in as in run.py
-    hb_attr_mts_adj = Path(r"...")
-    hb_attr_mts_uni = Path(r"...")
-    hb_attr_tr_adj = Path(r"...")
-    hb_attr_phi_factors = Path(r"...")
-    hb_attr_mts_return = Path(r"...")
-    hb_attr_mts_return_adj = Path(r"...")
-
-    # Similarly for nhb_prod and nhb_attr...
-
-    # --- Create MainConfig instance ---
-    config = MainConfig(
-        run_hb_prod=True,
-        run_hb_attr=True,
-        run_nhb_prod=True,
-        run_nhb_attr=True,
-        return_home=True,
-        model_years=model_years,
-        scenario=scenario,
-        output_zoning=output_zoning,
-        agg_zoning=agg_zoning,
-        iteration_name=iteration_name,
-        export_home=export_home,
-        return_segmentation=return_segmentation,
-        trans_file=trans_file,
-        export_pure=True,
-        export_mts=True,
-        export_tem=True,
-        export_reports=True,
-        mts_geo_constraint=mts_geo_constraint,
-        pop=pop,
-        emp=emp,
-        hh=hh,
-        hb_prod_triprates=hb_prod_triprates,
-        hb_prod_tr_adj=hb_prod_tr_adj,
-        hb_prod_mts=hb_prod_mts,
-        hb_prod_mts_adjustment=hb_prod_mts_adjustment,
-        hb_prod_phi_factors=hb_prod_phi_factors,
-        hb_prod_mts_return=hb_prod_mts_return,
-        hb_prod_mts_return_adj=hb_prod_mts_return_adj,
-        hb_attr_triprates=hb_attr_triprates,
-        hb_attr_tr_adj=hb_attr_tr_adj,
-        hb_attr_mts=hb_attr_mts,
-        hb_attr_mts_adj=hb_attr_mts_adj,
-        hb_attr_mts_uni=hb_attr_mts_uni,
-        balance_hb=True,
-        hb_attr_phi_factors=hb_attr_phi_factors,
-        hb_attr_mts_return=hb_attr_mts_return,
-        hb_attr_mts_return_adj=hb_attr_mts_return_adj,
-        nhb_prod_triprates=Path(r"..."),
-        nhb_prod_mts=Path(r"..."),
-        balance_nhb=True,
-        nhb_attr_triprates={},
-        nhb_attr_tr_adj=Path(r"..."),
-        nhb_attr_mts=Path(r"..."),
-        nhb_attr_mts_adj=Path(r"..."),
-        nhb_attr_mts_uni=Path(r"..."),
-    )
-    with open("test.yml", "rt") as file:
-        text = file.read()
-    test = MainConfig.load_yaml("test.yml")
-    config.to_yaml()
-
-    print("deb ugging")
