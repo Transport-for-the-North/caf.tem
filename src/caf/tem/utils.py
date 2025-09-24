@@ -1,14 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-Created on: 30/05/2024
-Updated on:
+Utility functions and constants for the Trip End Model (TEM).
 
-Original author: Ben Taylor
-Last update made by:
-Other updates made by:
-
-File purpose:
-
+This module provides helper functions for data transformation, file I/O, report writing,
+and DVector/segmentation operations used throughout the TEM framework.
 """
 
 from __future__ import annotations
@@ -39,35 +34,28 @@ TT = cb.SegmentationInput(
     enum_segments=["adult_nssec", "gender_3", "ns_sec", "soc", "aws", "hh_type"],
     naming_order=["adult_nssec", "gender_3", "ns_sec", "soc", "aws", "hh_type"],
 )
-TT = cb.SegmentationInput(
-    enum_segments=["adult_nssec", "gender_3", "ns_sec", "soc", "aws", "hh_type"],
-    naming_order=["adult_nssec", "gender_3", "ns_sec", "soc", "aws", "hh_type"],
-)
-GOR = ("EM", "EoE", "Lon", "NE", "NW", "SE", "SW", "Wales", "WM", "YH", "Scotland")
-SEG_POP = ["gender_3", "aws", "hh_type", "soc", "ns_sec", "adult_nssec"]
-SEG_EMP = ["soc", "sic_1_digit", "sic_2_digit"]
-SEG_HH = ["car_availability"]
-TT_POP = cb.SegmentationInput(enum_segments=SEG_POP, naming_order=SEG_POP)
-TT_EMP = cb.SegmentationInput(enum_segments=SEG_EMP, naming_order=SEG_EMP)
-TT_HH = cb.SegmentationInput(enum_segments=SEG_HH, naming_order=SEG_HH)
-
-LAD_REPORT_SEG: cb.SegmentationInput = cb.SegmentationInput(
-    enum_segments=["p", "m", "tp"],
-    naming_order=["p", "m", "tp"],
-    subsets={"tp": [1, 2, 3, 4, 5, 6]},
-)
 
 # # # CLASSES # # #
 
 
 # # # FUNCTIONS # # #
-def lu_to_tt(dvec: cb.DVector):
+def lu_to_tt(dvec: cb.DVector) -> cb.DVector:
     """
-    Args:
-        dvec (cb.DVector): The input DVector containing land-use-based segmentation.
+    Convert a land-use segmented DVector to a travel-type segmented DVector.
 
-    Returns:
-        cb.DVector: A new DVector segmented and aggregated for travel-type modelling.
+    This function aggregates and transforms the input DVector to match the segmentation
+    required for travel-type modelling. It checks for conservation of totals and warns
+    if the sum changes.
+
+    Parameters
+    ----------
+    dvec : cb.DVector
+        The input DVector containing land-use-based segmentation.
+
+    Returns
+    -------
+    cb.DVector
+        A new DVector segmented and aggregated for travel-type modelling.
 
     """
     out_dvec = dvec.aggregate(
@@ -100,8 +88,24 @@ def lu_to_tt(dvec: cb.DVector):
 
 def write_reports(dvec: cb.DVector, report_path, year: int) -> None:
     """
-    - Calls the write_sector_reports() function on a DVector.
-    - Writes reports given the report path to output to.
+    Write sector and LAD reports for a DVector.
+
+    Calls the DVector's write_sector_reports() method to generate and save reports
+    for the specified year and report path.
+
+    Parameters
+    ----------
+    dvec : cb.DVector
+        The DVector to report on.
+    report_path : object
+        Object containing paths for various report types (must have .segment_total, .ca_sector,
+        .ie_sector, .lad_report attributes, each indexed by year).
+    year : int
+        The year for which to write reports.
+
+    Returns
+    -------
+    None
     """
     dvec.write_sector_reports(
         segment_totals_path=report_path.segment_total[year],
@@ -114,17 +118,22 @@ def write_reports(dvec: cb.DVector, report_path, year: int) -> None:
 
 def file_exists(file_path: os.PathLike) -> bool:
     """
-    Checks if a file exists at the given path.
+    Check if a file exists at the given path.
 
     Parameters
     ----------
-    file_path:
-        path to the file to check.
+    file_path : os.PathLike
+        Path to the file to check.
 
     Returns
     -------
-    file_exists:
-        True if a file exists, else False
+    bool
+        True if a file exists, else False.
+
+    Raises
+    ------
+    IsADirectoryError
+        If the path exists but is a directory, not a file.
     """
     if not os.path.exists(file_path):
         return False
@@ -141,18 +150,19 @@ def phi_to_dvec(
     phi_path: Union[pathlib.Path, str], output_fld: Union[pathlib.Path, str]
 ) -> None:
     """
+    Convert phi factor CSV files to DVector format.
+
     Reads phi factor CSV files from the given directory, reshapes them, and saves them as .dvec files
     suitable for use with cb.DVector.
 
-    Parameters:
+    Parameters
     ----------
-    phi_path : pathlib.Path
+    phi_path : pathlib.Path or str
         Directory containing phi factor CSV files (pattern: 'phi_factors*_reg.csv').
-
-    output_fld : pathlib.Path
+    output_fld : pathlib.Path or str
         Output directory where reshaped .dvec files will be saved.
 
-    Returns:
+    Returns
     -------
     None
     """
@@ -211,6 +221,8 @@ def create_mts_production_return_home_dvec(
     mts_only_by_mode: bool = True,
 ) -> cb.DVector:
     """
+    Create a DVector of mode-time split proportions for production return-home trips.
+
     Reads mode-time split production data from a CSV, calculates proportions or uses precomputed 'rho',
     reshapes the data, and converts it into a cb.DVector.
 
@@ -218,13 +230,11 @@ def create_mts_production_return_home_dvec(
     ----------
     csv_path : str or Path
         Path to the input CSV file containing mode-time split production data.
-
     zoning_name : str, default='tfn_at'
         Name of the zoning system to use when constructing the DVector.
-
     mts_only_by_mode : bool, default=True
-        If True, compute proportions from 'trips.est', because tp_return is a segment of phi factors.
-        If False, use 'rho' column  use it directly, because tp_return is not a segment of phi factors.
+        If True, compute proportions from 'trips.est' (tp_return is a segment of phi factors).
+        If False, use 'rho' column directly (tp_return is not a segment of phi factors).
 
     Returns
     -------
@@ -280,6 +290,8 @@ def create_mts_attraction_return_home_dvec(
     mts_only_by_mode: bool = True,
 ) -> cb.DVector:
     """
+    Create a DVector of mode-time split proportions for attraction return-home trips.
+
     Reads mode-time split attraction data from a CSV file, calculates mode proportions,
     reshapes the data, and returns a cb.DVector.
 
@@ -287,13 +299,11 @@ def create_mts_attraction_return_home_dvec(
     ----------
     csv_path : str or Path
         Path to the input CSV containing attraction trip records.
-
     zoning_name : str, default='tfn_at'
         The zoning system name used to create the cb.ZoningSystem object.
-
     mts_only_by_mode : bool, default=True
         If True, calculates mode proportions using only mode;
-        otherwise it also take return time period also in consideration.
+        otherwise also considers return time period.
 
     Returns
     -------
@@ -353,6 +363,8 @@ def create_mts_return_home_adj_factor_dvectors(
     csv_path: Union[str, pathlib.Path],
 ) -> Tuple[cb.DVector, cb.DVector]:
     """
+    Create DVector adjustment factors for MTS return-home production and attraction.
+
     Reads a single CSV containing both production ('p') and attraction ('a') MTS adjustment factors,
     splits them, reshapes them into wide format, and converts each into a cb.DVector.
 
@@ -413,9 +425,9 @@ def create_mts_return_home_adj_factor_dvectors(
     return dvec_prod, dvec_attr
 
 
-def filter_segments(custom_seg_list, df):
+def filter_segments(custom_seg_list, df) -> list:
     """
-    Filters segment objects by keeping only values present in df_reshaped.
+    Filter segment objects by keeping only values present in a DataFrame.
 
     Parameters
     ----------
