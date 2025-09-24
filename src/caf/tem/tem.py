@@ -55,7 +55,7 @@ class TEM:
         self,
         model_years: list[int],
         scenario: str,
-        output_zoning: str,
+        output_zoning: cb.ZoningSystem,
         agg_zoning: str,
         iteration_name: str,
         export_home: os.PathLike,
@@ -64,8 +64,8 @@ class TEM:
     ):
         self.years = model_years
         self.scenario = Scenarios(scenario)
-        self.output_zoning = cb.ZoningSystem.get_zoning(output_zoning)
-        self.agg_zoning = cb.ZoningSystem.get_zoning(agg_zoning)
+        self.output_zoning = output_zoning
+        self.agg_zoning = agg_zoning
         self.iteration_name = iteration_name
         self.export_paths = TEMExportPaths(
             model_years, self.scenario, iteration_name, export_home, output_zoning, agg_zoning

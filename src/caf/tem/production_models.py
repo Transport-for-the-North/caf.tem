@@ -89,8 +89,8 @@ class HBProductionModel:
         self.years = list(self.population.keys())
         self.tem_segmentation = tem_segmentation
         self.trip_rate_adjustment_path = trip_rate_adjustment_path
-        self.model_zoning = cb.ZoningSystem.get_zoning(self.model.model_zoning)
-        self.agg_zoning = cb.ZoningSystem.get_zoning(self.model.agg_zoning)
+        self.model_zoning = self.model.model_zoning
+        self.agg_zoning = self.model.agg_zoning
         self.phi_factors_path = phi_factors_path
         self.mts_return_home_path = mts_return_home_path
         self.mts_adjust_path = mts_adjustment_path
@@ -239,9 +239,9 @@ class HBProductionModel:
                 mts_production.save(self.model.export_paths.mts_demand[year])
                 mts_production_adj.save(self.model.export_paths.mts_demand_adj[year])
             if export_reports:
-                utils.write_reports(mts_production, self.model.report_paths.mts_demand, year)
+                utils.write_reports(mts_production.aggregate_comp_zones(self.model_zoning), self.model.report_paths.mts_demand, year)
                 utils.write_reports(
-                    mts_production_adj, self.model.report_paths.mts_demand_adj, year
+                    mts_production_adj.aggregate_comp_zones(self.model_zoning), self.model.report_paths.mts_demand_adj, year
                 )
             # No longer need Pure Production
 
@@ -249,13 +249,10 @@ class HBProductionModel:
             tem_production = self._create_tem_production(mts_production_adj)
             # Export tem productions
             if export_tem_segmentation:
-                # if return_tripends:
                 tem_production.save(self.model.export_paths.tem_segmented_from_home[year])
-                # else:
-                # tem_production.save(self.model.export_paths.tem_segmented[year])
             if export_reports:
                 utils.write_reports(
-                    mts_production, self.model.report_paths.tem_segmented_from_home, year
+                    tem_production.aggregate_comp_zones(self.model_zoning), self.model.report_paths.tem_segmented_from_home, year
                 )
             if return_tripends:
                 tem_return_home_prod = self._create_tem_return_home_production(tem_production)
@@ -699,8 +696,8 @@ class NHBProductionModel:
         self.years = list(self.hb_attraction_paths.keys())
         self.model = model
         self.return_segmentation = return_segmentation
-        self.model_zoning = cb.ZoningSystem.get_zoning(self.model.model_zoning)
-        self.agg_zoning = cb.ZoningSystem.get_zoning(self.model.agg_zoning)
+        self.model_zoning = self.model.model_zoning
+        self.agg_zoning = self.model.agg_zoning
 
         _log_fname = "NHBProductionModel_log.log"
         logger_name = f"placeholder.{self.__class__.__name__}"
@@ -710,9 +707,8 @@ class NHBProductionModel:
     #
     def run(
         self,
-        export_nhb_pure_demand: bool = True,
-        # export_fully_segmented: bool = False,
-        export_notem_segmentation: bool = True,
+        export_pure_demand: bool = True,
+        export_tem_segmentation: bool = True,
         export_reports: bool = True,
     ) -> None:
         """
@@ -784,10 +780,14 @@ class NHBProductionModel:
             # ## PURE PRODUCTION ## #
             pure_production = self._create_pure_production(hbattr, trip_rates)
 
-            if export_nhb_pure_demand:
+            if export_pure_demand:
                 pure_production.save(self.model.export_paths.pure_demand[year])
             if export_reports:
-                pass  # self._write_reports(pure_production)
+                utils.write_reports(
+                    pure_production.aggregate_comp_zones(self.model_zoning),
+                    self.model.report_paths.pure_demand,
+                    year,
+                )
 
             # ## MODE TIME SPLIT ## #
             mts_production = self._create_mts_production(pure_production, mts)
@@ -795,7 +795,7 @@ class NHBProductionModel:
             # ## TEM SEGMENTATION ## #
             # For nhb prod post mts is already tem segmentation
 
-            if export_notem_segmentation:
+            if export_tem_segmentation:
                 mts_production.save(self.model.export_paths.tem_segmented_from_home[year])
 
     # # # FUNCTIONS # # #

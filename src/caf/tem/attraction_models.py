@@ -241,7 +241,7 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
                 .read_landuse(translation=self.zone_trans, model_zoning=self.model_zoning)
                 .add_segments(["total"]),
                 "hh": self.hh_landuse[year]
-                .read_landuse(translation=self.zone_trans, model_zoning=self.model_zoning)
+                .read_landuse(translation=self.zone_trans, init_zoning=cb.ZoningSystem.get_zoning('lsoa_2021'), model_zoning=self.model_zoning)
                 .add_segments(["total"]),
             }
 
@@ -337,7 +337,7 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
     def _read_trip_rate(self, p: int) -> cb.DVector:
         """Read one purpose-specific trip rates DVector, from the path given in the constructor."""
         # Each trip rate file is explicitly defined in the input dictionary by purpose HB Attraction Model, similar assumption for NHB
-        if self.trip_rates_paths[p].endswith("csv"):
+        if self.trip_rates_paths[p].name.endswith("csv"):
             trip_rate = pd.read_csv(self.trip_rates_paths[p], index_col=0).squeeze()
             trip_rate.index.name = self.agg_zoning.column_name
         else:
@@ -786,9 +786,7 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
 
         """
 
-        phi_factors_file_path = Path(
-            os.path.join(self.phi_factors_path, f"phi_factors_A_p{p}_reg_phi.dvec")
-        )
+        phi_factors_file_path = self.phi_factors_path / f"phi_factors_A_p{p}_reg_phi.dvec"
 
         if not phi_factors_file_path.exists():
             raise FileNotFoundError(

@@ -12,16 +12,39 @@ import pathlib
 import collections
 import warnings
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, Annotated
 import pandas as pd
 
 # Third Party
 import caf.base as cb
 import caf.toolkit as ctk
+from caf.toolkit import config_base
+from pydantic import BeforeValidator, model_validator
 
 
 # pylint: disable =too-many-positional-arguments,too-few-public-methods
 # # # CLASSES # # #
+def create_segmentation(seg_list: list[str] | cb.Segmentation):
+    if isinstance(seg_list, cb.Segmentation):
+        return seg_list
+    inp = cb.SegmentationInput(enum_segments=seg_list, naming_order=seg_list)
+    return cb.Segmentation(inp)
+
+def create_zoningsystem(zoning: str | cb.ZoningSystem | list[str, cb.ZoningSystem]):
+    if isinstance(zoning, cb.ZoningSystem):
+        return zoning
+    if isinstance(zoning, list):
+        validated_zoning = []
+        for zone in zoning:
+            if isinstance(zone, cb.ZoningSystem):
+                validated_zoning.append(zone)
+            else:
+                try:
+                    validated_zoning.append(cb.ZoningSystem.get_zoning(zone))
+                except FileNotFoundError:
+                    validated_zoning.append(zone)
+        return validated_zoning
+    return cb.ZoningSystem.get_zoning(zoning)
 @dataclass
 class Landuse:
     """
@@ -66,12 +89,14 @@ class Landuse:
     land_use: os.PathLike | cb.DVector
     trans_tag: str = None
     prefix: str = None
-    segmentation: cb.Segmentation = None
-    geographies: str = None
-    out_zoning: cb.ZoningSystem | str | list[cb.ZoningSystem | str] | None = None
+    segmentation: Annotated[cb.Segmentation, BeforeValidator(create_segmentation)] = None
+    geographies: str | list[str] | None = None
+    out_zoning: cb.ZoningSystem | str | Annotated[list[cb.ZoningSystem | str], BeforeValidator(func=create_zoningsystem)] | None = None
+
+        
 
     def read_landuse(
-        self, translation: pd.DataFrame | None = None, model_zoning: cb.ZoningSystem = None
+        self, translation: pd.DataFrame | None = None, init_zoning: cb.ZoningSystem | None = None, model_zoning: cb.ZoningSystem | None = None, 
     ):
         """
         Reads and processes land use data from the specified source, applying optional translation and
@@ -111,7 +136,7 @@ class Landuse:
             lu_data = pd.concat([dvec.data for dvec in dvecs], axis=1)
             lu = cb.DVector(
                 segmentation=segmentation,
-                zoning_system=dvecs[0].zoning_system,
+                zoning_system=init_zoning,
                 import_data=lu_data,
             )
         if self.out_zoning is not None:
@@ -187,7 +212,7 @@ class TEMModelPaths:
     )
 
     # Define output fnames
-    _base_output_fname = "%s_%s_%s_%d_dvec.h5"
+    _base_output_fname = "%s_%s_%s_%d.dvec"
     _base_report_fname = "%s_%s_%d_%s.csv"
 
     def __init__(
@@ -242,7 +267,7 @@ class TEMModelPaths:
         """
         # Init
         base_fname = self._base_output_fname
-        fname_parts = [self._trip_origin, self.model_zoning]
+        fname_parts = [self._trip_origin, self.model_zoning.name]
 
         pure_demand_paths: dict[int, os.PathLike] = dict()
         pure_demand_adj_paths: dict[int, os.PathLike] = dict()
@@ -606,9 +631,209 @@ class TEMExportPaths:
             agg_zoning=agg_zoning,
         )
 
-class MainConfig(Base)
+class MainConfig(config_base.BaseConfig):
+    ### options ###
+    run_hb_prod: bool
+    run_hb_attr: bool
+    run_nhb_prod: bool
+    run_nhb_attr: bool
+    return_home: bool = False
+    ### global ###
+    model_years: list[int]
+    scenario: str
+    output_zoning: Annotated[cb.ZoningSystem, BeforeValidator(create_zoningsystem)]
+    agg_zoning: Annotated[cb.ZoningSystem, BeforeValidator(create_zoningsystem)]
+    iteration_name: str
+    export_home: pathlib.Path
+    return_segmentation: Annotated[cb.Segmentation, BeforeValidator(create_segmentation)]
+    trans_file: pathlib.Path
+    export_pure: bool = True
+    export_mts: bool = True
+    export_tem: bool = True
+    export_reports: bool = True
+    mts_geo_constraint: Annotated[cb.ZoningSystem, BeforeValidator(create_zoningsystem)] | None = None
+    pop: dict[int, Landuse]
+    emp: dict[int, Landuse]
+    hh: dict[int, Landuse]
+    ### hb_prod ###
+    hb_prod_triprates: pathlib.Path
+    hb_prod_tr_adj: pathlib.Path | None = None
+    hb_prod_mts: pathlib.Path
+    hb_prod_mts_adjustment: pathlib.Path | None = None
+    hb_prod_phi_factors: pathlib.Path | None = None
+    hb_prod_mts_return: pathlib.Path | None = None
+    hb_prod_mts_return_adj: pathlib.Path | None = None
+    ### hb_attr ###
+    hb_attr_triprates: dict[int, pathlib.Path]
+    hb_attr_tr_adj: pathlib.Path | None = None
+    hb_attr_mts: pathlib.Path
+    hb_attr_mts_adj: pathlib.Path | None = None
+    hb_attr_mts_uni: pathlib.Path
+    balance_hb: bool = True
+    hb_attr_phi_factors: pathlib.Path | None = None
+    hb_attr_mts_return: pathlib.Path | None = None
+    hb_attr_mts_return_adj: pathlib.Path | None = None
+    ### nhb_prod ###
+    nhb_prod_triprates: pathlib.Path
+    nhb_prod_mts: pathlib.Path
+    balance_nhb: bool = True
+    ### nhb_attr ###
+    nhb_attr_triprates: dict[int, pathlib.Path]
+    nhb_attr_tr_adj: pathlib.Path | None = None
+    nhb_attr_mts: pathlib.Path
+    nhb_attr_mts_adj: pathlib.Path | None = None
+    nhb_attr_mts_uni: pathlib.Path
+
+    class Config:
+
+        arbitrary_types_allowed=True
+        json_encoders={cb.ZoningSystem: lambda z: z.name,
+                       cb.Segmentation: lambda z: z.naming_order if hasattr(z, "naming_order") else list(z) if isinstance(z, list) else str}
+
+    @model_validator(mode="after")
+    def phi_factors_if_return(self):
+        if self.return_home:
+            if self.hb_prod_phi_factors is None:
+                raise ValueError("hb_prod_phi_factors must be provided for return home trips to be generated.")
+            if self.hb_prod_mts_return is None:
+                raise ValueError("hb_prod_mts_return must be provided for return home trips to be generated.")
+            if self.hb_attr_phi_factors is None:
+                raise ValueError("hb_attr_phi_factors must be provided for return home trips to be generated.")
+            if self.hb_attr_mts_return is None:
+                raise ValueError("hb_attr_mts_return must be provided for return home trips to be generated.")
+        return self
+
+    @model_validator(mode="after")
+    def consistent_years(self):
+        if set(self.pop.keys()) != set(self.model_years):
+            raise ValueError("Population years must match model_years.")
+        if set(self.emp.keys()) != set(self.model_years):
+            raise ValueError("Employment years must match model_years.")
+        if set(self.hh.keys()) != set(self.model_years):
+            raise ValueError("Household years must match model_years.")
+        return self
+
+    
 
 
 # pylint: enable =too-many-positional-arguments,too-few-public-methods
 
 # # # FUNCTIONS # # #
+if __name__ == "__main__":
+    from pathlib import Path
+
+    # --- Extracted from run.py ---
+    model_years = [2023]
+    scenario = "Core"
+    output_zoning = "normits"
+    agg_zoning = "tfn_at"
+    iteration_name = "full_test_aj_1"
+    export_home = Path(r"C:\Users\Kephale\Desktop\Alok\TFN\tem\Outputs")
+    return_segmentation = ["p", "m", "tp", "hh_type", "soc"]
+    trans_file = Path(r"C:\Users\Kephale\Desktop\Alok\TFN\tem\Inputs\normits_lsoa21_trans.csv")
+    mts_geo_constraint = cb.ZoningSystem.get_zoning("gor")
+
+    pop = {
+        2023: Landuse(
+            land_use=r"C:\Users\Kephale\Desktop\Alok\TFN\tem\Inputs\landuse\pop.dvec",
+            type="pop",
+            segmentation=["adult_nssec", "gender_3", "ns_sec", "soc", "aws", "hh_type"],
+            out_zoning=[output_zoning, agg_zoning, mts_geo_constraint],
+        )
+    }
+    emp = {
+        2023: Landuse(
+            land_use=r"C:\Users\Kephale\Desktop\Alok\TFN\tem\Inputs\landuse\emp.dvec",
+            type="emp",
+            segmentation=["soc", "sic_1_digit", "sic_2_digit"],
+            out_zoning=[output_zoning, agg_zoning, "uni", mts_geo_constraint],
+            trans_tag="uni",
+        )
+    }
+    hh = {
+        2023: Landuse(
+            type="pop",
+            land_use=r"C:\Users\Kephale\Desktop\Alok\TFN\tem\Inputs\landuse",
+            prefix=r"Output P14.1_{}.hdf",
+            geographies=("EM", "EoE", "Lon", "NE", "NW", "SE", "SW", "Wales", "WM", "YH", "Scotland"),
+            out_zoning=[output_zoning, agg_zoning, "uni", mts_geo_constraint],
+        )
+    }
+
+    # --- File paths for trip rates, adjustments, etc. ---
+    hb_prod_triprates = Path(r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\productions\hb\trip_rates\hb_trip_rates_production_trip_rates.dvec")
+    hb_prod_mts = Path(r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\productions\hb\mode_time_splits\mode_time_split_production_hb_fr_reg_rho.dvec")
+    hb_prod_phi_factors = Path(r"C:\Users\Kephale\Desktop\Alok\TFN\tem\Inputs\phi_factors")
+    hb_prod_mts_return = Path(r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\productions\hb\mode_time_splits\mode_time_split_production_hb_to_reg_trips.est.dvec")
+    hb_prod_mts_return_adj = Path(r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\others\mode_time_split_adjustments_p_hb_to_adj.dvec")
+    hb_prod_tr_adj = Path(r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\others\trip_rate_adjustments_p_hb_fr_adj.dvec")
+    hb_prod_mts_adjustment = Path(r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\others\mode_time_split_adjustments_p_hb_fr_adj.dvec")
+
+    hb_attr_triprates = {
+        1: Path(r"..."),  # Fill in all 8 paths as in run.py
+        # ...
+    }
+    hb_attr_mts = Path(r"...")  # Fill in as in run.py
+    hb_attr_mts_adj = Path(r"...")
+    hb_attr_mts_uni = Path(r"...")
+    hb_attr_tr_adj = Path(r"...")
+    hb_attr_phi_factors = Path(r"...")
+    hb_attr_mts_return = Path(r"...")
+    hb_attr_mts_return_adj = Path(r"...")
+
+    # Similarly for nhb_prod and nhb_attr...
+
+    # --- Create MainConfig instance ---
+    config = MainConfig(
+        run_hb_prod=True,
+        run_hb_attr=True,
+        run_nhb_prod=True,
+        run_nhb_attr=True,
+        return_home=True,
+        model_years=model_years,
+        scenario=scenario,
+        output_zoning=output_zoning,
+        agg_zoning=agg_zoning,
+        iteration_name=iteration_name,
+        export_home=export_home,
+        return_segmentation=return_segmentation,
+        trans_file=trans_file,
+        export_pure=True,
+        export_mts=True,
+        export_tem=True,
+        export_reports=True,
+        mts_geo_constraint=mts_geo_constraint,
+        pop=pop,
+        emp=emp,
+        hh=hh,
+        hb_prod_triprates=hb_prod_triprates,
+        hb_prod_tr_adj=hb_prod_tr_adj,
+        hb_prod_mts=hb_prod_mts,
+        hb_prod_mts_adjustment=hb_prod_mts_adjustment,
+        hb_prod_phi_factors=hb_prod_phi_factors,
+        hb_prod_mts_return=hb_prod_mts_return,
+        hb_prod_mts_return_adj=hb_prod_mts_return_adj,
+        hb_attr_triprates=hb_attr_triprates,
+        hb_attr_tr_adj=hb_attr_tr_adj,
+        hb_attr_mts=hb_attr_mts,
+        hb_attr_mts_adj=hb_attr_mts_adj,
+        hb_attr_mts_uni=hb_attr_mts_uni,
+        balance_hb=True,
+        hb_attr_phi_factors=hb_attr_phi_factors,
+        hb_attr_mts_return=hb_attr_mts_return,
+        hb_attr_mts_return_adj=hb_attr_mts_return_adj,
+        nhb_prod_triprates=Path(r"..."),
+        nhb_prod_mts=Path(r"..."),
+        balance_nhb=True,
+        nhb_attr_triprates={},
+        nhb_attr_tr_adj=Path(r"..."),
+        nhb_attr_mts=Path(r"..."),
+        nhb_attr_mts_adj=Path(r"..."),
+        nhb_attr_mts_uni=Path(r"..."),
+    )
+    with open('test.yml', "rt") as file:
+            text = file.read()
+    test = MainConfig.load_yaml('test.yml')
+    config.to_yaml()
+
+    print("deb ugging")
