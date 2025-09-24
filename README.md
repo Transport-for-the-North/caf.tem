@@ -14,6 +14,9 @@
 
 
 <p align="center">
+<a href="https://transport-for-the-north.github.io/CAF-Handbook/python_tools/framework.html">
+  <img alt="CAF Status - Pre-Alpha" src="https://img.shields.io/badge/CAF%20Status-Pre--Alpha-orange">
+</a>
 <a href="https://www.gnu.org/licenses/gpl-3.0.en.html"><img alt="License: GNU GPL v3.0" src="https://img.shields.io/badge/license-GPLv3-blueviolet.svg?style=flat-square"></a>
 <a href="https://github.com/psf/black"><img alt="code style: black" src="https://img.shields.io/badge/code%20format-black-000000.svg"></a>
 </p>
@@ -26,6 +29,7 @@ The Common Analytical Framework (CAF) Trip End Model (TEM) is a...
 
 
 For an example implementation of this template please see [caf.toolkit](https://github.com/Transport-for-the-North/caf.toolkit)
+
 
 ## Usage
 Follow the instruction below to use this template to make a new caf package based on the
