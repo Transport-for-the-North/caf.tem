@@ -68,12 +68,16 @@ for entity in entities:
     # === HB Production ===
     population_paths = {year: pop_file(year, entity) for year in model_years}
 
-    HBProd = model.HBProductionModel(population=population_paths, trip_rates_path=Path(
-        r"T:\Yan_Kavana\tem_inputs_isaac\hb_prod_triprates.dvec"),
-                                     mode_time_splits_path=r"T:\Yan_Kavana\tem_inputs_isaac\mts_prod.dvec",
-                                     adjustment_path=r"T:\Yan_Kavana\tem_inputs_isaac\trip_adj_factors.dvec",
-                                     mts_adj_path=r"T:\Yan_Kavana\tem_inputs_isaac\mts_adj_factors.dvec")
-    HBProd.run(export_pure_production=True, export_reports=False, mts_geo_constraint=gor)
+    HBProd = model.HBProductionModel(
+        population=population_paths,
+        trip_rates_path=Path(r"T:\Yan_Kavana\tem_inputs_isaac\hb_prod_triprates.dvec"),
+        mode_time_splits_path=r"T:\Yan_Kavana\tem_inputs_isaac\mts_prod.dvec",
+        adjustment_path=r"T:\Yan_Kavana\tem_inputs_isaac\trip_adj_factors.dvec",
+        mts_adj_path=r"T:\Yan_Kavana\tem_inputs_isaac\mts_adj_factors.dvec",
+    )
+    HBProd.run(
+        export_pure_production=True, export_reports=False, mts_geo_constraint=gor
+    )
 
     # === Employment & Household Landuse Dictionaries ===
     emp_segmentation = ["soc", "sic_1_digit", "sic_2_digit"]
@@ -178,7 +182,9 @@ for entity in entities:
         #         mts_uni_path=r"T:\Yan_Kavana\tem_inputs_isaac\TEM I-Drive Comparison\Inputs\02-HBAttraction\mode_time_split_attraction_hb_fr_reg_uni.hdf",
         #     )
 
-        HBAttr.run(export_pure_attractions=True, mts_geo_constraint=gor, export_reports=False)
+        HBAttr.run(
+            export_pure_attractions=True, mts_geo_constraint=gor, export_reports=False
+        )
 
         # === NHB Production ===
         NHBProd = model.NHBProductionModel(

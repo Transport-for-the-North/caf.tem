@@ -241,7 +241,11 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
                 .read_landuse(translation=self.zone_trans, model_zoning=self.model_zoning)
                 .add_segments(["total"]),
                 "hh": self.hh_landuse[year]
-                .read_landuse(translation=self.zone_trans, init_zoning=cb.ZoningSystem.get_zoning('lsoa_2021'), model_zoning=self.model_zoning)
+                .read_landuse(
+                    translation=self.zone_trans,
+                    init_zoning=cb.ZoningSystem.get_zoning("lsoa_2021"),
+                    model_zoning=self.model_zoning,
+                )
                 .add_segments(["total"]),
             }
 
@@ -683,7 +687,6 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
         return balanced_dvec
 
     def _create_tem_return_home_attraction(self, tem_attraction: cb.DVector):
-
         # Reading one Phi factor Dvec to get its segmentation
         phi_segmentation = self._read_phi_factor_dvec(1).segmentation.naming_order
 
@@ -695,7 +698,10 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
                 # symmetric difference: keep segments that are in only one of the two
             )
             if s
-            not in {"m", "tp"}  # manually exclude 'm' and 'tp' even if they are not common
+            not in {
+                "m",
+                "tp",
+            }  # manually exclude 'm' and 'tp' even if they are not common
         )
 
         tem_return_home_tripends_attraction = self.return_home_trip_ends(

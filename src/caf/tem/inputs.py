@@ -3,6 +3,7 @@
 Module containing input classes for trip-end models, mainly around imports and
 exports.
 """
+
 from __future__ import annotations
 
 # Built-Ins TODO tidy this file
@@ -30,6 +31,7 @@ def create_segmentation(seg_list: list[str] | cb.Segmentation):
     inp = cb.SegmentationInput(enum_segments=seg_list, naming_order=seg_list)
     return cb.Segmentation(inp)
 
+
 def create_zoningsystem(zoning: str | cb.ZoningSystem | list[str, cb.ZoningSystem]):
     if isinstance(zoning, cb.ZoningSystem):
         return zoning
@@ -45,6 +47,8 @@ def create_zoningsystem(zoning: str | cb.ZoningSystem | list[str, cb.ZoningSyste
                     validated_zoning.append(zone)
         return validated_zoning
     return cb.ZoningSystem.get_zoning(zoning)
+
+
 @dataclass
 class Landuse:
     """
@@ -91,12 +95,18 @@ class Landuse:
     prefix: str = None
     segmentation: Annotated[cb.Segmentation, BeforeValidator(create_segmentation)] = None
     geographies: str | list[str] | None = None
-    out_zoning: cb.ZoningSystem | str | Annotated[list[cb.ZoningSystem | str], BeforeValidator(func=create_zoningsystem)] | None = None
-
-        
+    out_zoning: (
+        cb.ZoningSystem
+        | str
+        | Annotated[list[cb.ZoningSystem | str], BeforeValidator(func=create_zoningsystem)]
+        | None
+    ) = None
 
     def read_landuse(
-        self, translation: pd.DataFrame | None = None, init_zoning: cb.ZoningSystem | None = None, model_zoning: cb.ZoningSystem | None = None, 
+        self,
+        translation: pd.DataFrame | None = None,
+        init_zoning: cb.ZoningSystem | None = None,
+        model_zoning: cb.ZoningSystem | None = None,
     ):
         """
         Reads and processes land use data from the specified source, applying optional translation and
@@ -631,6 +641,7 @@ class TEMExportPaths:
             agg_zoning=agg_zoning,
         )
 
+
 class MainConfig(config_base.BaseConfig):
     ### options ###
     run_hb_prod: bool
@@ -651,7 +662,9 @@ class MainConfig(config_base.BaseConfig):
     export_mts: bool = True
     export_tem: bool = True
     export_reports: bool = True
-    mts_geo_constraint: Annotated[cb.ZoningSystem, BeforeValidator(create_zoningsystem)] | None = None
+    mts_geo_constraint: (
+        Annotated[cb.ZoningSystem, BeforeValidator(create_zoningsystem)] | None
+    ) = None
     pop: dict[int, Landuse]
     emp: dict[int, Landuse]
     hh: dict[int, Landuse]
@@ -685,22 +698,35 @@ class MainConfig(config_base.BaseConfig):
     nhb_attr_mts_uni: pathlib.Path
 
     class Config:
-
-        arbitrary_types_allowed=True
-        json_encoders={cb.ZoningSystem: lambda z: z.name,
-                       cb.Segmentation: lambda z: z.naming_order if hasattr(z, "naming_order") else list(z) if isinstance(z, list) else str}
+        arbitrary_types_allowed = True
+        json_encoders = {
+            cb.ZoningSystem: lambda z: z.name,
+            cb.Segmentation: lambda z: (
+                z.naming_order
+                if hasattr(z, "naming_order")
+                else list(z) if isinstance(z, list) else str
+            ),
+        }
 
     @model_validator(mode="after")
     def phi_factors_if_return(self):
         if self.return_home:
             if self.hb_prod_phi_factors is None:
-                raise ValueError("hb_prod_phi_factors must be provided for return home trips to be generated.")
+                raise ValueError(
+                    "hb_prod_phi_factors must be provided for return home trips to be generated."
+                )
             if self.hb_prod_mts_return is None:
-                raise ValueError("hb_prod_mts_return must be provided for return home trips to be generated.")
+                raise ValueError(
+                    "hb_prod_mts_return must be provided for return home trips to be generated."
+                )
             if self.hb_attr_phi_factors is None:
-                raise ValueError("hb_attr_phi_factors must be provided for return home trips to be generated.")
+                raise ValueError(
+                    "hb_attr_phi_factors must be provided for return home trips to be generated."
+                )
             if self.hb_attr_mts_return is None:
-                raise ValueError("hb_attr_mts_return must be provided for return home trips to be generated.")
+                raise ValueError(
+                    "hb_attr_mts_return must be provided for return home trips to be generated."
+                )
         return self
 
     @model_validator(mode="after")
@@ -712,8 +738,6 @@ class MainConfig(config_base.BaseConfig):
         if set(self.hh.keys()) != set(self.model_years):
             raise ValueError("Household years must match model_years.")
         return self
-
-    
 
 
 # pylint: enable =too-many-positional-arguments,too-few-public-methods
@@ -755,19 +779,43 @@ if __name__ == "__main__":
             type="pop",
             land_use=r"C:\Users\Kephale\Desktop\Alok\TFN\tem\Inputs\landuse",
             prefix=r"Output P14.1_{}.hdf",
-            geographies=("EM", "EoE", "Lon", "NE", "NW", "SE", "SW", "Wales", "WM", "YH", "Scotland"),
+            geographies=(
+                "EM",
+                "EoE",
+                "Lon",
+                "NE",
+                "NW",
+                "SE",
+                "SW",
+                "Wales",
+                "WM",
+                "YH",
+                "Scotland",
+            ),
             out_zoning=[output_zoning, agg_zoning, "uni", mts_geo_constraint],
         )
     }
 
     # --- File paths for trip rates, adjustments, etc. ---
-    hb_prod_triprates = Path(r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\productions\hb\trip_rates\hb_trip_rates_production_trip_rates.dvec")
-    hb_prod_mts = Path(r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\productions\hb\mode_time_splits\mode_time_split_production_hb_fr_reg_rho.dvec")
+    hb_prod_triprates = Path(
+        r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\productions\hb\trip_rates\hb_trip_rates_production_trip_rates.dvec"
+    )
+    hb_prod_mts = Path(
+        r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\productions\hb\mode_time_splits\mode_time_split_production_hb_fr_reg_rho.dvec"
+    )
     hb_prod_phi_factors = Path(r"C:\Users\Kephale\Desktop\Alok\TFN\tem\Inputs\phi_factors")
-    hb_prod_mts_return = Path(r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\productions\hb\mode_time_splits\mode_time_split_production_hb_to_reg_trips.est.dvec")
-    hb_prod_mts_return_adj = Path(r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\others\mode_time_split_adjustments_p_hb_to_adj.dvec")
-    hb_prod_tr_adj = Path(r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\others\trip_rate_adjustments_p_hb_fr_adj.dvec")
-    hb_prod_mts_adjustment = Path(r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\others\mode_time_split_adjustments_p_hb_fr_adj.dvec")
+    hb_prod_mts_return = Path(
+        r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\productions\hb\mode_time_splits\mode_time_split_production_hb_to_reg_trips.est.dvec"
+    )
+    hb_prod_mts_return_adj = Path(
+        r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\others\mode_time_split_adjustments_p_hb_to_adj.dvec"
+    )
+    hb_prod_tr_adj = Path(
+        r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\others\trip_rate_adjustments_p_hb_fr_adj.dvec"
+    )
+    hb_prod_mts_adjustment = Path(
+        r"C:\Users\Kephale\Desktop\Alok\TFN\NTS Processing Outputs\outputs\others\mode_time_split_adjustments_p_hb_fr_adj.dvec"
+    )
 
     hb_attr_triprates = {
         1: Path(r"..."),  # Fill in all 8 paths as in run.py
@@ -831,9 +879,9 @@ if __name__ == "__main__":
         nhb_attr_mts_adj=Path(r"..."),
         nhb_attr_mts_uni=Path(r"..."),
     )
-    with open('test.yml', "rt") as file:
-            text = file.read()
-    test = MainConfig.load_yaml('test.yml')
+    with open("test.yml", "rt") as file:
+        text = file.read()
+    test = MainConfig.load_yaml("test.yml")
     config.to_yaml()
 
     print("deb ugging")

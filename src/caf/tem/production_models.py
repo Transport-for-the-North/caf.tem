@@ -239,9 +239,15 @@ class HBProductionModel:
                 mts_production.save(self.model.export_paths.mts_demand[year])
                 mts_production_adj.save(self.model.export_paths.mts_demand_adj[year])
             if export_reports:
-                utils.write_reports(mts_production.aggregate_comp_zones(self.model_zoning), self.model.report_paths.mts_demand, year)
                 utils.write_reports(
-                    mts_production_adj.aggregate_comp_zones(self.model_zoning), self.model.report_paths.mts_demand_adj, year
+                    mts_production.aggregate_comp_zones(self.model_zoning),
+                    self.model.report_paths.mts_demand,
+                    year,
+                )
+                utils.write_reports(
+                    mts_production_adj.aggregate_comp_zones(self.model_zoning),
+                    self.model.report_paths.mts_demand_adj,
+                    year,
                 )
             # No longer need Pure Production
 
@@ -252,7 +258,9 @@ class HBProductionModel:
                 tem_production.save(self.model.export_paths.tem_segmented_from_home[year])
             if export_reports:
                 utils.write_reports(
-                    tem_production.aggregate_comp_zones(self.model_zoning), self.model.report_paths.tem_segmented_from_home, year
+                    tem_production.aggregate_comp_zones(self.model_zoning),
+                    self.model.report_paths.tem_segmented_from_home,
+                    year,
                 )
             if return_tripends:
                 tem_return_home_prod = self._create_tem_return_home_production(tem_production)
@@ -502,7 +510,10 @@ class HBProductionModel:
                 # symmetric difference: keep segments that are in only one of the two
             )
             if s
-            not in {"m", "tp"}  # manually exclude 'm' and 'tp' even if they are not common
+            not in {
+                "m",
+                "tp",
+            }  # manually exclude 'm' and 'tp' even if they are not common
         )
 
         tem_return_home_tripends_productions = self.return_home_trip_ends(
@@ -652,7 +663,6 @@ class NHBProductionModel:
         mts_path: str,
         return_segmentation,
     ) -> None:
-
         _log_fname = "HBProductionModel_log.log"
         """The Home-Based Production Model of NoTEM
 
@@ -773,7 +783,6 @@ class NHBProductionModel:
 
         # Generate the nhb productions for each year
         for year in self.years:
-
             # ## READ HB ATTRACTION ## #
             hbattr = self._read_hb_attraction(year)
 

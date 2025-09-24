@@ -68,7 +68,12 @@ class TEM:
         self.agg_zoning = agg_zoning
         self.iteration_name = iteration_name
         self.export_paths = TEMExportPaths(
-            model_years, self.scenario, iteration_name, export_home, output_zoning, agg_zoning
+            model_years,
+            self.scenario,
+            iteration_name,
+            export_home,
+            output_zoning,
+            agg_zoning,
         )
         if isinstance(return_segmentation, cb.Segmentation):
             self.return_segmentation = return_segmentation

@@ -10,6 +10,7 @@ Other updates made by:
 File purpose:
 
 """
+
 from __future__ import annotations
 
 # Built-in
@@ -70,7 +71,16 @@ def lu_to_tt(dvec: cb.DVector):
 
     """
     out_dvec = dvec.aggregate(
-        ["age_9", "g", "ns_sec", "soc", "pop_emp", "adults", "adult_nssec", "car_availability"]
+        [
+            "age_9",
+            "g",
+            "ns_sec",
+            "soc",
+            "pop_emp",
+            "adults",
+            "adult_nssec",
+            "car_availability",
+        ]
     )
     out_dvec = out_dvec.trans_seg_from_lookup("ag_g")
     out_dvec = out_dvec.trans_seg_from_lookup("apopemp_aws", drop_old=True)
@@ -186,7 +196,9 @@ def phi_to_dvec(
         zoning_system = cb.ZoningSystem.get_zoning("tfn_at")
 
         dvec = cb.DVector(
-            import_data=df_reshaped, segmentation=segmentation, zoning_system=zoning_system
+            import_data=df_reshaped,
+            segmentation=segmentation,
+            zoning_system=zoning_system,
         )
         dvec.save(output_path)
 
@@ -367,7 +379,10 @@ def create_mts_return_home_adj_factor_dvectors(
     # Common reshaping function
     def reshape(sub_df: pd.DataFrame) -> pd.DataFrame:
         reshaped = sub_df.pivot_table(
-            index=["purpose", "mode", "period"], columns="gor", values="adj", aggfunc="sum"
+            index=["purpose", "mode", "period"],
+            columns="gor",
+            values="adj",
+            aggfunc="sum",
         )
         reshaped.index.names = ["p_return", "m", "tp_return"]
         return reshaped

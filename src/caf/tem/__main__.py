@@ -1,17 +1,18 @@
 from inputs import MainConfig
 import caf.tem as ct
 
+
 def main(params: MainConfig):
     model = ct.TEM(
-    model_years=params.model_years,
-    scenario=params.scenario,
-    output_zoning=params.output_zoning,
-    agg_zoning=params.agg_zoning,
-    iteration_name=params.iteration_name,
-    export_home=params.export_home,
-    return_segmentation=params.return_segmentation,
-    trans_file=params.trans_file,
-)
+        model_years=params.model_years,
+        scenario=params.scenario,
+        output_zoning=params.output_zoning,
+        agg_zoning=params.agg_zoning,
+        iteration_name=params.iteration_name,
+        export_home=params.export_home,
+        return_segmentation=params.return_segmentation,
+        trans_file=params.trans_file,
+    )
     if params.run_hb_prod:
         HBProd = model.HBProductionModel(
             population=params.pop,
@@ -48,7 +49,7 @@ def main(params: MainConfig):
         )
 
         HBAttr.run(
-        export_pure_attractions=params.export_pure,
+            export_pure_attractions=params.export_pure,
             export_tem_segmentation=params.export_tem,
             export_reports=params.export_reports,
             mts_geo_constraint=params.mts_geo_constraint,
@@ -64,11 +65,10 @@ def main(params: MainConfig):
         NHBProd.run(
             export_pure_demand=params.export_pure,
             export_tem_segmentation=params.export_tem,
-            export_reports=params.export_reports
+            export_reports=params.export_reports,
         )
-    
-    if params.run_nhb_attr:
 
+    if params.run_nhb_attr:
         NHBAttr = model.AttractionModel(
             trip_rates_paths=params.nhb_attr_triprates,
             emp_landuse=params.emp,
@@ -78,7 +78,7 @@ def main(params: MainConfig):
             trip_rate_adjustment_path=params.nhb_attr_tr_adj,
             mode_time_splits_adjustment_path=params.nhb_attr_mts_adj,
             mts_uni_path=params.nhb_attr_mts_uni,
-            origin='nhb'
+            origin="nhb",
         )
 
         NHBAttr.run(
@@ -89,6 +89,7 @@ def main(params: MainConfig):
             return_tripends=False,
         )
 
+
 if __name__ == "__main__":
-    conf = MainConfig.load_yaml('test.yml')
+    conf = MainConfig.load_yaml("test.yml")
     main(conf)
