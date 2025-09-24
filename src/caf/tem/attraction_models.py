@@ -1,4 +1,9 @@
-"""Process Attraction model."""
+"""Process Attraction model.
+
+This module defines the AttractionModel class, which estimates and balances trip attractions
+for a trip end model. It handles reading input data, applying trip rates, segmenting and
+balancing attractions, and exporting results for further analysis.
+"""
 
 # -*- coding: utf-8 -*-
 # Allow class self type hinting
@@ -32,7 +37,11 @@ custom_segments = Tuples._fields
 
 class AttractionModel:  # pylint:disable=too-many-instance-attributes
     """
-    Initialize the AttractionModel object used for estimating and balancing trip attractions.
+    Estimate and balances trip attractions.
+
+    This class reads land use and trip rate data, applies segmentation and adjustment factors,
+    multiplies land use by trip rates to estimate attractions, applies mode-time splits,
+    balances attractions to productions, and exports results.
 
     Parameters
     ----------
@@ -43,9 +52,9 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
         Paths to input and output resources required by the attraction model.
 
     trip_rates_paths : dict[int, os.PathLike]
-        A dictionary mapping segmentation keys (e.g., GORs or modes) to trip rate CSV file paths.
+        A dictionary mapping purposes to trip rate DVector file paths.
 
-    adj_path : os.PathLike
+    trip_rate_adj_path : os.PathLike
         Path to the file containing adjustment factors for trip balancing or calibration.
 
     balance_production : BalancingZones or bool
@@ -53,31 +62,22 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
         or a boolean indicating whether to apply production balancing.
 
     emp_landuse : dict[int, Landuse]
-        Mapping of segmentation keys to employment-based land use data used for estimating attractions.
+        Mapping of years to employment-based land use data used for estimating attractions.
 
     hh_landuse : dict[int, Landuse]
-        Mapping of segmentation keys to household-based land use data for modeling return-home or home-based trips.
+        Mapping of years to household-based land use data for modeling return-home or home-based trips.
 
     mts_path : os.PathLike
-        Path to the Multi-modal Trip Summary (MTS) file.
-
-    mts_return_home_path : os.PathLike
-        Path to the MTS return-home trip data file.
+        Path to the mode time split (MTS) file.
 
     mts_adjustment_path : os.PathLike
-        Path to the MTS adjustment factors file, used to calibrate or scale modeled trips.
-
-    mts_return_home_adj_factor_path : os.PathLike
-        Path to the file containing return-home adjustment factors.
-
-    phi_factors_path : os.PathLike
-        Path to the phi factor CSV used for distance decay adjustments or calibration.
+        Path to the MTS adjustment factors file, used to adjust trips.
 
     tem_segmentation : cb.Segmentation
-        A `Segmentation` object that defines how trips or zones are segmented for model estimation.
+        The final return segmentation.
 
     mts_uni_path : os.PathLike
-        Path to the file containing university-specific MTS data (if modeling student travel or education-related trips).
+        Path to the file containing university-specific MTS data.
 
     model_zoning : cb.ZoningSystem
         Zoning system used for core modeling (e.g., small area zones, LSOAs, or custom units).
@@ -88,6 +88,15 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
     translation : pd.DataFrame
         A DataFrame used to map or translate zone/system identifiers across different zoning systems
         (e.g., from model zones to aggregated zones).
+
+    phi_factors_path : os.PathLike, optional
+        Path to the phi factor DVectors used for return home trip generation.
+
+    mts_return_home_path : os.PathLike, optional
+        Path to the MTS return-home trip data file.
+
+    mts_return_home_adj_factor_path : os.PathLike, optional
+        Path to the file containing return-home adjustment factors.
     """
 
     def __init__(  # pylint:disable=too-many-arguments,too-many-positional-arguments,too-many-locals
@@ -142,36 +151,20 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
         """
         Run the HB/NHB Attraction Model.
 
-        Completes the following steps for each year:
-            - Reads in the employment land use data given in the constructor.
-            - Reads in the household land use data given in the constructor.
-            - Reads in the trip rates data given in the constructor.
-            - Multiplies the purpose-specific landuse and trip rates, producing Attractions.
-            - Reduces the attraction segmentation to soc, or otherwise to total if soc is not in the purpose-specific trip rate segmentation.
-            - Reads in the mode time split data given in the constructor.
-            - Mutiplies the purpose-specific attraction with the mode time split, producing MTS Attraction.
-            - Expands the purpose-spcific MTS Attraction segmentation to that of Pure Production, creating "Pure Attraction".
-            - Optionally balances "Pure Attractions" to "Pure Production", as exported in the HB/NHB Production Model, producing balanced Pure Attractions.
-            - Optionally writes out a DVector of "Pure Attractions" at self.export_paths.pure_demand[year]
-            - Optionally writes out a pickled DVector of "TEM Segmented Attractions" at self.export_paths.tem_segmented[year] # TODO TBC whether pickled - fix if so
-            - Optionally writes out a number of reports throughout the process.
+        For each year, reads input data, applies trip rates, computes attractions,
+        applies mode-time splits, balances to productions, and exports results.
 
         Parameters
         ----------
-        export_pure_attractions:
-            Whether to export the pure attractions to disk or not.
-            Will be written out to: self.export_paths.pure_demand[year]
-
-        export_tem_segmentation:
-            Whether to export the TEM specified return segmentation demand to disk or not.
-            Will be written out to: self.export_paths.tem_segmented[year]
-
-        export_reports:
-            Whether to output reports while running. All reports will be
-            written out to self.report_home
-        mts_geo_constraint: cb.ZoningSystem | None
-            Aggregate zoning to constrain post mts adjustment at.
-        return_tripends: bool = False
+        export_pure_attractions : bool, default True
+            Whether to export the pure attractions to disk.
+        export_tem_segmentation : bool, default True
+            Whether to export the TEM segmented demand to disk.
+        export_reports : bool, default True
+            Whether to output reports while running.
+        mts_geo_constraint : cb.ZoningSystem or None, default None
+            Aggregate zoning to constrain post-MTS adjustment.
+        return_tripends : bool, default False
             Whether to produce return home trip ends.
 
         Returns
@@ -337,9 +330,21 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
     # # # HELPER FUNCTIONS # # #
 
     def _read_trip_rate(self, p: int) -> cb.DVector:
-        """Read one purpose-specific trip rates DVector, from the path given in the constructor."""
+        """
+        Read one purpose-specific trip rates DVector from the path given in the constructor.
+
+        Parameters
+        ----------
+        p : int
+            Purpose key.
+
+        Returns
+        -------
+        cb.DVector
+            Loaded trip rate vector.
+        """
         # Each trip rate file is explicitly defined in the input dictionary by purpose HB Attraction Model, similar assumption for NHB
-        self._logger.info(f"Loading in purpose {p} trip rates.")
+        self._logger.info(f"Loading in purpose {p} trip rates from {self.trip_rates_paths[p]}.")
         if self.trip_rates_paths[p].name.endswith("csv"):
             trip_rate = pd.read_csv(self.trip_rates_paths[p], index_col=0).squeeze()
             trip_rate.index.name = self.agg_zoning.column_name
@@ -349,26 +354,31 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
         return trip_rate
 
     def _read_mts(self) -> cb.DVector:
-        """Read the mode-time split (MTS) DVector, from the path given in the constructor."""
+        """
+        Read the mode-time split (MTS) DVector from the path given in the constructor.
+
+        Returns
+        -------
+        cb.DVector
+            Loaded MTS vector.
+        """
         self._logger.info(f"Loading mode time splits from {self.mts_path}.")
         mts = cb.DVector.load(self.mts_path)
         return mts
 
     def _read_mts_return_home(self, mts_segs: list[str]) -> cb.DVector:
         """
-        Reads the mode-time split (MTS) DVector, converts it into a normalized share (rho),
-        and aligns it with the TEM Model zoning system.
+        Read the mode-time split DVector for return-home trips and normalize it.
 
         Parameters
         ----------
-        normalize : bool, default=True
-            If True, normalize trips within (tfn_at, hh_type, p_return, tp_return).
-            If False, normalize trips within (tfn_at, hh_type, p_return).
+        mts_segs : list[str]
+            Segments to normalize over.
 
         Returns
         -------
         cb.DVector
-            A DVector containing normalized mode-time splits reshaped by tfn_at.
+            Normalized mode-time splits reshaped by tfn_at.
         """
         # Load the raw DVector
         self._logger.info(f"Loading return home mode time splits from {self.mts_return_home_path}.")
@@ -377,10 +387,17 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
         agg_segs = [i for i in full_seg if i not in mts_segs]
 
         mts = trips / trips.aggregate(agg_segs)
-        return mts#.rename_segment({'p_return':'p', 'tp_return':'tp'})
+        return mts
 
     def _read_adj_factors(self) -> dict[str, cb.DVector]:
-        """Read trip-rate adjustment factors."""
+        """
+        Read trip-rate and MTS adjustment factors.
+
+        Returns
+        -------
+        dict[str, cb.DVector]
+            Dictionary with keys 'tr' and 'mts' for adjustment factors.
+        """
         adj_factors_dict: dict[str, cb.DVector] = {"tr": None, "mts": None}
         if self.tr_adjustment_path is not None:
             with warnings.catch_warnings():
@@ -401,7 +418,14 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
         return adj_factors_dict
 
     def _read_mts_return_home_adjustment(self):
-        """Read MTS adjustment factors."""
+        """
+        Read MTS adjustment factors for return-home trips.
+
+        Returns
+        -------
+        cb.DVector or None
+            Adjustment factors or None if not provided.
+        """
         if self.mts_return_home_adj_factor_path is None:
             return None
 
@@ -415,6 +439,23 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
         adj_factors: cb.DVector,
         geo_constraint: cb.ZoningSystem = None,
     ) -> cb.DVector:
+        """
+        Apply adjustment factors to MTS return-home attractions, optionally constrained by geography.
+
+        Parameters
+        ----------
+        mts_production : cb.DVector
+            MTS production vector.
+        adj_factors : cb.DVector
+            Adjustment factors.
+        geo_constraint : cb.ZoningSystem, optional
+            Zoning system to constrain adjustment.
+
+        Returns
+        -------
+        cb.DVector
+            Adjusted MTS production vector.
+        """
         if adj_factors is None:
             return mts_production
 
@@ -440,9 +481,20 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
         """
         Create the dictionary of pure attractions by purpose.
 
-        - Multiplies the purpose-specific landuse by the purpose-specific trip rates, creating attraction
-        - Adds purpose segmentation to each DVector, based on the trip rates key
-        - Reduces the attraction segmentation to p and soc, or otherwise to p if soc is not in the purpose-specific trip rate segmentation
+        Multiplies purpose-specific land use by trip rates, adds purpose segmentation,
+        and aggregates as needed.
+
+        Parameters
+        ----------
+        landuses : dict[str, cb.DVector | dict]
+            Land use DVectors for employment and households.
+        trip_rates : dict[int, cb.DVector]
+            Trip rate DVectors by purpose.
+
+        Returns
+        -------
+        dict[int, cb.DVector]
+            Attractions by purpose.
         """
         # Create an empty dict to store attraction by purpose
         attr_dict: dict[int, cb.DVector] = {}
@@ -474,7 +526,21 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
         return attr_dict
 
     def _adjust_attraction_dict(self, attr_dict, adj_factors: cb.DVector):
-        """Apply trip-rate adjustment factors to the attraction dictionary."""
+        """
+        Apply trip-rate adjustment factors to the attraction dictionary.
+
+        Parameters
+        ----------
+        attr_dict : dict[int, cb.DVector]
+            Dictionary of attractions by purpose.
+        adj_factors : cb.DVector
+            Adjustment factors.
+
+        Returns
+        -------
+        dict[int, cb.DVector]
+            Adjusted attractions by purpose.
+        """
         attr_dict_adj: dict[int, cb.DVector] = {}
         if adj_factors is not None:
             for p in attr_dict.keys():
@@ -487,7 +553,22 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
     def _export_pure_attractions(
         self, attr_dict: dict[int, cb.DVector], year: int, adj: bool = False
     ) -> None:
-        """Concatenate the DVectors stored in the Pure Attractions dictionary and save."""
+        """
+        Concatenate the DVectors stored in the Pure Attractions dictionary and save.
+
+        Parameters
+        ----------
+        attr_dict : dict[int, cb.DVector]
+            Attractions by purpose.
+        year : int
+            Year key.
+        adj : bool, default False
+            Whether these are adjusted attractions.
+
+        Returns
+        -------
+        None
+        """
         # Concatenate the (optionally balanced) Pure Attraction by purpose
         for p in attr_dict.keys():
             try:
@@ -506,7 +587,23 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
         mts: cb.DVector,
         mts_uni: cb.DVector | None = None,
     ) -> dict[int, cb.DVector]:
-        """Multiply the attraction DVector with the mts DVector, as read from the path given in the constructor."""
+        """
+        Multiply the attraction DVector with the MTS DVector.
+
+        Parameters
+        ----------
+        attr_dict : dict[int, cb.DVector]
+            Attractions by purpose.
+        mts : cb.DVector
+            Mode-time split vector.
+        mts_uni : cb.DVector or None, optional
+            University-specific MTS vector.
+
+        Returns
+        -------
+        dict[int, cb.DVector]
+            MTS-attributed attractions by purpose.
+        """
         mts_dict: dict[int, cb.DVector] = {}
         for p, trips in attr_dict.items():
             if mts_uni is None:
@@ -525,7 +622,20 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
     def _check_mts_dict(
         self, attr_dict: dict[int, cb.DVector], mts_dict: dict[int, cb.DVector]
     ) -> None:
-        """Check that sum of all purpose-specific DVectors match following the application of MTS to Pure Attractions."""
+        """
+        Check that sum of all purpose-specific DVectors match after applying MTS.
+
+        Parameters
+        ----------
+        attr_dict : dict[int, cb.DVector]
+            Attractions by purpose.
+        mts_dict : dict[int, cb.DVector]
+            MTS-attributed attractions by purpose.
+
+        Returns
+        -------
+        None
+        """
         for p in mts_dict.keys():
             if not mts_dict[p].sum_is_close(attr_dict[p], 0.01, 100):
                 self._logger.warning(
@@ -539,6 +649,23 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
         adj_factors: cb.DVector,
         geo_constraint: cb.ZoningSystem | None = None,
     ) -> dict[int, cb.DVector]:
+        """
+        Apply adjustment factors to MTS-attributed attractions, optionally constrained by geography.
+
+        Parameters
+        ----------
+        mts_dict : dict[int, cb.DVector]
+            MTS-attributed attractions by purpose.
+        adj_factors : cb.DVector
+            Adjustment factors.
+        geo_constraint : cb.ZoningSystem or None, optional
+            Zoning system to constrain adjustment.
+
+        Returns
+        -------
+        dict[int, cb.DVector]
+            Adjusted MTS-attributed attractions by purpose.
+        """
         mts_dict_adj: dict[int, cb.DVector] = {}
         if adj_factors is not None:
             for p, mts in mts_dict.items():
@@ -565,7 +692,22 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
     def _export_mts_attractions(
         self, attr_dict: dict[int, cb.DVector], year: int, adj: bool = False
     ) -> None:
-        """Concatenate the DVectors stored in the MTS attractions dictionary and save."""
+        """
+        Concatenate the DVectors stored in the MTS attractions dictionary and save.
+
+        Parameters
+        ----------
+        attr_dict : dict[int, cb.DVector]
+            MTS-attributed attractions by purpose.
+        year : int
+            Year key.
+        adj : bool, default False
+            Whether these are adjusted attractions.
+
+        Returns
+        -------
+        None
+        """
         for p in attr_dict.keys():
             try:
                 output_mts = output_mts.concat(attr_dict[p].aggregate(["p", "m", "tp"]))
@@ -582,7 +724,23 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
     def _create_seg_dict(
         self, mts_dict: dict[int, cb.DVector], tem_production: cb.DVector
     ) -> dict[int, cb.DVector]:
-        """Apply the split_by_other method to each DVector in mts_dict, expanding the segmentation to match that of TEM Segmented Production."""
+        """
+        Apply the split_by_other method to each DVector in mts_dict.
+         
+        Expands the segmentation to match that of TEM Segmented Production.
+
+        Parameters
+        ----------
+        mts_dict : dict[int, cb.DVector]
+            MTS-attributed attractions by purpose.
+        tem_production : cb.DVector
+            TEM segmented production vector.
+
+        Returns
+        -------
+        dict[int, cb.DVector]
+            Segmented attractions by purpose.
+        """
         seg_dict: dict[int, cb.DVector] = {}
         for p, mts in mts_dict.items():
             agg_seg = list(self.tem_segmentation.overlap(mts.segmentation))
@@ -598,7 +756,20 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
     def _check_seg_dict(
         self, mts_dict: dict[int, cb.DVector], seg_dict: dict[int, cb.DVector]
     ) -> None:
-        """Check that the sum of all purpose-specific DVectors match following the application of TEM Production Segmentation."""
+        """
+        Check that the sum of all purpose-specific DVectors match after applying TEM Production Segmentation.
+
+        Parameters
+        ----------
+        mts_dict : dict[int, cb.DVector]
+            MTS-attributed attractions by purpose.
+        seg_dict : dict[int, cb.DVector]
+            Segmented attractions by purpose.
+
+        Returns
+        -------
+        None
+        """
         for p in seg_dict.keys():
             if not seg_dict[p].sum_is_close(mts_dict[p], 0.01, 100):
                 self._logger.warning(
@@ -607,7 +778,19 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
                 )
 
     def _create_tem_dvec(self, seg_dict: dict[int, cb.DVector]) -> cb.DVector:
-        """Concatenate attraction trip-ends at TEM segmentation into a single DVector."""
+        """
+        Concatenate attraction trip-ends at TEM segmentation into a single DVector.
+
+        Parameters
+        ----------
+        seg_dict : dict[int, cb.DVector]
+            Segmented attractions by purpose.
+
+        Returns
+        -------
+        cb.DVector
+            Concatenated TEM-segmented attraction vector.
+        """
         for p in seg_dict.keys():
             try:
                 tem_dvec = tem_dvec.concat(seg_dict[p])
@@ -620,13 +803,19 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
         self, tem_dvec: cb.DVector, tem_production: cb.DVector
     ) -> cb.DVector:
         """
-        Potentially balance attraction to production based on arguments.
+        Balance attraction to production based on arguments.
 
-        If balance_prodcution is TRUE
-        - Divides the TEM Production by the TEM Attraction with zoning removed (Great Britain level), producing segmentation balancing factors.
-        - Multiplies the TEM Attractions by the factors.
-        IF balance_production is BalancingZones OR ZoningSystem
-        - Calls the balance_by_segments function on the TEM Attractions, balancing against TEM Productions using the specified balancing zones
+        Parameters
+        ----------
+        tem_dvec : cb.DVector
+            TEM-segmented attraction vector.
+        tem_production : cb.DVector
+            TEM-segmented production vector.
+
+        Returns
+        -------
+        cb.DVector
+            Balanced attraction vector.
         """
         # If balancing_zones is True
         if self.balance_production is True:
@@ -645,6 +834,21 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
         return balanced_dvec
 
     def _create_tem_return_home_attraction(self, tem_attraction: cb.DVector):
+        """
+        Create TEM-segmented return-home attraction vector.
+
+        Applies phi factors and MTS adjustments to compute return-home trip ends.
+
+        Parameters
+        ----------
+        tem_attraction : cb.DVector
+            TEM-segmented attraction vector.
+
+        Returns
+        -------
+        cb.DVector
+            Adjusted return-home attraction vector.
+        """
         # Reading one Phi factor Dvec to get its segmentation
         phi_segmentation = self._read_phi_factor_dvec(1).segmentation.naming_order
 
@@ -756,6 +960,10 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
         cb.DVector
             Loaded phi factor DVector.
 
+        Raises
+        ------
+        FileNotFoundError
+            If the phi factor file does not exist.
         """
 
         phi_factors_file_path = self.phi_factors_path / f"phi_factors_A_p{p}_reg_phi.dvec"
