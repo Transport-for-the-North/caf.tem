@@ -22,6 +22,7 @@ import pandas as pd
 
 # Local
 import caf.base as cb
+from caf.base.segments import SegmentsSuper
 
 
 # Local Imports
@@ -30,9 +31,17 @@ import caf.base as cb
 # pylint: enable=import-error,wrong-import-position
 
 # # # CONSTANTS # # #
+tt_enum = ["adult_nssec", "gender_3", "ns_sec", "soc", "aws", "hh_type"]
 TT = cb.SegmentationInput(
-    enum_segments=["adult_nssec", "gender_3", "ns_sec", "soc", "aws", "hh_type"],
-    naming_order=["adult_nssec", "gender_3", "ns_sec", "soc", "aws", "hh_type"],
+    enum_segments=[SegmentsSuper(i).get_segment() for i in tt_enum],
+    naming_order=tt_enum,
+)
+
+lad_seg = ["p", "m", "tp"]
+LAD_REPORT_SEG: cb.SegmentationInput = cb.SegmentationInput(
+    enum_segments=[SegmentsSuper(i).get_segment() for i in lad_seg],
+    naming_order=lad_seg,
+    subsets={"tp": [1, 2, 3, 4, 5, 6]},
 )
 
 # # # CLASSES # # #
@@ -144,75 +153,6 @@ def file_exists(file_path: os.PathLike) -> bool:
         )
 
     return True
-
-
-def phi_to_dvec(
-    phi_path: Union[pathlib.Path, str], output_fld: Union[pathlib.Path, str]
-) -> None:
-    """
-    Convert phi factor CSV files to DVector format.
-
-    Reads phi factor CSV files from the given directory, reshapes them, and saves them as .dvec files
-    suitable for use with cb.DVector.
-
-    Parameters
-    ----------
-    phi_path : pathlib.Path or str
-        Directory containing phi factor CSV files (pattern: 'phi_factors*_reg.csv').
-    output_fld : pathlib.Path or str
-        Output directory where reshaped .dvec files will be saved.
-
-    Returns
-    -------
-    None
-    """
-
-    if not isinstance(phi_path, pathlib.Path):
-        phi_path = pathlib.Path(phi_path)
-
-    if not isinstance(output_fld, pathlib.Path):
-        output_fld = pathlib.Path(output_fld)
-
-    pattern = str(phi_path / "phi_factors*_reg.csv")
-    input_files = glob.glob(pattern)
-
-    if not input_files:
-        print(f"No matching files found in {phi_path}")
-        return
-
-    output_fld.mkdir(parents=True, exist_ok=True)
-
-    for file_path in input_files:
-        df = pd.read_csv(file_path)
-
-        df_reshaped = df.pivot_table(
-            index=["purpose.fr", "purpose", "period.fr", "period"],
-            columns="tfn_at",
-            values="phi",
-            aggfunc="sum",
-        )
-
-        df_reshaped.index.names = ["p", "p_return", "tp", "tp_return"]
-
-        new_filename = pathlib.Path(file_path).stem.replace(".csv", ".dvec")
-        output_path = output_fld / new_filename
-
-        seg_inputs = cb.SegmentationInput(
-            enum_segments=["p", "p_return", "tp", "tp_return"],
-            naming_order=["p", "p_return", "tp", "tp_return"],
-        )
-
-        segmentation = cb.Segmentation(seg_inputs)
-        zoning_system = cb.ZoningSystem.get_zoning("tfn_at")
-
-        dvec = cb.DVector(
-            import_data=df_reshaped,
-            segmentation=segmentation,
-            zoning_system=zoning_system,
-        )
-        dvec.save(output_path)
-
-        print(f"Saved: {output_path}")
 
 
 def create_mts_production_return_home_dvec(
