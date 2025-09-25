@@ -11,8 +11,10 @@ from __future__ import annotations
 import os
 from pathlib import Path
 from typing import Any, Literal
+import warnings
 
 import caf.base as cb
+from caf.base.segmentation import SegmentationError, SegmentationWarning
 import pandas as pd
 from caf.base.segments import SegmentsSuper
 

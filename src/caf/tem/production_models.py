@@ -8,9 +8,9 @@ applying trip rates, mode-time splits, adjustments, and exporting results.
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
-import gc
 import logging
 import math
+
 # Builtins
 import os
 import warnings
@@ -25,9 +25,14 @@ from caf.base.segmentation import SegmentationError, SegmentationWarning
 from caf.nts.utils import SegTuple, Tuples
 
 from caf.tem import utils
-from caf.tem.inputs import (AttractionModelPaths, ExportPathsOutputs,
-                            ExportPathsReports, Landuse, ProductionModelPaths,
-                            ReportPaths)
+from caf.tem.inputs import (
+    AttractionModelPaths,
+    ExportPathsOutputs,
+    ExportPathsReports,
+    Landuse,
+    ProductionModelPaths,
+    ReportPaths,
+)
 
 # pylint: disable =too-many-instance-attributes,too-many-positional-arguments,too-many-locals,too-many-arguments,too-few-public-methods
 
@@ -97,7 +102,7 @@ class HBProductionModel:
         self.mts_adjust_path = mts_adjustment_path
         self.mts_return_home_adj_factor_path = mts_return_home_adj_factor_path
         self.zone_trans = translation
-
+        self.shared_methods = utils.SharedProdAttrMethods(self)
         self._logger = logging.getLogger(__name__)
 
     def run(
@@ -249,7 +254,9 @@ class HBProductionModel:
                     year,
                 )
             if return_tripends:
-                tem_return_home_prod = self._create_tem_return_home_production(tem_production)
+                tem_return_home_prod = self.shared_methods.create_tem_return_home(
+                    tem_production, mts_geo_constraint
+                )
                 tem_return_home_prod_ = tem_return_home_prod.rename_segment(
                     {"p_return": "p", "tp_return": "tp"}
                 )
@@ -491,51 +498,6 @@ class HBProductionModel:
 
         return mts_production_adj
 
-    def _adjust_mts_production_return_home(
-        self,
-        mts_production: cb.DVector,
-        adj_factors: cb.DVector,
-        geo_constraint: cb.ZoningSystem | None = None,
-    ) -> cb.DVector:
-        """
-        Adjust MTS production for return-home trips using adjustment factors.
-
-        Parameters
-        ----------
-        mts_production : cb.DVector
-            MTS production vector for return-home trips.
-        adj_factors : cb.DVector or None
-            Adjustment factors.
-        geo_constraint : cb.ZoningSystem, optional
-            Zoning system for constraining adjustment.
-
-        Returns
-        -------
-        cb.DVector
-            Adjusted MTS production vector for return-home trips.
-        """
-        if adj_factors is None:
-            return mts_production
-
-        self._logger.info(" Adjusting mode time split")
-        adj_factors.fill(0, 1)
-        adj = mts_production * adj_factors
-
-        numerator = mts_production.aggregate(["p_return"])
-        denominator = adj.aggregate(["p_return"])
-        if geo_constraint is not None:
-            if isinstance(mts_production.zoning_system, Sequence):
-                if geo_constraint not in mts_production.zoning_system:
-                    raise ValueError("Geo constraint must be contained in the zoning system")
-            else:
-                raise TypeError("For a geo_constraint to work, there must be multi-zoning.")
-            numerator = numerator.aggregate_comp_zones(geo_constraint)
-            denominator = denominator.aggregate_comp_zones(geo_constraint)
-        adj = adj * (numerator / denominator)
-        mts_production_adj = adj
-
-        return mts_production_adj
-
     def _create_tem_production(self, mts_production: cb.DVector) -> cb.DVector:
         """
         Aggregate MTS production to TEM segmentation.
@@ -554,154 +516,6 @@ class HBProductionModel:
         tem_production = mts_production.aggregate(self.tem_segmentation)
 
         return tem_production
-
-    def _create_tem_return_home_production(self, tem_production: cb.DVector):
-        """
-        Create TEM-segmented return-home production vector.
-
-        Parameters
-        ----------
-        tem_production : cb.DVector
-            TEM-segmented production vector.
-
-        Returns
-        -------
-        cb.DVector
-            Adjusted return-home production vector.
-        """
-        self._logger.info("Processing return home trips")
-
-        # Reading one Phi factor Dvec to get its segmentation
-        phi_segmentation = self._read_phi_factor_dvec(1).segmentation.naming_order
-
-        aggregation_segments = list(
-            s
-            for s in (
-                set(self.tem_segmentation)
-                ^ set(phi_segmentation)
-                # symmetric difference: keep segments that are in only one of the two
-            )
-            if s
-            not in {
-                "m",
-                "tp",
-            }  # manually exclude 'm' and 'tp' even if they are not common
-        )
-
-        tem_return_home_tripends_productions = self.return_home_trip_ends(
-            tem_production, aggregation_segments
-        )
-        mts_segs = [
-            i
-            for i in ["m", "tp_return"]
-            if i not in tem_return_home_tripends_productions.segmentation.names
-        ]
-        if len(mts_segs) > 0:
-            mts_return_home = self._read_mts_return_home(mts_segs)
-
-            # Check if 'tp_return' exists in either segmentation
-            tp_in_tem = "tp_return" in tem_production.segmentation.naming_order
-            tp_in_mts = "tp_return" in mts_return_home.segmentation.naming_order
-
-            if not (tp_in_tem or tp_in_mts):
-                raise SegmentationError(
-                    "Segment 'tp_return' (Return Time Period) must be present in either the phi factor DVector or the mode-time split DVector."
-                )
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", category=SegmentationWarning)
-                tem_return_home_tripends_production_mts = (
-                    tem_return_home_tripends_productions * mts_return_home
-                )
-        else:
-            tem_return_home_tripends_production_mts = tem_return_home_tripends_productions
-        mts_return_home_adj = self._read_mts_return_home_adjustment()
-
-        tem_return_home_tripends_production_adj = self._adjust_mts_production_return_home(
-            tem_return_home_tripends_production_mts,
-            mts_return_home_adj,
-            cb.ZoningSystem.get_zoning("gor"),
-        )
-
-        return tem_return_home_tripends_production_adj
-
-    def _read_phi_factor_dvec(self, p: int):
-        """
-        Read a phi factor DVector file for the given purpose segment.
-
-        Parameters
-        ----------
-        p : int
-            Purpose segment value (e.g., 1 to 8).
-
-        Returns
-        -------
-        cb.DVector
-            Loaded phi factor DVector.
-
-        Raises
-        ------
-        FileNotFoundError
-            If the phi factor file does not exist.
-        """
-        if self.phi_factors_path is None:
-            raise TypeError("A path to phi_factors must be provided for return home trips.")
-        phi_factors_file_path = self.phi_factors_path / f"phi_factors_P_p{p}_reg_phi.dvec"
-        self._logger.info(f"Loading phi factors from {phi_factors_file_path}")
-
-        if not phi_factors_file_path.exists():
-            raise FileNotFoundError(
-                f"[ERROR] Phi factor file not found: {phi_factors_file_path}"
-            )
-
-        phi_factor = cb.DVector.load(phi_factors_file_path)
-        return phi_factor
-
-    def return_home_trip_ends(self, tem_production, agg_segments):
-        """
-        Compute return-home trip ends by applying phi factors.
-
-        Applied phi_factors to filtered production vectors, then aggregates over the specified
-        segment groups.
-
-        Parameters
-        ----------
-        tem_production : cb.DVector
-            The production DVector containing 'p' as a segment.
-
-        agg_segments : list[str]
-            List of segment names to aggregate over (e.g., ['p_return', 'tp_return']).
-
-        Returns
-        -------
-        cb.DVector
-            Aggregated return-home trip ends across all purpose segments.
-        """
-        trip_ends = None
-
-        for p_val in range(1, 9):
-            # Load phi factor for this purpose
-            phi = self._read_phi_factor_dvec(p_val)
-
-            # Filter production DVector by current purpose value, keep 'p' segment
-            tem_filtered = tem_production.filter_segment_value("p", p_val, keep_filtered=True)
-
-            # Multiply and aggregate
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", category=SegmentationWarning)
-                result = tem_filtered * phi
-            result = result.aggregate(segs=agg_segments)
-
-            # Accumulate results
-            if trip_ends is None:
-                trip_ends = result
-            else:
-                trip_ends += result
-
-            # Clean up memory
-            del phi, tem_filtered, result
-            gc.collect()
-
-        return trip_ends
 
 
 class NHBProductionModel:

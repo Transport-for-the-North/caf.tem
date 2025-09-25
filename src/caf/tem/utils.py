@@ -8,20 +8,28 @@ and DVector/segmentation operations used throughout the TEM framework.
 
 from __future__ import annotations
 
+import gc
 import copy
 import glob
+
 # Built-in
 import math
 import os
 import pathlib
 import warnings
-from typing import Tuple, Union
+from typing import Tuple, Union, TYPE_CHECKING, Sequence
 
 # Local
 import caf.base as cb
+from caf.base.segmentation import SegmentationError, SegmentationWarning
+
 # Third-party
 import pandas as pd
 from caf.base.segments import SegmentsSuper
+
+if TYPE_CHECKING:
+    from caf.tem.production_models import HBProductionModel
+    from caf.tem.attraction_models import AttractionModel
 
 # Local Imports
 # pylint: disable=import-error,wrong-import-position
@@ -178,3 +186,201 @@ def filter_segments(custom_seg_list, df) -> list:
         filtered_seg_list.append(seg_copy)
 
     return filtered_seg_list
+
+
+class SharedProdAttrMethods:
+
+    def __init__(self, parent: "AttractionModel | HBProductionModel"):
+        self.parent = parent
+
+    def _read_phi_factor_dvec(self, p: int, log: bool = True):
+        """
+        Read a phi factor DVector file for the given purpose segment.
+
+        Parameters
+        ----------
+        p : int
+            Purpose segment value (e.g., 1 to 8).
+
+        Returns
+        -------
+        cb.DVector
+            Loaded phi factor DVector.
+
+        Raises
+        ------
+        FileNotFoundError
+            If the phi factor file does not exist.
+        """
+        if self.parent.phi_factors_path is None:
+            raise TypeError("A path to phi_factors must be provided for return home trips.")
+        phi_factors_file_path = (
+            self.parent.phi_factors_path / f"phi_factors_P_p{p}_reg_phi.dvec"
+        )
+        if log:
+            self.parent._logger.info(f"Loading phi factors from {phi_factors_file_path}")
+
+        if not phi_factors_file_path.exists():
+            raise FileNotFoundError(
+                f"[ERROR] Phi factor file not found: {phi_factors_file_path}"
+            )
+
+        phi_factor = cb.DVector.load(phi_factors_file_path)
+        return phi_factor
+
+    def _adjust_mts_return_home(
+        self,
+        mts: cb.DVector,
+        adj_factors: cb.DVector,
+        geo_constraint: cb.ZoningSystem | None = None,
+    ) -> cb.DVector:
+        """
+        Adjust MTS for return-home trips using adjustment factors.
+
+        Parameters
+        ----------
+        mts : cb.DVector
+            MTS vector for return-home trips.
+        adj_factors : cb.DVector or None
+            Adjustment factors.
+        geo_constraint : cb.ZoningSystem, optional
+            Zoning system for constraining adjustment.
+
+        Returns
+        -------
+        cb.DVector
+            Adjusted MTS vector for return-home trips.
+        """
+        if adj_factors is None:
+            return mts
+
+        self.parent._logger.info(" Adjusting mode time split")
+        adj_factors.fill(0, 1)
+        adj = mts * adj_factors
+
+        numerator = mts.aggregate(["p_return"])
+        denominator = adj.aggregate(["p_return"])
+        if geo_constraint is not None:
+            if isinstance(mts.zoning_system, Sequence):
+                if geo_constraint not in mts.zoning_system:
+                    raise ValueError("Geo constraint must be contained in the zoning system")
+            else:
+                raise TypeError("For a geo_constraint to work, there must be multi-zoning.")
+            numerator = numerator.aggregate_comp_zones(geo_constraint)
+            denominator = denominator.aggregate_comp_zones(geo_constraint)
+        adj = adj * (numerator / denominator)
+        mts_adj = adj
+
+        return mts_adj
+
+    def return_home_trip_ends(self, tem_attraction: cb.DVector, agg_segments: list[str]):
+        """
+        Compute return-home trip ends.
+
+        Applies phi factors to filtered production vectors, then aggregates over
+        the specified segment groups.
+
+        Parameters
+        ----------
+        tem_attraction : cb.DVector
+            The attraction DVector containing 'p' as a segment.
+
+        agg_segments : list[str]
+            List of segment names to aggregate over (e.g., ['p_return', 'tp_return']).
+
+        Returns
+        -------
+        cb.DVector
+            Aggregated return-home trip ends across all purpose segments.
+        """
+        trip_ends = None
+
+        for p_val in range(1, 9):
+            # Load phi factor for this purpose
+            phi = self._read_phi_factor_dvec(p_val)
+
+            # Filter production DVector by current purpose value, keep 'p' segment
+            tem_filtered = tem_attraction.filter_segment_value("p", p_val, keep_filtered=True)
+
+            # Multiply and aggregate
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", category=SegmentationWarning)
+                result = tem_filtered * phi
+            result = result.aggregate(segs=agg_segments)
+
+            # Accumulate results
+            if trip_ends is None:
+                trip_ends = result
+            else:
+                trip_ends += result
+
+            # Clean up memory
+            del phi, tem_filtered, result
+            gc.collect()
+
+        return trip_ends
+
+    def create_tem_return_home(self, tem: cb.DVector, geo_constraint: cb.ZoningSystem | None):
+        """
+        Create TEM-segmented return-home vector.
+
+        Parameters
+        ----------
+        tem : cb.DVector
+            TEM-segmented vector.
+
+        Returns
+        -------
+        cb.DVector
+            Adjusted return-home vector.
+        """
+        self.parent._logger.info("Processing return home trips")
+
+        # Reading one Phi factor Dvec to get its segmentation
+        phi_segmentation = self._read_phi_factor_dvec(1, log=False).segmentation.naming_order
+
+        aggregation_segments = list(
+            s
+            for s in (
+                set(self.parent.tem_segmentation)
+                ^ set(phi_segmentation)
+                # symmetric difference: keep segments that are in only one of the two
+            )
+            if s
+            not in {
+                "m",
+                "tp",
+            }  # manually exclude 'm' and 'tp' even if they are not common
+        )
+
+        tem_return_home_tripends = self.return_home_trip_ends(tem, aggregation_segments)
+        mts_segs = [
+            i
+            for i in ["m", "tp_return"]
+            if i not in tem_return_home_tripends.segmentation.names
+        ]
+        if len(mts_segs) > 0:
+            mts_return_home = self.parent._read_mts_return_home(mts_segs)
+
+            # Check if 'tp_return' exists in either segmentation
+            tp_in_tem = "tp_return" in tem.segmentation.naming_order
+            tp_in_mts = "tp_return" in mts_return_home.segmentation.naming_order
+
+            if not (tp_in_tem or tp_in_mts):
+                raise SegmentationError(
+                    "Segment 'tp_return' (Return Time Period) must be present in either the phi factor DVector or the mode-time split DVector."
+                )
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", category=SegmentationWarning)
+                tem_return_home_tripends_mts = tem_return_home_tripends * mts_return_home
+        else:
+            tem_return_home_tripends_mts = tem_return_home_tripends
+        mts_return_home_adj = self.parent._read_mts_return_home_adjustment()
+
+        tem_return_home_tripends_adj = self._adjust_mts_return_home(
+            mts=tem_return_home_tripends_mts,
+            adj_factors=mts_return_home_adj,
+            geo_constraint=geo_constraint,
+        )
+
+        return tem_return_home_tripends_adj

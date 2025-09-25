@@ -11,6 +11,7 @@ production and attraction models.
 from __future__ import annotations
 
 import collections
+
 # Built-Ins TODO tidy this file
 import enum
 import os
@@ -120,6 +121,7 @@ class Landuse:
         | Annotated[list[cb.ZoningSystem | str], BeforeValidator(func=create_zoningsystem)]
         | None
     ) = None
+
     # pylint: disable = too-many-branches
     def read_landuse(
         self,
@@ -196,6 +198,7 @@ class Landuse:
                 lu = lu.translate_zoning(self.out_zoning, trans_vector=translation)
         self.land_use = lu
         return lu
+
     # pylint: enable = too-many-branches
 
 
@@ -227,6 +230,7 @@ class Scenarios(enum.Enum):
 
 class ExportPathsOutputs(NamedTuple):
     """Paths for outputs to be saved to."""
+
     home: pathlib.Path
     pure_demand: dict[int, os.PathLike]
     pure_demand_adj: dict[int, os.PathLike]
@@ -239,6 +243,7 @@ class ExportPathsOutputs(NamedTuple):
 
 class ExportPathsReports(NamedTuple):
     """Paths for reports to be saved to."""
+
     home: pathlib.Path
     pure_demand: ReportPaths
     pure_demand_adj: ReportPaths
@@ -251,6 +256,7 @@ class ExportPathsReports(NamedTuple):
 
 class ReportPaths(NamedTuple):
     """Lower level reports paths."""
+
     segment_total: dict[int, os.PathLike]
     ca_sector: dict[int, os.PathLike]
     ie_sector: dict[int, os.PathLike]
