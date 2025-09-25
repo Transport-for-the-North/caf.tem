@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import logging
 import math
-
 # Builtins
 import os
 import warnings
@@ -25,14 +24,9 @@ from caf.base.segmentation import SegmentationError, SegmentationWarning
 from caf.nts.utils import SegTuple, Tuples
 
 from caf.tem import utils
-from caf.tem.inputs import (
-    AttractionModelPaths,
-    ExportPathsOutputs,
-    ExportPathsReports,
-    Landuse,
-    ProductionModelPaths,
-    ReportPaths,
-)
+from caf.tem.inputs import (AttractionModelPaths, ExportPathsOutputs,
+                            ExportPathsReports, Landuse, ProductionModelPaths,
+                            ReportPaths)
 
 # pylint: disable =too-many-instance-attributes,too-many-positional-arguments,too-many-locals,too-many-arguments,too-few-public-methods
 
@@ -103,7 +97,7 @@ class HBProductionModel:
         self.mts_return_home_adj_factor_path = mts_return_home_adj_factor_path
         self.zone_trans = translation
         self.shared_methods = utils.SharedProdAttrMethods(self)
-        self._logger = logging.getLogger(__name__)
+        self.logger = logging.getLogger(__name__)
 
     def run(
         self,
@@ -149,7 +143,7 @@ class HBProductionModel:
 
         # ## START ## #
         start_time = ctk.timing.current_milli_time()
-        self._logger.info("Starting HB Production Model")
+        self.logger.info("Starting HB Production Model")
 
         # If all exports are False, then the function is redundant
         if not (
@@ -159,11 +153,11 @@ class HBProductionModel:
             or export_reports
         ):
             # End timing
-            self._logger.info("All exports set to False. Run not executed.")
+            self.logger.info("All exports set to False. Run not executed.")
             end_time = ctk.timing.current_milli_time()
             time_taken = ctk.timing.time_taken(start_time, end_time)
-            self._logger.info("HB Production Model took:%s", time_taken)
-            self._logger.info("HB Production Model Finished")
+            self.logger.info("HB Production Model took:%s", time_taken)
+            self.logger.info("HB Production Model Finished")
             return None
 
         # ## READ INPUTS ## #
@@ -266,13 +260,13 @@ class HBProductionModel:
 
             year_end_time = ctk.timing.current_milli_time()
             time_taken = ctk.timing.time_taken(year_start_time, year_end_time)
-            self._logger.info("HB Productions in year %s took: %s\n", year, time_taken)
+            self.logger.info("HB Productions in year %s took: %s\n", year, time_taken)
 
         # End timing
         end_time = ctk.timing.current_milli_time()
         time_taken = ctk.timing.time_taken(start_time, end_time)
-        self._logger.info("HB Production Model took:%s", time_taken)
-        self._logger.info("HB Production Model Finished")
+        self.logger.info("HB Production Model took:%s", time_taken)
+        self.logger.info("HB Production Model Finished")
 
         return None
 
@@ -299,36 +293,9 @@ class HBProductionModel:
         cb.DVector
             Loaded MTS vector.
         """
-        self._logger.info(f"Loading mts from {self.mts_path}")
+        self.logger.info(f"Loading mts from {self.mts_path}")
         mts = cb.DVector.load(self.mts_path)
 
-        return mts
-
-    def _read_mts_return_home(self, mts_segs: list[str]) -> cb.DVector:
-        """
-        Read the mode-time split DVector for return-home trips and normalize it.
-
-        Parameters
-        ----------
-        mts_segs : list[str]
-            Segments to normalize over.
-
-        Returns
-        -------
-        cb.DVector
-            Normalized mode-time splits reshaped by tfn_at.
-        """
-        # Load the raw DVector
-        self._logger.info(
-            f"Loading return home mode time splits from {self.mts_return_home_path}."
-        )
-        if self.mts_return_home_path is None:
-            raise TypeError("MTS return_home must be provided.")
-        trips = cb.DVector.load(self.mts_return_home_path)
-        full_seg = trips.segmentation.naming_order
-        agg_segs = [i for i in full_seg if i not in mts_segs]
-
-        mts = trips / trips.aggregate(agg_segs)
         return mts
 
     def _read_trip_rate_adjustment(self):
@@ -343,7 +310,7 @@ class HBProductionModel:
         if self.trip_rate_adjustment_path is None:
             return None
 
-        self._logger.info("Loading the trip rates adjustment factors")
+        self.logger.info("Loading the trip rates adjustment factors")
         adj_factors = cb.DVector.load(self.trip_rate_adjustment_path)
 
         return adj_factors
@@ -360,7 +327,7 @@ class HBProductionModel:
         if self.mts_adjust_path is None:
             return None
 
-        self._logger.info("Loading the MTS adjustment factors")
+        self.logger.info("Loading the MTS adjustment factors")
         adj_factors = cb.DVector.load(self.mts_adjust_path)
 
         return adj_factors
@@ -377,7 +344,7 @@ class HBProductionModel:
         if self.mts_adjust_path is None:
             return None
 
-        self._logger.info("Loading the MTS adjustment factors for return home")
+        self.logger.info("Loading the MTS adjustment factors for return home")
         adj_factors = cb.DVector.load(self.mts_return_home_adj_factor_path)
 
         return adj_factors
@@ -400,7 +367,7 @@ class HBProductionModel:
         cb.DVector
             Pure production vector.
         """
-        self._logger.info(" Calculating pure production")
+        self.logger.info(" Calculating pure production")
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=SegmentationWarning)
             pure_production = population * trip_rates
@@ -426,7 +393,7 @@ class HBProductionModel:
         if adj_factors is None:
             return production
 
-        self._logger.info(" Adjusting pure production given trip rate adjustments")
+        self.logger.info(" Adjusting pure production given trip rate adjustments")
         production_adj = production * adj_factors
 
         return production_adj
@@ -449,7 +416,7 @@ class HBProductionModel:
         cb.DVector
             MTS production vector.
         """
-        self._logger.info(" Applying mode time split")
+        self.logger.info(" Applying mode time split")
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=SegmentationWarning)
             mts_production = pure_production * mts
@@ -482,7 +449,7 @@ class HBProductionModel:
         if adj_factors is None:
             return mts_production
 
-        self._logger.info(" Adjusting mode time split")
+        self.logger.info(" Adjusting mode time split")
         adj_factors.fill(0, 1)
         adj = mts_production * adj_factors
         numerator = mts_production.aggregate(["p"])
@@ -512,7 +479,7 @@ class HBProductionModel:
         cb.DVector
             TEM-segmented production vector.
         """
-        self._logger.info(" Aggregating to TEM Output Segmentation")
+        self.logger.info(" Aggregating to TEM Output Segmentation")
         tem_production = mts_production.aggregate(self.tem_segmentation)
 
         return tem_production

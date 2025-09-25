@@ -10,7 +10,6 @@ balancing attractions, and exporting results for further analysis.
 from __future__ import annotations
 
 import logging
-
 # Builtins
 import os
 import warnings
@@ -19,7 +18,6 @@ from typing import Sequence
 
 import caf.base as cb
 import caf.toolkit as ctk
-
 # Third party imports
 import pandas as pd
 from caf.base.segmentation import SegmentationError, SegmentationWarning
@@ -134,7 +132,7 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
         self.agg_zoning = agg_zoning
         self.zone_trans = translation
         self.shared_methods = utils.SharedProdAttrMethods(self)
-        self._logger = logging.getLogger(__name__)
+        self.logger = logging.getLogger(__name__)
 
     def run(  # pylint:disable=too-many-positional-arguments,too-many-locals,too-many-branches
         self,
@@ -172,18 +170,18 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
         # ## TEM PRE-REQUISITES ## #
         # If all exports are False, then the run() function is redundant.
         start_time = ctk.timing.current_milli_time()
-        self._logger.info("Starting attraction Model")
+        self.logger.info("Starting attraction Model")
         assert self.production_model.export_paths is not None
         assert self.production_model.report_paths is not None
         assert self.model.export_paths is not None
         assert self.model.report_paths is not None
 
         if not (export_pure_attractions or export_tem_segmentation or export_reports):
-            self._logger.info("All exports set to False. Run not executed.")
+            self.logger.info("All exports set to False. Run not executed.")
             end_time = ctk.timing.current_milli_time()
             time_taken = ctk.timing.time_taken(start_time, end_time)
-            self._logger.info("HB Production Model took:%s", time_taken)
-            self._logger.info("HB Production Model Finished")
+            self.logger.info("HB Production Model took:%s", time_taken)
+            self.logger.info("HB Production Model Finished")
             return None
 
         # Ensure production balance file exists... (if balance_production is True)
@@ -293,7 +291,7 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
             for p, v in seg_dict.items():
                 seg_dict_sum += v.sum()
             if not tem_dvec.sum_is_close(seg_dict_sum, 0.01, 100):
-                self._logger.warning(
+                self.logger.warning(
                     f"The sum of the TEM Segmented segmented attraction (split by TEM Production) does not match the expected sum.\n"
                     f"Expected: {seg_dict_sum}\nGot: {tem_dvec.sum()}"
                 )
@@ -346,7 +344,7 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
             Loaded trip rate vector.
         """
         # Each trip rate file is explicitly defined in the input dictionary by purpose HB Attraction Model, similar assumption for NHB
-        self._logger.info(
+        self.logger.info(
             f"Loading in purpose {p} trip rates from {self.trip_rates_paths[p]}."
         )
         if self.trip_rates_paths[p].name.endswith("csv"):
@@ -366,35 +364,8 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
         cb.DVector
             Loaded MTS vector.
         """
-        self._logger.info(f"Loading mode time splits from {self.mts_path}.")
+        self.logger.info(f"Loading mode time splits from {self.mts_path}.")
         mts = cb.DVector.load(self.mts_path)
-        return mts
-
-    def _read_mts_return_home(self, mts_segs: list[str]) -> cb.DVector:
-        """
-        Read the mode-time split DVector for return-home trips and normalize it.
-
-        Parameters
-        ----------
-        mts_segs : list[str]
-            Segments to normalize over.
-
-        Returns
-        -------
-        cb.DVector
-            Normalized mode-time splits reshaped by tfn_at.
-        """
-        # Load the raw DVector
-        if self.mts_return_home_path is None:
-            raise TypeError("mts_return_home_path must be provided for it to be loaded.")
-        self._logger.info(
-            f"Loading return home mode time splits from {self.mts_return_home_path}."
-        )
-        trips = cb.DVector.load(self.mts_return_home_path)
-        full_seg = trips.segmentation.naming_order
-        agg_segs = [i for i in full_seg if i not in mts_segs]
-
-        mts = trips / trips.aggregate(agg_segs)
         return mts
 
     def _read_adj_factors(self) -> dict[str, cb.DVector | None]:
@@ -653,7 +624,7 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
         """
         for p in mts_dict.keys():
             if not mts_dict[p].sum_is_close(attr_dict[p], 0.01, 100):
-                self._logger.warning(
+                self.logger.warning(
                     f"The sum of mode-time split, of the Pure Attractions for purpose {p}, does not match the expected sum.\n"
                     f"Expected: {attr_dict[p].sum()}\nGot: {mts_dict[p].sum()}\n"
                 )
@@ -791,7 +762,7 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
         """
         for p in seg_dict.keys():
             if not seg_dict[p].sum_is_close(mts_dict[p], 0.01, 100):
-                self._logger.warning(
+                self.logger.warning(
                     f"The sum of Segmented MTS Attractions, of the pre-segmented MTS Attractions for purpose {p}, does not match the expected sum.\n"
                     f"Expected: {mts_dict[p].sum()}\nGot: {seg_dict[p].sum()}\n"
                 )

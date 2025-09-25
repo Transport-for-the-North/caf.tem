@@ -9,13 +9,13 @@ managing model configuration and outputs.
 from __future__ import annotations
 
 import os
+import warnings
 from pathlib import Path
 from typing import Any, Literal
-import warnings
 
 import caf.base as cb
-from caf.base.segmentation import SegmentationError, SegmentationWarning
 import pandas as pd
+from caf.base.segmentation import SegmentationError, SegmentationWarning
 from caf.base.segments import SegmentsSuper
 
 from caf.tem.attraction_models import AttractionModel

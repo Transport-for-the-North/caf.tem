@@ -5,22 +5,22 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "caf.tem"
 dynamic = ["version"]
-description = "Package Description"
+description = "Core classes and definitions for CAF family of tools."
 readme = "README.md"
 license = {"file"= "LICENSE"}
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 authors = [
     { name = "Transport for the North" },
 ]
 classifiers = [
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
-    "numpy>=1.19.0",
-    "pandas>=1.4.0, <3.0.0" ,
+    "caf.base",
+    "caf.toolkit>=0.10"
 ]
 
 [project.optional-dependencies]
@@ -28,14 +28,16 @@ lint = [
     "black>=22.6.0",
     "mypy>=1.0.0, <2.0.0",
     "mypy_extensions>=1.0.0, <2.0.0",
-    "pydocstyle[toml]>=6.1.1",
+    "pydocstyle>=6.1.1",
+    "pydocstyle[toml]",
     "pylint>=2.14.5",
 ]
 
 test = [
     "pytest>=7.4.0, <9.0.0",
-    "pytest-cov>=4.1.0, < 6.0.0",
+    "pytest-cov>= 4.1.0, < 7.0.0",
     "pytest-xdist>=3.3.1, <4.0.0",
+    "tox>=3.24.3, <4.0.0",
 ]
 
 edit_install = [
@@ -52,12 +54,12 @@ Source = "https://github.com/Transport-for-the-North/caf.toolkit"
 where = ["src"]
 
 [tool.setuptools.package-data]
-"caf.tem" = ["py.typed"]
+"caf.tem" = ["py.typed", "seg_translations/*.csv", "segments/*.yml"]
 
 # Linters
 [tool.black]
 line-length = 95
-target-version = ['py39']
+target-version = ['py311']
 
 [tool.pylint.messages_control]
 disable = [
@@ -65,12 +67,25 @@ disable = [
     "too-many-lines",
     "use-dict-literal",
     "use-list-literal",
+    "wrong-import-order",  # Handled by isort
     "logging-fstring-interpolation"
 ]
 
+[tool.isort]
+profile = "black"
+src_paths = ["src", "tests"]
+
+skip = ["__init__.py", "_version.py"]
+skip_glob = [".*"]
+
+# Section commenting
+import_heading_stdlib = "Built-Ins"
+import_heading_thirdparty = "Third Party"
+import_heading_firstparty = "Local Imports"
+
 # Pylint settings
 [tool.pylint.basic]
-good-names = ["df", "fn", "ca", "tp", "x", "i",]
+good-names = ["df", "fn", "ca", "tp", "x", "x1", "x2", "i",]
 
 [tool.pylint.main]
 ignore = ["__init__.py", "_version.py"]
@@ -86,11 +101,11 @@ namespace_packages = true
 ignore_missing_imports = true
 allow_redefinition = true
 
-[[tool.mypy.overrides]]
-module = [
-  "caf.tem._version",
-]
-ignore_errors = true
+#[[tool.mypy.overrides]]
+#module = [
+#  "caf.tem._version",
+#]
+#ignore_errors = true
 
 [tool.pydocstyle]
 convention = "numpy"
@@ -100,11 +115,14 @@ add-ignore = [
 ]
 
 [tool.pytest.ini_options]
-pythonpath = ["src"]
-addopts = "--cov=caf --cov-report=xml -n auto"
+addopts = "--cov=caf.tem --cov-report=xml --doctest-modules -n auto"
+doctest_optionflags = "NORMALIZE_WHITESPACE"
+pythonpath = "src"
+# Test coverage fails with src before tests
+testpaths = ["tests", "src"]
 
-[tool.coverage.report]
-include_namespace_packages = true
+[tool.coverage.run]
+omit = ["*/_version.py"]
 
 # Versioning
 [tool.versioningit.vcs]
@@ -113,8 +131,8 @@ match = ["v*"]
 default-tag = "0.0.1"
 
 [tool.versioningit.onbuild]
-source-file = "src/caf/tem/_version.py"
-build-file = "caf/tem/_version.py"
+source-file = "src/caf/base/_version.py"
+build-file = "caf/base/_version.py"
 
 [tool.versioningit.format]
 distance = "{base_version}+{distance}.{vcs}{rev}"

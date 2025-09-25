@@ -8,28 +8,24 @@ and DVector/segmentation operations used throughout the TEM framework.
 
 from __future__ import annotations
 
-import gc
 import copy
+import gc
 import glob
-
 # Built-in
 import math
 import os
-import pathlib
 import warnings
-from typing import Tuple, Union, TYPE_CHECKING, Sequence
+from typing import TYPE_CHECKING, Sequence
 
 # Local
 import caf.base as cb
 from caf.base.segmentation import SegmentationError, SegmentationWarning
-
 # Third-party
-import pandas as pd
 from caf.base.segments import SegmentsSuper
 
 if TYPE_CHECKING:
-    from caf.tem.production_models import HBProductionModel
     from caf.tem.attraction_models import AttractionModel
+    from caf.tem.production_models import HBProductionModel
 
 # Local Imports
 # pylint: disable=import-error,wrong-import-position
@@ -193,6 +189,33 @@ class SharedProdAttrMethods:
     def __init__(self, parent: "AttractionModel | HBProductionModel"):
         self.parent = parent
 
+    def _read_mts_return_home(self, mts_segs: list[str]) -> cb.DVector:
+        """
+        Read the mode-time split DVector for return-home trips and normalize it.
+
+        Parameters
+        ----------
+        mts_segs : list[str]
+            Segments to normalize over.
+
+        Returns
+        -------
+        cb.DVector
+            Normalized mode-time splits reshaped by tfn_at.
+        """
+        # Load the raw DVector
+        self.parent.logger.info(
+            f"Loading return home mode time splits from {self.parent.mts_return_home_path}."
+        )
+        if self.parent.mts_return_home_path is None:
+            raise TypeError("MTS return_home must be provided.")
+        trips = cb.DVector.load(self.parent.mts_return_home_path)
+        full_seg = trips.segmentation.naming_order
+        agg_segs = [i for i in full_seg if i not in mts_segs]
+
+        mts = trips / trips.aggregate(agg_segs)
+        return mts
+
     def _read_phi_factor_dvec(self, p: int, log: bool = True):
         """
         Read a phi factor DVector file for the given purpose segment.
@@ -218,7 +241,7 @@ class SharedProdAttrMethods:
             self.parent.phi_factors_path / f"phi_factors_P_p{p}_reg_phi.dvec"
         )
         if log:
-            self.parent._logger.info(f"Loading phi factors from {phi_factors_file_path}")
+            self.parent.logger.info(f"Loading phi factors from {phi_factors_file_path}")
 
         if not phi_factors_file_path.exists():
             raise FileNotFoundError(
@@ -254,7 +277,7 @@ class SharedProdAttrMethods:
         if adj_factors is None:
             return mts
 
-        self.parent._logger.info(" Adjusting mode time split")
+        self.parent.logger.info(" Adjusting mode time split")
         adj_factors.fill(0, 1)
         adj = mts * adj_factors
 
@@ -334,7 +357,7 @@ class SharedProdAttrMethods:
         cb.DVector
             Adjusted return-home vector.
         """
-        self.parent._logger.info("Processing return home trips")
+        self.parent.logger.info("Processing return home trips")
 
         # Reading one Phi factor Dvec to get its segmentation
         phi_segmentation = self._read_phi_factor_dvec(1, log=False).segmentation.naming_order
@@ -360,7 +383,7 @@ class SharedProdAttrMethods:
             if i not in tem_return_home_tripends.segmentation.names
         ]
         if len(mts_segs) > 0:
-            mts_return_home = self.parent._read_mts_return_home(mts_segs)
+            mts_return_home = self._read_mts_return_home(mts_segs)
 
             # Check if 'tp_return' exists in either segmentation
             tp_in_tem = "tp_return" in tem.segmentation.naming_order
@@ -375,7 +398,7 @@ class SharedProdAttrMethods:
                 tem_return_home_tripends_mts = tem_return_home_tripends * mts_return_home
         else:
             tem_return_home_tripends_mts = tem_return_home_tripends
-        mts_return_home_adj = self.parent._read_mts_return_home_adjustment()
+        mts_return_home_adj = self._read_mts_return_home_adjustment()
 
         tem_return_home_tripends_adj = self._adjust_mts_return_home(
             mts=tem_return_home_tripends_mts,

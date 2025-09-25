@@ -11,7 +11,6 @@ production and attraction models.
 from __future__ import annotations
 
 import collections
-
 # Built-Ins TODO tidy this file
 import enum
 import os
@@ -717,7 +716,7 @@ class MainConfig(config_base.BaseConfig):
     export_home : pathlib.Path
         Root export directory.
     return_segmentation : cb.Segmentation
-        Segmentation for return trips.
+        Segmentation trip-ends are returned at.
     trans_file : pathlib.Path
         Path to translation file.
     export_pure : bool
@@ -736,7 +735,6 @@ class MainConfig(config_base.BaseConfig):
         Employment land use data by year.
     hh : dict[int, Landuse]
         Household land use data by year.
-    (plus all model-specific file paths)
     """
 
     ### options ###
