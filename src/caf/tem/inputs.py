@@ -10,20 +10,20 @@ production and attraction models.
 
 from __future__ import annotations
 
+import collections
 # Built-Ins TODO tidy this file
 import enum
 import os
 import pathlib
-import collections
 import warnings
 from dataclasses import dataclass
-from typing import Literal, Annotated, NamedTuple
-import pandas as pd
+from typing import Annotated, Literal, NamedTuple
 
 # Third Party
 import caf.base as cb
-from caf.base.segments import SegmentsSuper
 import caf.toolkit as ctk
+import pandas as pd
+from caf.base.segments import SegmentsSuper
 from caf.toolkit import config_base
 from pydantic import BeforeValidator, model_validator
 
@@ -120,7 +120,7 @@ class Landuse:
         | Annotated[list[cb.ZoningSystem | str], BeforeValidator(func=create_zoningsystem)]
         | None
     ) = None
-
+    # pylint: disable = too-many-branches
     def read_landuse(
         self,
         translation: pd.DataFrame | None = None,
@@ -166,6 +166,8 @@ class Landuse:
                         warnings.filterwarnings("ignore", category=UserWarning)
                         if self.prefix is not None:
                             dvec = cb.DVector.load(source_path / self.prefix.format(geo))
+                        else:
+                            raise ValueError("Prefix must be provided if landuse is a folder.")
                         if segmentation is None:
                             segmentation = dvec.segmentation
                         dvecs.append(dvec.aggregate(segmentation))
@@ -194,6 +196,7 @@ class Landuse:
                 lu = lu.translate_zoning(self.out_zoning, trans_vector=translation)
         self.land_use = lu
         return lu
+    # pylint: enable = too-many-branches
 
 
 @enum.unique
@@ -223,6 +226,7 @@ class Scenarios(enum.Enum):
 
 
 class ExportPathsOutputs(NamedTuple):
+    """Paths for outputs to be saved to."""
     home: pathlib.Path
     pure_demand: dict[int, os.PathLike]
     pure_demand_adj: dict[int, os.PathLike]
@@ -234,6 +238,7 @@ class ExportPathsOutputs(NamedTuple):
 
 
 class ExportPathsReports(NamedTuple):
+    """Paths for reports to be saved to."""
     home: pathlib.Path
     pure_demand: ReportPaths
     pure_demand_adj: ReportPaths
@@ -245,6 +250,7 @@ class ExportPathsReports(NamedTuple):
 
 
 class ReportPaths(NamedTuple):
+    """Lower level reports paths."""
     segment_total: dict[int, os.PathLike]
     ca_sector: dict[int, os.PathLike]
     ie_sector: dict[int, os.PathLike]

@@ -65,6 +65,7 @@ disable = [
     "too-many-lines",
     "use-dict-literal",
     "use-list-literal",
+    "logging-fstring-interpolation"
 ]
 
 # Pylint settings

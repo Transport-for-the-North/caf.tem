@@ -7,15 +7,17 @@ managing model configuration and outputs.
 """
 
 from __future__ import annotations
+
 import os
 from pathlib import Path
-from typing import Literal, Any
-import pandas as pd
+from typing import Any, Literal
 
 import caf.base as cb
+import pandas as pd
 from caf.base.segments import SegmentsSuper
-from caf.tem.inputs import TEMExportPaths, Scenarios, Landuse
+
 from caf.tem.attraction_models import AttractionModel
+from caf.tem.inputs import Landuse, Scenarios, TEMExportPaths
 from caf.tem.production_models import HBProductionModel, NHBProductionModel
 
 

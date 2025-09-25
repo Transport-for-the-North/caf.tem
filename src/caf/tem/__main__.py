@@ -1,7 +1,9 @@
+import logging
+
+import caf.toolkit as ctk
+
 import caf.tem as ct
 from caf.tem.inputs import MainConfig
-import caf.toolkit as ctk
-import logging
 
 LOG = logging.getLogger(__name__)
 

@@ -8,32 +8,26 @@ applying trip rates, mode-time splits, adjustments, and exporting results.
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
+import gc
+import logging
+import math
 # Builtins
 import os
-import math
 import warnings
-import logging
-import gc
 from pathlib import Path
-import pandas as pd
 from typing import Sequence
-
 
 # Third party imports
 import caf.base as cb
-from caf.base.segmentation import SegmentationError, SegmentationWarning
 import caf.toolkit as ctk
-from caf.tem import utils
-from caf.nts.utils import Tuples, SegTuple
+import pandas as pd
+from caf.base.segmentation import SegmentationError, SegmentationWarning
+from caf.nts.utils import SegTuple, Tuples
 
-from caf.tem.inputs import (
-    ProductionModelPaths,
-    AttractionModelPaths,
-    Landuse,
-    ReportPaths,
-    ExportPathsOutputs,
-    ExportPathsReports,
-)
+from caf.tem import utils
+from caf.tem.inputs import (AttractionModelPaths, ExportPathsOutputs,
+                            ExportPathsReports, Landuse, ProductionModelPaths,
+                            ReportPaths)
 
 # pylint: disable =too-many-instance-attributes,too-many-positional-arguments,too-many-locals,too-many-arguments,too-few-public-methods
 

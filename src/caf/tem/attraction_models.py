@@ -9,29 +9,23 @@ balancing attractions, and exporting results for further analysis.
 # Allow class self type hinting
 from __future__ import annotations
 
-
+import gc
+import logging
 # Builtins
 import os
 import warnings
-import gc
-import logging
 from pathlib import Path
 from typing import Sequence
 
-# Third party imports
-import pandas as pd
-
-
 import caf.base as cb
 import caf.toolkit as ctk
-from caf.base.segmentation import SegmentationError
+# Third party imports
+import pandas as pd
+from caf.base.segmentation import SegmentationError, SegmentationWarning
+from caf.nts.utils import Tuples
 
 from caf.tem import utils
-from caf.base.segmentation import SegmentationWarning
-from caf.nts.utils import Tuples, SegTuple
-
-from caf.tem.inputs import ProductionModelPaths, AttractionModelPaths, Landuse
-
+from caf.tem.inputs import AttractionModelPaths, Landuse, ProductionModelPaths
 
 custom_segments = Tuples._fields
 

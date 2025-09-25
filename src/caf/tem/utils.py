@@ -8,22 +8,20 @@ and DVector/segmentation operations used throughout the TEM framework.
 
 from __future__ import annotations
 
+import copy
+import glob
 # Built-in
 import math
-import copy
 import os
 import pathlib
 import warnings
-from typing import Union, Tuple
-import glob
-
-# Third-party
-import pandas as pd
+from typing import Tuple, Union
 
 # Local
 import caf.base as cb
+# Third-party
+import pandas as pd
 from caf.base.segments import SegmentsSuper
-
 
 # Local Imports
 # pylint: disable=import-error,wrong-import-position
