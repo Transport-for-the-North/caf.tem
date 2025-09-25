@@ -8,10 +8,12 @@ managing model configuration and outputs.
 
 from __future__ import annotations
 import os
+from pathlib import Path
 from typing import Literal, Any
 import pandas as pd
 
 import caf.base as cb
+from caf.base.segments import SegmentsSuper
 from caf.tem.inputs import TEMExportPaths, Scenarios, Landuse
 from caf.tem.attraction_models import AttractionModel
 from caf.tem.production_models import HBProductionModel, NHBProductionModel
@@ -29,14 +31,14 @@ class TEM:
 
     Attributes
     ----------
-    years : list[int]
+    model_years: dict[int]
         The years to run the TEM for.
     scenario : Scenarios
         The scenario for the model run (e.g., Core, High, Low, Regional, Technology).
     output_zoning : cb.ZoningSystem
         The zoning system for model outputs.
     agg_zoning : str
-        The aggregation zoning system for reporting.
+        The aggregation zoning system for trip rate etc. application.
     iteration_name : str
         A name for this TEM output run.
     export_paths : TEMExportPaths
@@ -62,34 +64,12 @@ class TEM:
         model_years: list[int],
         scenario: str,
         output_zoning: cb.ZoningSystem,
-        agg_zoning: str,
+        agg_zoning: cb.ZoningSystem,
         iteration_name: str,
         export_home: os.PathLike,
         return_segmentation: list[str] | cb.Segmentation,
         trans_file: os.PathLike,
     ):
-        """
-        Initialize the TEM class and set up configuration and paths.
-
-        Parameters
-        ----------
-        model_years : list[int]
-            The years to run the TEM for.
-        scenario : str
-            The scenario name (must match a value in Scenarios).
-        output_zoning : cb.ZoningSystem
-            The zoning system for model outputs.
-        agg_zoning : str
-            The aggregation zoning system for reporting.
-        iteration_name : str
-            A name for this TEM output run.
-        export_home : os.PathLike
-            The parent directory for exports of this TEM.
-        return_segmentation : list[str] or cb.Segmentation
-            Segmentation(s) to use for return trips and outputs.
-        trans_file : os.PathLike
-            Path to the zone translation CSV file.
-        """
         self.years = model_years
         self.scenario = Scenarios(scenario)
         self.output_zoning = output_zoning
@@ -108,16 +88,17 @@ class TEM:
         else:
             self.return_segmentation = cb.Segmentation(
                 cb.SegmentationInput(
-                    enum_segments=return_segmentation, naming_order=return_segmentation
+                    enum_segments=[SegmentsSuper(i) for i in return_segmentation],
+                    naming_order=return_segmentation,
                 )
             )
         self.zone_trans = pd.read_csv(trans_file)
 
-        self.hb_production_model: HBProductionModel = None
-        self.hb_attraction_model: AttractionModel = None
-        self.nhb_production_model: NHBProductionModel = None
-        self.nhb_attraction_model: AttractionModel = None
-        self.attraction_model: AttractionModel = None
+        self.hb_production_model: HBProductionModel | None = None
+        self.hb_attraction_model: AttractionModel | None = None
+        self.nhb_production_model: NHBProductionModel | None = None
+        self.nhb_attraction_model: AttractionModel | None = None
+        self.attraction_model: AttractionModel | None = None
 
     def check_years(self, to_check: dict[int, Any], dict_name: str):
         """
@@ -155,11 +136,11 @@ class TEM:
         population: dict[int, Landuse],
         trip_rates_path: os.PathLike,
         mode_time_splits_path: os.PathLike,
-        phi_factors_path: os.PathLike | None = None,
+        phi_factors_path: Path | None = None,
         mts_return_home_path: os.PathLike | None = None,
         mts_return_home_adj_factor_path: os.PathLike | None = None,
-        adjustment_path: os.PathLike = None,
-        mts_adj_path: os.PathLike = None,
+        adjustment_path: os.PathLike | None = None,
+        mts_adj_path: os.PathLike | None = None,
     ) -> HBProductionModel:
         """
         Initialize and return the Home-Based (HB) Production Model.
@@ -193,12 +174,12 @@ class TEM:
         """
         self.check_years(population, "population")
         self.hb_production_model = HBProductionModel(
-            self.export_paths.hb_production,
-            population,
-            trip_rates_path,
-            adjustment_path,
-            mode_time_splits_path,
-            mts_adj_path,
+            model=self.export_paths.hb_production,
+            population=population,
+            trip_rates_path=trip_rates_path,
+            trip_rate_adjustment_path=adjustment_path,
+            mts_path=mode_time_splits_path,
+            mts_adjustment_path=mts_adj_path,
             tem_segmentation=self.return_segmentation,
             translation=self.zone_trans,
             phi_factors_path=phi_factors_path,
@@ -210,17 +191,17 @@ class TEM:
 
     def AttractionModel(
         self,
-        trip_rates_paths: dict[int, os.PathLike],
+        trip_rates_paths: dict[int, Path],
         emp_landuse: dict[int, Landuse],
         hh_landuse: dict[int, Landuse],
         mode_time_splits_path: os.PathLike,
         balance_production: bool = True,
-        trip_rate_adjustment_path: os.PathLike = None,
-        mode_time_splits_adjustment_path: os.PathLike = None,
-        mts_uni_path: os.PathLike = None,
-        mts_return_home_path: os.PathLike = None,
-        mts_return_home_adj_factor_path: os.PathLike = None,
-        phi_factors_path: os.PathLike = None,
+        trip_rate_adjustment_path: os.PathLike | None = None,
+        mode_time_splits_adjustment_path: os.PathLike | None = None,
+        mts_uni_path: os.PathLike | None = None,
+        mts_return_home_path: os.PathLike | None = None,
+        mts_return_home_adj_factor_path: os.PathLike | None = None,
+        phi_factors_path: Path | None = None,
         origin: Literal["hb", "nhb"] = "hb",
     ) -> AttractionModel:
         """

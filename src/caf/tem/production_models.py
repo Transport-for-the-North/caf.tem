@@ -16,6 +16,7 @@ import logging
 import gc
 from pathlib import Path
 import pandas as pd
+from typing import Sequence
 
 
 # Third party imports
@@ -25,7 +26,14 @@ import caf.toolkit as ctk
 from caf.tem import utils
 from caf.nts.utils import Tuples, SegTuple
 
-from caf.tem.inputs import ProductionModelPaths, AttractionModelPaths, Landuse
+from caf.tem.inputs import (
+    ProductionModelPaths,
+    AttractionModelPaths,
+    Landuse,
+    ReportPaths,
+    ExportPathsOutputs,
+    ExportPathsReports,
+)
 
 # pylint: disable =too-many-instance-attributes,too-many-positional-arguments,too-many-locals,too-many-arguments,too-few-public-methods
 
@@ -71,12 +79,12 @@ class HBProductionModel:
         model: ProductionModelPaths,
         population: dict[int, Landuse],
         trip_rates_path: os.PathLike,
-        trip_rate_adjustment_path: os.PathLike,
+        trip_rate_adjustment_path: os.PathLike | None,
         mts_path: os.PathLike,
-        mts_adjustment_path: os.PathLike,
+        mts_adjustment_path: os.PathLike | None,
         tem_segmentation: cb.Segmentation,
         translation: pd.DataFrame,
-        phi_factors_path: os.PathLike | None = None,
+        phi_factors_path: Path | None = None,
         mts_return_home_path: os.PathLike | None = None,
         mts_return_home_adj_factor_path: os.PathLike | None = None,
     ):
@@ -104,7 +112,7 @@ class HBProductionModel:
         export_mts_production: bool = True,
         export_tem_segmentation: bool = True,
         export_reports: bool = True,
-        mts_geo_constraint: cb.ZoningSystem = None,
+        mts_geo_constraint: cb.ZoningSystem | None = None,
         return_tripends: bool = False,
     ) -> None:
         """
@@ -161,6 +169,9 @@ class HBProductionModel:
 
         # ## READ INPUTS ## #
         # Read in the trip rates DVector file. Trip rates are not year dependent.
+        # mypy
+        assert self.model.export_paths is not None
+        assert self.model.report_paths is not None
         trip_rates: cb.DVector = self._read_trip_rates()
         # Read in the MTS dvec file. MTS is not year dependent.
         mts: cb.DVector = self._read_mts()
@@ -233,6 +244,9 @@ class HBProductionModel:
             tem_production = self._create_tem_production(mts_production_adj)
             # Export tem productions
             if export_tem_segmentation:
+                assert not isinstance(
+                    self.model.export_paths.tem_segmented_from_home, ReportPaths
+                )
                 tem_production.save(self.model.export_paths.tem_segmented_from_home[year])
             if export_reports:
                 utils.write_reports(
@@ -284,10 +298,8 @@ class HBProductionModel:
         cb.DVector
             Loaded MTS vector.
         """
+        self._logger.info(f"Loading mts from {self.mts_path}")
         mts = cb.DVector.load(self.mts_path)
-        # Ensure zoning system of mts matches the TEM Model zoning system
-        # zoning_system = cb.ZoningSystem.get_zoning(self.model._zoning_system)
-        # mts = mts.translate_zoning(zoning_system, check_totals=False, no_factors=True)
 
         return mts
 
@@ -309,6 +321,8 @@ class HBProductionModel:
         self._logger.info(
             f"Loading return home mode time splits from {self.mts_return_home_path}."
         )
+        if self.mts_return_home_path is None:
+            raise TypeError("MTS return_home must be provided.")
         trips = cb.DVector.load(self.mts_return_home_path)
         full_seg = trips.segmentation.naming_order
         agg_segs = [i for i in full_seg if i not in mts_segs]
@@ -445,7 +459,7 @@ class HBProductionModel:
         self,
         mts_production: cb.DVector,
         adj_factors: cb.DVector,
-        geo_constraint: cb.ZoningSystem = None,
+        geo_constraint: cb.ZoningSystem | None = None,
     ) -> cb.DVector:
         """
         Adjust MTS production using adjustment factors and optional geographic constraint.
@@ -473,8 +487,9 @@ class HBProductionModel:
         numerator = mts_production.aggregate(["p"])
         denominator = adj.aggregate(["p"])
         if geo_constraint is not None:
-            if geo_constraint not in mts_production.zoning_system:
-                raise ValueError("Geo constraint must be contained in the zoning system")
+            if isinstance(mts_production.zoning_system, Sequence):
+                if geo_constraint not in mts_production.zoning_system:
+                    raise ValueError("Geo constraint must be contained in the zoning system")
             numerator = numerator.aggregate_comp_zones(geo_constraint)
             denominator = denominator.aggregate_comp_zones(geo_constraint)
         adj = adj * (numerator / denominator)
@@ -486,7 +501,7 @@ class HBProductionModel:
         self,
         mts_production: cb.DVector,
         adj_factors: cb.DVector,
-        geo_constraint: cb.ZoningSystem = None,
+        geo_constraint: cb.ZoningSystem | None = None,
     ) -> cb.DVector:
         """
         Adjust MTS production for return-home trips using adjustment factors.
@@ -515,8 +530,11 @@ class HBProductionModel:
         numerator = mts_production.aggregate(["p_return"])
         denominator = adj.aggregate(["p_return"])
         if geo_constraint is not None:
-            if geo_constraint not in mts_production.zoning_system:
-                raise ValueError("Geo constraint must be contained in the zoning system")
+            if isinstance(mts_production.zoning_system, Sequence):
+                if geo_constraint not in mts_production.zoning_system:
+                    raise ValueError("Geo constraint must be contained in the zoning system")
+            else:
+                raise TypeError("For a geo_constraint to work, there must be multi-zoning.")
             numerator = numerator.aggregate_comp_zones(geo_constraint)
             denominator = denominator.aggregate_comp_zones(geo_constraint)
         adj = adj * (numerator / denominator)
@@ -631,9 +649,10 @@ class HBProductionModel:
         FileNotFoundError
             If the phi factor file does not exist.
         """
-        phi_factors_file_path = Path(
-            os.path.join(self.phi_factors_path, f"phi_factors_P_p{p}_reg_phi.dvec")
-        )
+        if self.phi_factors_path is None:
+            raise TypeError("A path to phi_factors must be provided for return home trips.")
+        phi_factors_file_path = self.phi_factors_path / f"phi_factors_P_p{p}_reg_phi.dvec"
+        self._logger.info(f"Loading phi factors from {phi_factors_file_path}")
 
         if not phi_factors_file_path.exists():
             raise FileNotFoundError(
@@ -720,22 +739,24 @@ class NHBProductionModel:
         model: ProductionModelPaths,
         trip_rates_path: os.PathLike,
         balance_production,
-        mts_path: str,
-        return_segmentation,
+        mts_path: os.PathLike,
+        return_segmentation: cb.Segmentation,
     ) -> None:
         ## Assign
-        self.hb_attraction_model = hb_attraction_model
-        self.hb_attraction_paths = hb_attraction_model.export_paths.tem_segmented_from_home
-        self.trip_rates_path = trip_rates_path
-        self.mts_path = mts_path
+        self.hb_attraction_model: AttractionModelPaths = hb_attraction_model
+        assert isinstance(self.hb_attraction_model.export_paths, dict)
+        self.hb_attraction_paths = (
+            self.hb_attraction_model.export_paths.tem_segmented_from_home
+        )
+        self.trip_rates_path: os.PathLike = trip_rates_path
+        self.mts_path: os.PathLike = mts_path
         self.balance_production = balance_production
-        self.years = list(self.hb_attraction_paths.keys())
-        self.model = model
-        self.return_segmentation = return_segmentation
-        self.model_zoning = self.model.model_zoning
-        self.agg_zoning = self.model.agg_zoning
-
-        self._logger = logging.getLogger(__name__)
+        self.years: list[int] = list(self.hb_attraction_paths.keys())
+        self.model: ProductionModelPaths = model
+        self.return_segmentation: cb.Segmentation = return_segmentation
+        self.model_zoning: cb.ZoningSystem = self.model.model_zoning
+        self.agg_zoning: cb.ZoningSystem = self.model.agg_zoning
+        self._logger: logging.Logger = logging.getLogger(__name__)
 
     def run(
         self,
@@ -770,7 +791,8 @@ class NHBProductionModel:
         """
 
         # ## START ## #
-
+        assert self.model.export_paths is not None
+        assert self.model.report_paths is not None
         # ## READ INPUTS ## #
         trip_rates = self._read_trip_rates()
 
@@ -813,7 +835,7 @@ class NHBProductionModel:
         cb.DVector
             Loaded NHB trip rates vector.
         """
-        self._logger.info("Loading the trip rates data")
+        self._logger.info(f"Loading the trip rates data from {self.trip_rates_path}")
         trip_rates = cb.DVector.load(self.trip_rates_path)
 
         return trip_rates
@@ -827,7 +849,7 @@ class NHBProductionModel:
         cb.DVector
             Loaded MTS vector.
         """
-        self._logger.info("Loading the mode time split data")
+        self._logger.info("Loading the mode time split data from {self.mts_path}")
         mts = cb.DVector.load(self.mts_path)
 
         return mts
@@ -848,6 +870,7 @@ class NHBProductionModel:
         cb.DVector
             Processed HB attraction vector.
         """
+        assert self.hb_attraction_model.export_paths is not None
         hbattr = cb.DVector.load(
             self.hb_attraction_model.export_paths.tem_segmented_from_home[year]
         )
@@ -879,7 +902,7 @@ class NHBProductionModel:
         cb.DVector
             Pure NHB production vector.
         """
-        pure_prod = None
+        pure_prod: cb.DVector | None = None
         for p in hbattr.segmentation.get_segment("p_hb").int_values:
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", category=SegmentationWarning)
@@ -896,7 +919,7 @@ class NHBProductionModel:
                 pure_prod = pure_prod_p
             else:
                 pure_prod += pure_prod_p
-
+        assert pure_prod is not None
         return pure_prod
 
     def _create_mts_production(

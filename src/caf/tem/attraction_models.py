@@ -16,6 +16,7 @@ import warnings
 import gc
 import logging
 from pathlib import Path
+from typing import Sequence
 
 # Third party imports
 import pandas as pd
@@ -103,19 +104,19 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
         self,
         production_model: ProductionModelPaths,
         model: AttractionModelPaths,
-        trip_rates_paths: dict[int, os.PathLike],
-        trip_rate_adj_path: os.PathLike,
+        trip_rates_paths: dict[int, Path],
+        trip_rate_adj_path: os.PathLike | None,
         balance_production: cb.zoning.BalancingZones | bool,
         emp_landuse: dict[int, Landuse],
         hh_landuse: dict[int, Landuse],
         mts_path: os.PathLike,
-        mts_adjustment_path: os.PathLike,
+        mts_adjustment_path: os.PathLike | None,
         tem_segmentation: cb.Segmentation,
-        mts_uni_path: os.PathLike,
+        mts_uni_path: os.PathLike | None,
         model_zoning: cb.ZoningSystem,
         agg_zoning: cb.ZoningSystem,
         translation: pd.DataFrame,
-        phi_factors_path: os.PathLike | None = None,
+        phi_factors_path: Path | None = None,
         mts_return_home_path: os.PathLike | None = None,
         mts_return_home_adj_factor_path: os.PathLike | None = None,
     ):
@@ -177,6 +178,10 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
         # If all exports are False, then the run() function is redundant.
         start_time = ctk.timing.current_milli_time()
         self._logger.info("Starting attraction Model")
+        assert self.production_model.export_paths is not None
+        assert self.production_model.report_paths is not None
+        assert self.model.export_paths is not None
+        assert self.model.report_paths is not None
 
         if not (export_pure_attractions or export_tem_segmentation or export_reports):
             self._logger.info("All exports set to False. Run not executed.")
@@ -209,7 +214,7 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
             warnings.simplefilter("ignore", category=SegmentationWarning)
             mts: cb.DVector = cb.DVector.load(self.mts_path)
             # Read in the adjustment factors, if passed
-            adj_factors_dict: dict[str, cb.DVector] = self._read_adj_factors()
+            adj_factors_dict = self._read_adj_factors()
             if self.mts_uni_path is not None:
                 mts_uni = cb.DVector.load(self.mts_uni_path)
 
@@ -227,7 +232,7 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
         # For each year the model is running for...
         for year in self.years:
             # Read in the landuses dvec files specific to the year.
-            landuses: dict[str, cb.DVector | dict[str, cb.DVector]] = {
+            landuses: dict[str, cb.DVector] = {
                 "emp": self.emp_landuse[year]
                 .read_landuse(translation=self.zone_trans, model_zoning=self.model_zoning)
                 .add_segments(["total"]),
@@ -383,6 +388,8 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
             Normalized mode-time splits reshaped by tfn_at.
         """
         # Load the raw DVector
+        if self.mts_return_home_path is None:
+            raise TypeError("mts_return_home_path must be provided for it to be loaded.")
         self._logger.info(
             f"Loading return home mode time splits from {self.mts_return_home_path}."
         )
@@ -393,7 +400,7 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
         mts = trips / trips.aggregate(agg_segs)
         return mts
 
-    def _read_adj_factors(self) -> dict[str, cb.DVector]:
+    def _read_adj_factors(self) -> dict[str, cb.DVector | None]:
         """
         Read trip-rate and MTS adjustment factors.
 
@@ -402,7 +409,7 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
         dict[str, cb.DVector]
             Dictionary with keys 'tr' and 'mts' for adjustment factors.
         """
-        adj_factors_dict: dict[str, cb.DVector] = {"tr": None, "mts": None}
+        adj_factors_dict: dict[str, cb.DVector | None] = {"tr": None, "mts": None}
         if self.tr_adjustment_path is not None:
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", category=UserWarning)
@@ -441,7 +448,7 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
         self,
         mts_production: cb.DVector,
         adj_factors: cb.DVector,
-        geo_constraint: cb.ZoningSystem = None,
+        geo_constraint: cb.ZoningSystem | None = None,
     ) -> cb.DVector:
         """
         Apply adjustment factors to MTS return-home attractions, optionally constrained by geography.
@@ -469,8 +476,11 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
         numerator = mts_production.aggregate(["p_return"])
         denominator = adj.aggregate(["p_return"])
         if geo_constraint is not None:
-            if geo_constraint not in mts_production.zoning_system:
-                raise ValueError("Geo constraint must be contained in the zoning system")
+            if isinstance(mts_production.zoning_system, Sequence):
+                if geo_constraint not in mts_production.zoning_system:
+                    raise ValueError("Geo constraint must be contained in the zoning system")
+            else:
+                raise TypeError("Must be multi zoned.")
             numerator = numerator.aggregate_comp_zones(geo_constraint)
             denominator = denominator.aggregate_comp_zones(geo_constraint)
         adj = adj * (numerator / denominator)
@@ -480,7 +490,7 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
 
     # Returns a year-specific dictionary of pure demand, for each purpose as the key
     def _create_attr_dict(
-        self, landuses: dict[str, cb.DVector | dict], trip_rates: dict[int, cb.DVector]
+        self, landuses: dict[str, cb.DVector], trip_rates: dict[int, cb.DVector]
     ) -> dict[int, cb.DVector]:
         """
         Create the dictionary of pure attractions by purpose.
@@ -529,7 +539,7 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
 
         return attr_dict
 
-    def _adjust_attraction_dict(self, attr_dict, adj_factors: cb.DVector):
+    def _adjust_attraction_dict(self, attr_dict, adj_factors: cb.DVector | None):
         """
         Apply trip-rate adjustment factors to the attraction dictionary.
 
@@ -574,15 +584,19 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
         None
         """
         # Concatenate the (optionally balanced) Pure Attraction by purpose
+        if self.model.export_paths is None:
+            raise ValueError("This shouldn't be possible.")
+        output_pure: cb.DVector | None = None
         for p in attr_dict.keys():
-            try:
+            if isinstance(output_pure, cb.DVector):
                 output_pure = output_pure.concat(attr_dict[p].aggregate(["p"]))
-            except NameError:
+            else:
                 output_pure = attr_dict[p].aggregate(["p"])  # Initialises the output object
         # Write Pure Attractions
         out_path = self.model.export_paths.pure_demand[year]
         if adj:
             out_path = self.model.export_paths.pure_demand_adj[year]
+        assert isinstance(output_pure, cb.DVector)
         output_pure.save(out_path)
 
     def _create_mts_dict(
@@ -650,7 +664,7 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
     def _adjust_mts_dict(
         self,
         mts_dict: dict[int, cb.DVector],
-        adj_factors: cb.DVector,
+        adj_factors: cb.DVector | None,
         geo_constraint: cb.ZoningSystem | None = None,
     ) -> dict[int, cb.DVector]:
         """
@@ -712,10 +726,13 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
         -------
         None
         """
+        if self.model.export_paths is None:
+            raise ValueError("This shouldn't be possible.")
+        output_mts: cb.DVector | None = None
         for p in attr_dict.keys():
-            try:
+            if output_mts is not None:
                 output_mts = output_mts.concat(attr_dict[p].aggregate(["p", "m", "tp"]))
-            except NameError:
+            else:
                 output_mts = attr_dict[p].aggregate(
                     ["p", "m", "tp"]
                 )  # Initialises the output object
@@ -723,6 +740,7 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
         out_path = self.model.export_paths.mts_demand[year]
         if adj:
             out_path = self.model.export_paths.mts_demand_adj[year]
+        assert output_mts is not None
         output_mts.save(out_path)
 
     def _create_seg_dict(
@@ -795,12 +813,13 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
         cb.DVector
             Concatenated TEM-segmented attraction vector.
         """
+        tem_dvec: cb.DVector | None = None
         for p in seg_dict.keys():
-            try:
+            if isinstance(tem_dvec, cb.DVector):
                 tem_dvec = tem_dvec.concat(seg_dict[p])
-            except NameError:
+            else:
                 tem_dvec = seg_dict[p]  # .aggregate(self.tem_segmentation)
-
+        assert tem_dvec is not None
         return tem_dvec
 
     def _balance_to_production(
@@ -973,7 +992,8 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
         FileNotFoundError
             If the phi factor file does not exist.
         """
-
+        if self.phi_factors_path is None:
+            raise TypeError("phi_factors_path must be provided for phi_factors to be loaded")
         phi_factors_file_path = self.phi_factors_path / f"phi_factors_A_p{p}_reg_phi.dvec"
 
         if not phi_factors_file_path.exists():

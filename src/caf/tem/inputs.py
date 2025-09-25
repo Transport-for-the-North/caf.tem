@@ -17,11 +17,12 @@ import pathlib
 import collections
 import warnings
 from dataclasses import dataclass
-from typing import Literal, Annotated
+from typing import Literal, Annotated, NamedTuple
 import pandas as pd
 
 # Third Party
 import caf.base as cb
+from caf.base.segments import SegmentsSuper
 import caf.toolkit as ctk
 from caf.toolkit import config_base
 from pydantic import BeforeValidator, model_validator
@@ -45,11 +46,13 @@ def create_segmentation(seg_list: list[str] | cb.Segmentation):
     """
     if isinstance(seg_list, cb.Segmentation):
         return seg_list
-    inp = cb.SegmentationInput(enum_segments=seg_list, naming_order=seg_list)
+    inp = cb.SegmentationInput(
+        enum_segments=[SegmentsSuper(i) for i in seg_list], naming_order=seg_list
+    )
     return cb.Segmentation(inp)
 
 
-def create_zoningsystem(zoning: str | cb.ZoningSystem | list[str, cb.ZoningSystem]):
+def create_zoningsystem(zoning: str | cb.ZoningSystem | list[str | cb.ZoningSystem]):
     """
     Create a cb.ZoningSystem object (or list of them) from a string, existing ZoningSystem, or list.
 
@@ -66,7 +69,7 @@ def create_zoningsystem(zoning: str | cb.ZoningSystem | list[str, cb.ZoningSyste
     if isinstance(zoning, cb.ZoningSystem):
         return zoning
     if isinstance(zoning, list):
-        validated_zoning = []
+        validated_zoning: list[str | cb.ZoningSystem] = []
         for zone in zoning:
             if isinstance(zone, cb.ZoningSystem):
                 validated_zoning.append(zone)
@@ -105,9 +108,11 @@ class Landuse:
 
     type: Literal["pop", "emp", "hh"]
     land_use: os.PathLike | cb.DVector
-    trans_tag: str = None
-    prefix: str = None
-    segmentation: Annotated[cb.Segmentation, BeforeValidator(create_segmentation)] = None
+    trans_tag: str | None = None
+    prefix: str | None = None
+    segmentation: Annotated[cb.Segmentation, BeforeValidator(create_segmentation)] | None = (
+        None
+    )
     geographies: str | list[str] | None = None
     out_zoning: (
         cb.ZoningSystem
@@ -155,14 +160,23 @@ class Landuse:
         else:
             dvecs = []
             segmentation = self.segmentation
-            for geo in self.geographies:
-                with warnings.catch_warnings():
-                    warnings.filterwarnings("ignore", category=UserWarning)
-                    dvec = cb.DVector.load(source_path / self.prefix.format(geo))
-                    if segmentation is None:
-                        segmentation = dvec.segmentation
-                    dvecs.append(dvec.aggregate(segmentation))
+            if isinstance(self.geographies, list):
+                for geo in self.geographies:
+                    with warnings.catch_warnings():
+                        warnings.filterwarnings("ignore", category=UserWarning)
+                        if self.prefix is not None:
+                            dvec = cb.DVector.load(source_path / self.prefix.format(geo))
+                        if segmentation is None:
+                            segmentation = dvec.segmentation
+                        dvecs.append(dvec.aggregate(segmentation))
+            else:
+                raise TypeError(
+                    "If landuse is given as a folder, a list of geographies must be provided, "
+                    "and a prefix for file names."
+                )
             lu_data = pd.concat([dvec.data for dvec in dvecs], axis=1)
+            # mypy
+            assert segmentation is not None
             lu = cb.DVector(
                 segmentation=segmentation,
                 zoning_system=init_zoning,
@@ -208,6 +222,35 @@ class Scenarios(enum.Enum):
     TECHNOLOGY = "Technology"
 
 
+class ExportPathsOutputs(NamedTuple):
+    home: pathlib.Path
+    pure_demand: dict[int, os.PathLike]
+    pure_demand_adj: dict[int, os.PathLike]
+    mts_demand: dict[int, os.PathLike]
+    mts_demand_adj: dict[int, os.PathLike]
+    tem_segmented: dict[int, os.PathLike]
+    tem_segmented_return_home: dict[int, os.PathLike]
+    tem_segmented_from_home: dict[int, os.PathLike]
+
+
+class ExportPathsReports(NamedTuple):
+    home: pathlib.Path
+    pure_demand: ReportPaths
+    pure_demand_adj: ReportPaths
+    mts_demand: ReportPaths
+    mts_demand_adj: ReportPaths
+    tem_segmented: ReportPaths
+    tem_segmented_return_home: ReportPaths
+    tem_segmented_from_home: ReportPaths
+
+
+class ReportPaths(NamedTuple):
+    segment_total: dict[int, os.PathLike]
+    ca_sector: dict[int, os.PathLike]
+    ie_sector: dict[int, os.PathLike]
+    lad_report: dict[int, os.PathLike]
+
+
 class TEMModelPaths:
     """
     Base path management class for all TEM models.
@@ -244,17 +287,6 @@ class TEMModelPaths:
     _ie_sector_report_name = "ie_sector_totals"
     _lad_report_name = "lad_totals"
 
-    # Output Path Classes
-    ExportPaths = collections.namedtuple(
-        typename="ExportPaths",
-        field_names="home, pure_demand, pure_demand_adj, mts_demand, mts_demand_adj, tem_segmented,tem_segmented_return_home,tem_segmented_from_home",
-    )
-
-    ReportPaths = collections.namedtuple(
-        typename="ReportPaths",
-        field_names="segment_total, ca_sector, ie_sector, lad_report",
-    )
-
     # Define output fnames
     _base_output_fname = "%s_%s_%s_%d.dvec"
     _base_report_fname = "%s_%s_%d_%s.csv"
@@ -264,8 +296,8 @@ class TEMModelPaths:
         path_years: list[int],
         export_home: os.PathLike,
         report_home: os.PathLike,
-        model_zoning: str,
-        agg_zoning: str,
+        model_zoning: cb.ZoningSystem,
+        agg_zoning: cb.ZoningSystem,
         _trip_origin,
     ):
         """
@@ -293,8 +325,8 @@ class TEMModelPaths:
         self._trip_origin = _trip_origin
         self.model_zoning = model_zoning
         self.agg_zoning = agg_zoning
-        self.export_paths = None
-        self.report_paths = None
+        self.export_paths: ExportPathsOutputs | None = None
+        self.report_paths: ExportPathsReports | None = None
 
         # Make sure paths exist
         if not self.export_home.is_dir():
@@ -360,7 +392,7 @@ class TEMModelPaths:
             tem_segmented_from_home_paths[year] = self.export_home / fname
 
         # Create the export_paths class
-        self.export_paths = self.ExportPaths(
+        self.export_paths = ExportPathsOutputs(
             home=self.export_home,
             pure_demand=pure_demand_paths,
             pure_demand_adj=pure_demand_adj_paths,
@@ -379,7 +411,7 @@ class TEMModelPaths:
         -------
         None
         """
-        self.report_paths = self.ExportPaths(
+        self.report_paths = ExportPathsReports(
             home=self.report_home,
             pure_demand=self._generate_report_paths(self._pure_demand),
             pure_demand_adj=self._generate_report_paths(self._pure_demand_adj),
@@ -395,7 +427,7 @@ class TEMModelPaths:
     def _generate_report_paths(
         self,
         report_name: str,
-    ) -> tuple[dict[int, str], dict[int, str], dict[int, str]]:
+    ) -> ReportPaths:
         """
         Generate report file paths for each year and report type.
 
@@ -436,7 +468,7 @@ class TEMModelPaths:
             fname = base_fname % (*fname_parts, year, self._lad_report_name)
             lad_paths[year] = self.report_home / fname
 
-        return self.ReportPaths(
+        return ReportPaths(
             segment_total=segment_total_paths,
             ca_sector=ca_sector_paths,
             ie_sector=ie_sector_paths,
@@ -548,8 +580,8 @@ class TEMExportPaths:
         scenario: Scenarios,
         iteration_name: str,
         export_home: os.PathLike,
-        model_zoning: str,
-        agg_zoning: str,
+        model_zoning: cb.ZoningSystem,
+        agg_zoning: cb.ZoningSystem,
     ):
         """
         Build export and report paths for all TEM sub-models.

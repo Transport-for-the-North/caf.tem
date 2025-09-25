@@ -94,8 +94,3 @@ def main(params: MainConfig):
                 mts_geo_constraint=params.mts_geo_constraint,
                 return_tripends=False,
             )
-
-
-if __name__ == "__main__":
-    conf = MainConfig.load_yaml("test.yml")
-    main(conf)
