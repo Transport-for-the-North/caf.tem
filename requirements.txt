@@ -1,4 +1,6 @@
 # Required libraries
 caf.base
 caf.toolkit>=0.10
+pandas>=2
+caf.nts
 
