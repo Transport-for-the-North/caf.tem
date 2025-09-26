@@ -310,22 +310,28 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
 
             # ## TEM SEGMENTATION EXPORT ## #
             if export_reports:
+                self.logger.info(
+                    f"Writing reports for tem segmented attractions to {report_paths.tem_segmented_from_home}"
+                )
                 utils.write_reports(
                     balanced_dvec.aggregate_comp_zones(self.model_zoning),
                     report_paths.tem_segmented_from_home,
                     year,
                 )
             if export_tem_segmentation:
-                # if return_tripends:
+                self.logger.info(
+                    f"Saving tem segmented attractions to {export_paths.tem_segmented_from_home[year]}"
+                )
                 balanced_dvec.save(export_paths.tem_segmented_from_home[year])
-                # else:
-                # balanced_dvec.save(export_paths.tem_segmented[year])
             if return_tripends:
                 tem_return_home_attr = self.shared_methods.create_tem_return_home(
                     balanced_dvec, mts_geo_constraint
                 )
                 tem_return_home_attr_ = tem_return_home_attr.rename_segment(
                     {"p_return": "p", "tp_return": "tp"}
+                )
+                self.logger.info(
+                    f"Saving return home attractions to {export_paths.tem_segmented_return_home[year]}"
                 )
                 tem_return_home_attr_.save(export_paths.tem_segmented_return_home[year])
 
@@ -466,6 +472,7 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
         dict[int, cb.DVector]
             Attractions by purpose.
         """
+        self.logger.info("Creating pure attractions.")
         # Create an empty dict to store attraction by purpose
         attr_dict: dict[int, cb.DVector] = {}
         # For each purpose...
@@ -511,6 +518,7 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
         dict[int, cb.DVector]
             Adjusted attractions by purpose.
         """
+        self.logger.info("Adjusting pure attractions.")
         attr_dict_adj: dict[int, cb.DVector] = {}
         if adj_factors is not None:
             for p in attr_dict.keys():
@@ -553,6 +561,7 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
         if adj:
             out_path = self.model.export_paths.pure_demand_adj[year]
         assert isinstance(output_pure, cb.DVector)
+        self.logger.info(f"Saving pure attractions to {out_path}")
         output_pure.save(out_path)
 
     def _create_mts_dict(
@@ -578,6 +587,7 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
         dict[int, cb.DVector]
             MTS-attributed attractions by purpose.
         """
+        self.logger.info("Applying mode time splits to pure attractions.")
         mts_dict: dict[int, cb.DVector] = {}
         for p, trips in attr_dict.items():
             if mts_uni is None:
@@ -642,6 +652,7 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
         """
         mts_dict_adj: dict[int, cb.DVector] = {}
         if adj_factors is not None:
+            self.logger.info("Adjusting mts attractions.")
             for p, mts in mts_dict.items():
                 if "total" not in mts.segmentation.names:
                     mts = mts.add_segments(
@@ -697,6 +708,7 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
         if adj:
             out_path = self.model.export_paths.mts_demand_adj[year]
         assert output_mts is not None
+        self.logger.info(f"Saving mts attractions to {out_path}")
         output_mts.save(out_path)
 
     def _create_seg_dict(
@@ -719,6 +731,7 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
         dict[int, cb.DVector]
             Segmented attractions by purpose.
         """
+        self.logger.info("Matching segmentation to tem_segmented_productions.")
         seg_dict: dict[int, cb.DVector] = {}
         for p, mts in mts_dict.items():
             agg_seg = list(self.tem_segmentation.overlap(mts.segmentation))
@@ -774,7 +787,7 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
             if isinstance(tem_dvec, cb.DVector):
                 tem_dvec = tem_dvec.concat(seg_dict[p])
             else:
-                tem_dvec = seg_dict[p]  # .aggregate(self.tem_segmentation)
+                tem_dvec = seg_dict[p]
         assert tem_dvec is not None
         return tem_dvec
 

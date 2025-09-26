@@ -734,6 +734,59 @@ class MainConfig(config_base.BaseConfig):
         Employment land use data by year.
     hh : dict[int, Landuse]
         Household land use data by year.
+    hb_prod_triprates: pathlib.Path
+        Path to hb production trip rates.
+    hb_prod_tr_adj: pathlib.Path | None = None
+        Path to hb production trip rate adjustment factors, if applicable.
+    hb_prod_mts: pathlib.Path
+        Path to hb prodction mode time splits.
+    hb_prod_mts_adjustment: pathlib.Path | None = None
+        Path to hb produciton mode time split adjustment factors, if applicable.
+    hb_prod_phi_factors: pathlib.Path | None = None
+        Path to a directory containing hb production phi (return home) factors. These must be provided
+        if 'return_home' is set to True.
+    hb_prod_mts_return: pathlib.Path | None = None
+        Path to hb return home mode time splits. These should be provided as trips, rather than
+        factors, as they are converted to factors based on the segmentation of the phi factors.
+    hb_prod_mts_return_adj: pathlib.Path | None = None
+        Path to hb return home mode time split adjustment factors.
+    hb_attr_triprates: dict[int, pathlib.Path]
+        Dictionary of purposes to paths to hb attraction trip rates.
+    hb_attr_tr_adj: pathlib.Path | None = None
+        Path to hb attraction trip rate adjustment factors, if applicable.
+    hb_attr_mts: pathlib.Path
+        Path to hb attraction mode time splits.
+    hb_attr_mts_adj: pathlib.Path | None = None
+        Path to hb attraction mode time split adjustment factors, if applicable.
+    hb_attr_mts_uni: pathlib.Path
+        Path to hb attraction university mode time splits.
+    balance_hb: BalancingZones | bool = True
+        Whether to balance hb attractions to prodcutions. If True, balancing takes place at GB level,
+        if an instance of BalancingZones is passed, balancing will be done according to that.
+    hb_attr_phi_factors: pathlib.Path | None = None
+        Path to a directory containing hb attraction phi (return home) factors. These must be
+        provided if 'return_home' is set to True.
+    hb_attr_mts_return: pathlib.Path | None = None
+        Path to hb return home mode time splits. These should be provided as trips, rather than
+        factors, as they are converted to factors based on the segmentation of the phi factors.
+    hb_attr_mts_return_adj: pathlib.Path | None = None
+        Path to hb return home mode time split adjustment factors.
+    nhb_prod_triprates: pathlib.Path
+        Path to nhb production trip rates.
+    nhb_prod_mts: pathlib.Path
+        Path to nhb production mode time splits
+    balance_nhb: bool = True
+        See balance_hb.
+    nhb_attr_triprates: dict[int, pathlib.Path]
+        Dict of purposes to paths to nhb attraction trip rates.
+    nhb_attr_tr_adj: pathlib.Path | None = None
+        Path to nhb attraction trip rate adjustment factors, if applicable.
+    nhb_attr_mts: pathlib.Path
+        Path to nhb attraction mode time splits.
+    nhb_attr_mts_adj: pathlib.Path | None = None
+        Path to nhb attraction mode time split adjustment factors, if applicable.
+    nhb_attr_mts_uni: pathlib.Path
+        Path to nhb attraction uni mode time splits.
     """
 
     ### options ###
@@ -775,7 +828,7 @@ class MainConfig(config_base.BaseConfig):
     hb_attr_mts: pathlib.Path
     hb_attr_mts_adj: pathlib.Path | None = None
     hb_attr_mts_uni: pathlib.Path
-    balance_hb: bool = True
+    balance_hb: cb.BalancingZones | bool = True
     hb_attr_phi_factors: pathlib.Path | None = None
     hb_attr_mts_return: pathlib.Path | None = None
     hb_attr_mts_return_adj: pathlib.Path | None = None

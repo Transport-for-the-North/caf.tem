@@ -32,7 +32,6 @@ from caf.tem.inputs import (
     AttractionModelPaths,
     Landuse,
     ProductionModelPaths,
-    ReportPaths,
 )
 
 # pylint: disable =too-many-instance-attributes,too-many-positional-arguments,too-many-locals,too-many-arguments,too-few-public-methods
@@ -198,9 +197,15 @@ class HBProductionModel:
             )
             # Export pure productions
             if export_pure_production:
+                self.logger.info(
+                    f"Saving pure hb production trip ends to {self.model.export_paths.pure_demand[year]}."
+                )
                 pure_production.save(self.model.export_paths.pure_demand[year])
                 pure_production_adj.save(self.model.export_paths.pure_demand_adj[year])
             if export_reports:
+                self.logger.info(
+                    f"Writing pure hb production reports to {self.model.report_paths.pure_demand}"
+                )
                 utils.write_reports(
                     pure_production.aggregate_comp_zones(self.model_zoning),
                     self.model.report_paths.pure_demand,
@@ -225,9 +230,15 @@ class HBProductionModel:
             )
             # Export mts production
             if export_mts_production:
+                self.logger.info(
+                    f"Saving hb mts prodcution trip ends to {self.model.export_paths.mts_demand[year]}"
+                )
                 mts_production.save(self.model.export_paths.mts_demand[year])
                 mts_production_adj.save(self.model.export_paths.mts_demand_adj[year])
             if export_reports:
+                self.logger.info(
+                    f"Writing mts hb production reports to {self.model.report_paths.mts_demand}"
+                )
                 utils.write_reports(
                     mts_production.aggregate_comp_zones(self.model_zoning),
                     self.model.report_paths.mts_demand,
@@ -244,11 +255,14 @@ class HBProductionModel:
             tem_production = self._create_tem_production(mts_production_adj)
             # Export tem productions
             if export_tem_segmentation:
-                assert not isinstance(
-                    self.model.export_paths.tem_segmented_from_home, ReportPaths
+                self.logger.info(
+                    f"Saving tem segmented hb production trip ends to {self.model.export_paths.tem_segmented_from_home[year]}"
                 )
                 tem_production.save(self.model.export_paths.tem_segmented_from_home[year])
             if export_reports:
+                self.logger.info(
+                    f"Writing tem segmented reports to {self.model.report_paths.tem_segmented_from_home}"
+                )
                 utils.write_reports(
                     tem_production.aggregate_comp_zones(self.model_zoning),
                     self.model.report_paths.tem_segmented_from_home,
@@ -260,6 +274,9 @@ class HBProductionModel:
                 )
                 tem_return_home_prod_ = tem_return_home_prod.rename_segment(
                     {"p_return": "p", "tp_return": "tp"}
+                )
+                self.logger.info(
+                    f"Saving hb production return home trip ends to {self.model.export_paths.tem_segmented_return_home[year]}"
                 )
                 tem_return_home_prod_.save(
                     self.model.export_paths.tem_segmented_return_home[year]
@@ -314,6 +331,9 @@ class HBProductionModel:
         cb.DVector or None
             Adjustment factors or None if not provided.
         """
+        self.logger.info(
+            f"Reading trip rate adjustments from {self.trip_rate_adjustment_path}"
+        )
         if self.trip_rate_adjustment_path is None:
             return None
 
@@ -334,7 +354,7 @@ class HBProductionModel:
         if self.mts_adjust_path is None:
             return None
 
-        self.logger.info("Loading the MTS adjustment factors")
+        self.logger.info(f"Loading the MTS adjustment factors from {self.mts_adjust_path}")
         adj_factors = cb.DVector.load(self.mts_adjust_path)
 
         return adj_factors
@@ -357,7 +377,7 @@ class HBProductionModel:
         cb.DVector
             Pure production vector.
         """
-        self.logger.info(" Calculating pure production")
+        self.logger.info("Calculating pure hb production")
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=SegmentationWarning)
             pure_production = population * trip_rates
@@ -406,7 +426,7 @@ class HBProductionModel:
         cb.DVector
             MTS production vector.
         """
-        self.logger.info(" Applying mode time split")
+        self.logger.info("Applying mode time splits")
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=SegmentationWarning)
             mts_production = pure_production * mts
@@ -439,7 +459,7 @@ class HBProductionModel:
         if adj_factors is None:
             return mts_production
 
-        self.logger.info(" Adjusting mode time split")
+        self.logger.info("Adjusting mode time split")
         adj_factors.fill(0, 1)
         adj = mts_production * adj_factors
         numerator = mts_production.aggregate(["p"])
@@ -452,6 +472,12 @@ class HBProductionModel:
             denominator = denominator.aggregate_comp_zones(geo_constraint)
         adj = adj * (numerator / denominator)
         mts_production_adj = adj
+
+        if not math.isclose(mts_production.sum(), mts_production_adj.sum()):
+            warnings.warn(
+                "MTS adjustments have changed the total triprates."
+                f"Before = {mts_production.sum()}, after = {mts_production_adj.sum()}"
+            )
 
         return mts_production_adj
 
@@ -469,7 +495,7 @@ class HBProductionModel:
         cb.DVector
             TEM-segmented production vector.
         """
-        self.logger.info(" Aggregating to TEM Output Segmentation")
+        self.logger.info("Aggregating to TEM Output Segmentation")
         tem_production = mts_production.aggregate(self.tem_segmentation)
 
         return tem_production
@@ -521,7 +547,7 @@ class NHBProductionModel:
         self.return_segmentation: cb.Segmentation = return_segmentation
         self.model_zoning: cb.ZoningSystem = self.model.model_zoning
         self.agg_zoning: cb.ZoningSystem = self.model.agg_zoning
-        self._logger: logging.Logger = logging.getLogger(__name__)
+        self.logger: logging.Logger = logging.getLogger(__name__)
 
     def run(
         self,
@@ -572,8 +598,14 @@ class NHBProductionModel:
             pure_production = self._create_pure_production(hbattr, trip_rates)
 
             if export_pure_demand:
+                self.logger.info(
+                    f"Saving pure nhb production trip ends to {self.model.export_paths.pure_demand[year]}"
+                )
                 pure_production.save(self.model.export_paths.pure_demand[year])
             if export_reports:
+                self.logger.info(
+                    f"Writing reports for nhb productions to {self.model.report_paths.pure_demand}"
+                )
                 utils.write_reports(
                     pure_production.aggregate_comp_zones(self.model_zoning),
                     self.model.report_paths.pure_demand,
@@ -587,6 +619,9 @@ class NHBProductionModel:
             # For nhb prod post mts is already tem segmentation
 
             if export_tem_segmentation:
+                self.logger.info(
+                    f"Saving nhb production trip ends to {self.model.export_paths.tem_segmented_from_home[year]}"
+                )
                 mts_production.save(self.model.export_paths.tem_segmented_from_home[year])
 
     # # # FUNCTIONS # # #
@@ -600,7 +635,7 @@ class NHBProductionModel:
         cb.DVector
             Loaded NHB trip rates vector.
         """
-        self._logger.info(f"Loading the trip rates data from {self.trip_rates_path}")
+        self.logger.info(f"Loading the trip rates data from {self.trip_rates_path}")
         trip_rates = cb.DVector.load(self.trip_rates_path)
 
         return trip_rates
@@ -614,7 +649,7 @@ class NHBProductionModel:
         cb.DVector
             Loaded MTS vector.
         """
-        self._logger.info("Loading the mode time split data from {self.mts_path}")
+        self.logger.info("Loading the mode time split data from {self.mts_path}")
         mts = cb.DVector.load(self.mts_path)
 
         return mts
@@ -636,6 +671,9 @@ class NHBProductionModel:
             Processed HB attraction vector.
         """
         assert self.hb_attraction_model.export_paths is not None
+        self.logger.info(
+            f"Loading hb_attraction trip ends from {self.hb_attraction_model.export_paths.tem_segmented_from_home[year]}"
+        )
         hbattr = cb.DVector.load(
             self.hb_attraction_model.export_paths.tem_segmented_from_home[year]
         )
@@ -667,6 +705,9 @@ class NHBProductionModel:
         cb.DVector
             Pure NHB production vector.
         """
+        self.logger.info(
+            "Multiplying hb attractions by trip rates to produce nhb productions."
+        )
         pure_prod: cb.DVector | None = None
         for p in hbattr.segmentation.get_segment("p_hb").int_values:
             with warnings.catch_warnings():
@@ -705,6 +746,7 @@ class NHBProductionModel:
         cb.DVector
             MTS NHB production vector.
         """
+        self.logger.info("Applying mode time splits to pure nhb productions.")
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=SegmentationWarning)
             mts_production = pure_production * mts

@@ -200,7 +200,7 @@ class TEM:
         emp_landuse: dict[int, Landuse],
         hh_landuse: dict[int, Landuse],
         mode_time_splits_path: os.PathLike,
-        balance_production: bool = True,
+        balance_production: cb.BalancingZones | bool = True,
         trip_rate_adjustment_path: os.PathLike | None = None,
         mode_time_splits_adjustment_path: os.PathLike | None = None,
         mts_uni_path: os.PathLike | None = None,
