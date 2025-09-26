@@ -8,16 +8,17 @@ managing model configuration and outputs.
 
 from __future__ import annotations
 
+# Built-Ins
 import os
-import warnings
 from pathlib import Path
 from typing import Any, Literal
 
+# Third Party
 import caf.base as cb
 import pandas as pd
-from caf.base.segmentation import SegmentationError, SegmentationWarning
 from caf.base.segments import SegmentsSuper
 
+# Local Imports
 from caf.tem.attraction_models import AttractionModel
 from caf.tem.inputs import Landuse, Scenarios, TEMExportPaths
 from caf.tem.production_models import HBProductionModel, NHBProductionModel
@@ -98,11 +99,11 @@ class TEM:
             )
         self.zone_trans = pd.read_csv(trans_file)
 
-        self.hb_production_model: HBProductionModel | None = None
+        self.hb_prod_model: HBProductionModel | None = None
         self.hb_attraction_model: AttractionModel | None = None
-        self.nhb_production_model: NHBProductionModel | None = None
+        self.nhb_prod_model: NHBProductionModel | None = None
         self.nhb_attraction_model: AttractionModel | None = None
-        self.attraction_model: AttractionModel | None = None
+        self.attr_model: AttractionModel | None = None
 
     def check_years(self, to_check: dict[int, Any], dict_name: str):
         """
@@ -135,7 +136,7 @@ class TEM:
                 f"Missing years are {missing}."
             )
 
-    def HBProductionModel(
+    def hb_production_model(
         self,
         population: dict[int, Landuse],
         trip_rates_path: os.PathLike,
@@ -177,7 +178,7 @@ class TEM:
             An initialized HBProductionModel object.
         """
         self.check_years(population, "population")
-        self.hb_production_model = HBProductionModel(
+        self.hb_prod_model = HBProductionModel(
             model=self.export_paths.hb_production,
             population=population,
             trip_rates_path=trip_rates_path,
@@ -191,9 +192,9 @@ class TEM:
             mts_return_home_adj_factor_path=mts_return_home_adj_factor_path,
         )
 
-        return self.hb_production_model
+        return self.hb_prod_model
 
-    def AttractionModel(
+    def attraction_model(
         self,
         trip_rates_paths: dict[int, Path],
         emp_landuse: dict[int, Landuse],
@@ -254,7 +255,7 @@ class TEM:
         self.check_years(hh_landuse, "households")
         self.check_years(emp_landuse, "employment")
         if origin == "hb":
-            self.attraction_model = AttractionModel(
+            self.attr_model = AttractionModel(
                 production_model=self.export_paths.hb_production,
                 model=self.export_paths.hb_attraction,
                 trip_rates_paths=trip_rates_paths,
@@ -274,7 +275,7 @@ class TEM:
                 translation=self.zone_trans,
             )
         else:
-            self.attraction_model = AttractionModel(
+            self.attr_model = AttractionModel(
                 production_model=self.export_paths.nhb_production,
                 model=self.export_paths.nhb_attraction,
                 trip_rates_paths=trip_rates_paths,
@@ -302,9 +303,9 @@ class TEM:
                     f"Trip rates key {p} was passed.\nTrip rates keys must be in {vals}"
                 )
 
-        return self.attraction_model
+        return self.attr_model
 
-    def NHBProductionModel(
+    def nhb_production_model(
         self,
         trip_rates_path: os.PathLike,
         mode_time_splits_path: os.PathLike,
@@ -329,7 +330,7 @@ class TEM:
         NHBProductionModel
             An initialized NHBProductionModel object.
         """
-        self.nhb_production_model = NHBProductionModel(
+        self.nhb_prod_model = NHBProductionModel(
             self.export_paths.hb_attraction,
             self.export_paths.nhb_production,
             trip_rates_path,
@@ -338,23 +339,7 @@ class TEM:
             self.return_segmentation,
         )
 
-        return self.nhb_production_model
+        return self.nhb_prod_model
 
 
 # pylint: enable =too-many-positional-arguments,too-many-arguments
-
-# class TEMInput(BaseConfig):
-#     model_years: list[int]
-#     scenario: str
-#     output_zoning: str
-#     agg_zoning: str
-#     iteration_name: str
-#     export_home: os.PathLike
-#     return_segmentation: list[str]
-#     trans_file: os.PathLike
-#     population_paths: dict[int, Landuse]
-#     pop_zoning: str
-#     hb_prod_trip_rates_path: os.PathLike
-#     hb_prod_mode_time_splits_path: os.PathLike
-#     hb_prod_adjustment_path: os.PathLike
-#     hb_prod_mts_adj_path: os.PathLike

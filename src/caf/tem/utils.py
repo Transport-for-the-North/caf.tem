@@ -8,18 +8,21 @@ and DVector/segmentation operations used throughout the TEM framework.
 
 from __future__ import annotations
 
+# Built-Ins
 import copy
 import gc
-import glob
+
 # Built-in
 import math
 import os
 import warnings
 from typing import TYPE_CHECKING, Sequence
 
+# Third Party
 # Local
 import caf.base as cb
 from caf.base.segmentation import SegmentationError, SegmentationWarning
+
 # Third-party
 from caf.base.segments import SegmentsSuper
 
@@ -27,7 +30,6 @@ if TYPE_CHECKING:
     from caf.tem.attraction_models import AttractionModel
     from caf.tem.production_models import HBProductionModel
 
-# Local Imports
 # pylint: disable=import-error,wrong-import-position
 # Local imports here
 # pylint: enable=import-error,wrong-import-position
@@ -185,6 +187,7 @@ def filter_segments(custom_seg_list, df) -> list:
 
 
 class SharedProdAttrMethods:
+    """Class for methods shared between production and attraction models."""
 
     def __init__(self, parent: "AttractionModel | HBProductionModel"):
         self.parent = parent
@@ -342,6 +345,22 @@ class SharedProdAttrMethods:
             gc.collect()
 
         return trip_ends
+
+    def _read_mts_return_home_adjustment(self):
+        """
+        Read MTS adjustment factors for return-home trips.
+
+        Returns
+        -------
+        cb.DVector or None
+            Adjustment factors or None if not provided.
+        """
+        if self.parent.mts_return_home_adj_factor_path is None:
+            return None
+
+        adj_factors = cb.DVector.load(self.parent.mts_return_home_adj_factor_path)
+
+        return adj_factors
 
     def create_tem_return_home(self, tem: cb.DVector, geo_constraint: cb.ZoningSystem | None):
         """

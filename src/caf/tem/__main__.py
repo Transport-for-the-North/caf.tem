@@ -1,7 +1,12 @@
+"""Main module for running code."""
+
+# Built-Ins
 import logging
 
+# Third Party
 import caf.toolkit as ctk
 
+# Local Imports
 import caf.tem as ct
 from caf.tem.inputs import MainConfig
 
@@ -9,6 +14,14 @@ LOG = logging.getLogger(__name__)
 
 
 def main(params: MainConfig):
+    """
+    Run TEM model.
+
+    Parameters
+    ----------
+    params : MainConfig
+        The config class for the TEM run. See MainConfig docs.
+    """
     details = ctk.ToolDetails(__package__, ct.__version__)
     with ctk.LogHelper(__package__, details, log_file=params.export_home / "tem.log"):
         model = ct.TEM(
@@ -22,7 +35,7 @@ def main(params: MainConfig):
             trans_file=params.trans_file,
         )
         if params.run_hb_prod:
-            HBProd = model.HBProductionModel(
+            hb_prod = model.hb_production_model(
                 population=params.pop,
                 trip_rates_path=params.hb_prod_triprates,
                 mode_time_splits_path=params.hb_prod_mts,
@@ -33,7 +46,7 @@ def main(params: MainConfig):
                 mts_return_home_adj_factor_path=params.hb_prod_mts_return_adj,
             )
             LOG.info("###### hb production model ######")
-            HBProd.run(
+            hb_prod.run(
                 export_pure_production=params.export_pure,
                 export_mts_production=params.export_mts,
                 export_tem_segmentation=params.export_tem,
@@ -42,7 +55,7 @@ def main(params: MainConfig):
                 return_tripends=params.return_home,
             )
         if params.run_hb_attr:
-            HBAttr = model.AttractionModel(
+            hb_attr = model.attraction_model(
                 trip_rates_paths=params.hb_attr_triprates,
                 emp_landuse=params.emp,
                 hh_landuse=params.hh,
@@ -56,7 +69,7 @@ def main(params: MainConfig):
                 phi_factors_path=params.hb_attr_phi_factors,
             )
             LOG.info("###### hb attraction model ######")
-            HBAttr.run(
+            hb_attr.run(
                 export_pure_attractions=params.export_pure,
                 export_tem_segmentation=params.export_tem,
                 export_reports=params.export_reports,
@@ -64,20 +77,20 @@ def main(params: MainConfig):
                 return_tripends=params.return_home,
             )
         if params.run_nhb_prod:
-            NHBProd = model.NHBProductionModel(
+            nhb_prod = model.nhb_production_model(
                 trip_rates_path=params.nhb_prod_triprates,
                 mode_time_splits_path=params.nhb_prod_mts,
                 balance_production=params.balance_nhb,
             )
             LOG.info("###### nhb production model ######")
-            NHBProd.run(
+            nhb_prod.run(
                 export_pure_demand=params.export_pure,
                 export_tem_segmentation=params.export_tem,
                 export_reports=params.export_reports,
             )
 
         if params.run_nhb_attr:
-            NHBAttr = model.AttractionModel(
+            nhb_attr = model.attraction_model(
                 trip_rates_paths=params.nhb_attr_triprates,
                 emp_landuse=params.emp,
                 hh_landuse=params.hh,
@@ -89,7 +102,7 @@ def main(params: MainConfig):
                 origin="nhb",
             )
             LOG.info("###### nhb attraction model ######")
-            NHBAttr.run(
+            nhb_attr.run(
                 export_pure_attractions=params.export_pure,
                 export_tem_segmentation=params.export_tem,
                 export_reports=params.export_reports,

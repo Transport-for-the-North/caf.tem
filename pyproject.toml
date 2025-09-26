@@ -45,9 +45,9 @@ edit_install = [
 ]
 
 [project.urls]
-"Bug Tracker" = "https://github.com/Transport-for-the-North/caf.toolkit/issues"
-Homepage = "https://github.com/Transport-for-the-North/caf.toolkit"
-Source = "https://github.com/Transport-for-the-North/caf.toolkit"
+"Bug Tracker" = "https://github.com/Transport-for-the-North/caf.tem/issues"
+Homepage = "https://github.com/Transport-for-the-North/caf.tem"
+Source = "https://github.com/Transport-for-the-North/caf.tem"
 
 # Packaging options
 [tool.setuptools.packages.find]
@@ -68,7 +68,8 @@ disable = [
     "use-dict-literal",
     "use-list-literal",
     "wrong-import-order",  # Handled by isort
-    "logging-fstring-interpolation"
+    "logging-fstring-interpolation",
+    "duplicate-code"
 ]
 
 [tool.isort]

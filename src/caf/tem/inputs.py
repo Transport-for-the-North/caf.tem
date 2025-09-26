@@ -10,7 +10,7 @@ production and attraction models.
 
 from __future__ import annotations
 
-import collections
+# Built-Ins
 # Built-Ins TODO tidy this file
 import enum
 import os
@@ -21,7 +21,6 @@ from typing import Annotated, Literal, NamedTuple
 
 # Third Party
 import caf.base as cb
-import caf.toolkit as ctk
 import pandas as pd
 from caf.base.segments import SegmentsSuper
 from caf.toolkit import config_base
@@ -85,8 +84,7 @@ def create_zoningsystem(zoning: str | cb.ZoningSystem | list[str | cb.ZoningSyst
 @dataclass
 class Landuse:
     """
-    Data container for handling different types of land use inputs (e.g., population, employment, households)
-    along with associated metadata for processing and transformation.
+    Data container for handling different types of land use inputs.
 
     Parameters
     ----------
@@ -129,8 +127,9 @@ class Landuse:
         model_zoning: cb.ZoningSystem | None = None,
     ):
         """
-        Read and process land use data from the specified source, applying optional translation and
-        aligning it with the model's zoning system if provided.
+        Read and process land use data from the specified source.
+
+        Applies optional translation and aligns it with the model's zoning system if provided.
 
         Parameters
         ----------

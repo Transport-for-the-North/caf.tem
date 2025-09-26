@@ -9,26 +9,32 @@ balancing attractions, and exporting results for further analysis.
 # Allow class self type hinting
 from __future__ import annotations
 
+# Built-Ins
 import logging
+
 # Builtins
 import os
 import warnings
 from pathlib import Path
 from typing import Sequence
 
+# Third Party
 import caf.base as cb
 import caf.toolkit as ctk
+
 # Third party imports
 import pandas as pd
-from caf.base.segmentation import SegmentationError, SegmentationWarning
+from caf.base.segmentation import SegmentationWarning
 from caf.nts.utils import Tuples
 
+# Local Imports
 from caf.tem import utils
 from caf.tem.inputs import AttractionModelPaths, Landuse, ProductionModelPaths
 
 custom_segments = Tuples._fields
 
 
+# pylint: disable="too-few-public-methods"
 class AttractionModel:  # pylint:disable=too-many-instance-attributes
     """
     Estimate and balances trip attractions.
@@ -344,9 +350,7 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
             Loaded trip rate vector.
         """
         # Each trip rate file is explicitly defined in the input dictionary by purpose HB Attraction Model, similar assumption for NHB
-        self.logger.info(
-            f"Loading in purpose {p} trip rates from {self.trip_rates_paths[p]}."
-        )
+        self.logger.info(f"Loading in purpose {p} trip rates from {self.trip_rates_paths[p]}.")
         if self.trip_rates_paths[p].name.endswith("csv"):
             trip_rate = pd.read_csv(self.trip_rates_paths[p], index_col=0).squeeze()
             trip_rate.index.name = self.agg_zoning.column_name
@@ -395,22 +399,6 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
             adj_factors_dict["mts"] = mts
 
         return adj_factors_dict
-
-    def _read_mts_return_home_adjustment(self):
-        """
-        Read MTS adjustment factors for return-home trips.
-
-        Returns
-        -------
-        cb.DVector or None
-            Adjustment factors or None if not provided.
-        """
-        if self.mts_return_home_adj_factor_path is None:
-            return None
-
-        adj_factors = cb.DVector.load(self.mts_return_home_adj_factor_path)
-
-        return adj_factors
 
     def _adjust_mts_attraction_return_home(
         self,

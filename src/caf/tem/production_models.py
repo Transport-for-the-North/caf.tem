@@ -8,25 +8,32 @@ applying trip rates, mode-time splits, adjustments, and exporting results.
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
+# Built-Ins
 import logging
 import math
+
 # Builtins
 import os
 import warnings
 from pathlib import Path
 from typing import Sequence
 
+# Third Party
 # Third party imports
 import caf.base as cb
 import caf.toolkit as ctk
 import pandas as pd
-from caf.base.segmentation import SegmentationError, SegmentationWarning
-from caf.nts.utils import SegTuple, Tuples
+from caf.base.segmentation import SegmentationWarning
+from caf.nts.utils import Tuples
 
+# Local Imports
 from caf.tem import utils
-from caf.tem.inputs import (AttractionModelPaths, ExportPathsOutputs,
-                            ExportPathsReports, Landuse, ProductionModelPaths,
-                            ReportPaths)
+from caf.tem.inputs import (
+    AttractionModelPaths,
+    Landuse,
+    ProductionModelPaths,
+    ReportPaths,
+)
 
 # pylint: disable =too-many-instance-attributes,too-many-positional-arguments,too-many-locals,too-many-arguments,too-few-public-methods
 
@@ -329,23 +336,6 @@ class HBProductionModel:
 
         self.logger.info("Loading the MTS adjustment factors")
         adj_factors = cb.DVector.load(self.mts_adjust_path)
-
-        return adj_factors
-
-    def _read_mts_return_home_adjustment(self):
-        """
-        Read MTS adjustment factors for return-home trips.
-
-        Returns
-        -------
-        cb.DVector or None
-            Adjustment factors or None if not provided.
-        """
-        if self.mts_adjust_path is None:
-            return None
-
-        self.logger.info("Loading the MTS adjustment factors for return home")
-        adj_factors = cb.DVector.load(self.mts_return_home_adj_factor_path)
 
         return adj_factors
 
