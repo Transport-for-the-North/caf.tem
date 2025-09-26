@@ -1,0 +1,116 @@
+# MainConfig config written on 2025-09-22 at 10:27
+run_hb_prod: yes
+run_hb_attr: yes
+run_nhb_prod: yes
+run_nhb_attr: yes
+return_home: yes
+model_years:
+- 2023
+scenario: Core
+output_zoning: normits
+agg_zoning: tfn_at
+iteration_name: conf_test
+export_home: C:\Temp\tem
+return_segmentation:
+- p
+- m
+- tp
+- hh_type
+- soc
+trans_file: C:\Temp\tem\normits_lsoa21_trans.csv
+export_pure: yes
+export_mts: yes
+export_tem: yes
+export_reports: yes
+mts_geo_constraint: gor
+pop:
+  2023:
+    type: pop
+    land_use: T:\AlokJain\Tem Outputs\Inputs\pop.dvec
+    segmentation:
+    - adult_nssec
+    - gender_3
+    - ns_sec
+    - soc
+    - aws
+    - hh_type
+    out_zoning:
+    - normits
+    - tfn_at
+    - gor
+emp:
+  2023:
+    type: emp
+    land_use: T:\AlokJain\Tem Outputs\Inputs\emp.dvec
+    trans_tag: uni
+    segmentation:
+    - soc
+    - sic_1_digit
+    - sic_2_digit
+    out_zoning:
+    - normits
+    - tfn_at
+    - uni
+    - gor
+hh:
+  2023:
+    type: pop
+    land_use: F:\Deliverables\Land-Use\241220_Populationv2\02_Final Outputs
+    prefix: Output P14.1_{}.hdf
+    geographies:
+    - EM
+    - EoE
+    - Lon
+    - NE
+    - NW
+    - SE
+    - SW
+    - Wales
+    - WM
+    - YH
+    - Scotland
+    out_zoning:
+    - normits
+    - tfn_at
+    - uni
+    - gor
+hb_prod_triprates: T:\AlokJain\Tem Outputs\Inputs\hb_trip_rates_production_trip_rates.dvec
+hb_prod_tr_adj: T:\AlokJain\Tem Outputs\Inputs\trip_rate_adjustments_p_hb_fr_adj.dvec
+hb_prod_mts: T:\AlokJain\Tem Outputs\Inputs\mode_time_split_production_hb_fr_reg_rho.dvec
+hb_prod_mts_adjustment: T:\AlokJain\Tem Outputs\Inputs\mode_time_split_adjustments_p_hb_fr_adj.dvec
+hb_prod_phi_factors: T:\AlokJain\Tem Outputs\Inputs\phi_factors
+hb_prod_mts_return: T:\AlokJain\Tem Outputs\Inputs\mode_time_split_production_hb_to_reg_trips.est.dvec
+hb_prod_mts_return_adj: T:\AlokJain\Tem Outputs\Inputs\mode_time_split_adjustments_p_hb_to_adj.dvec
+hb_attr_triprates:
+  1: T:\AlokJain\Tem Outputs\Inputs\trip_rates_attraction_p1_hb_alpha.dvec
+  2: T:\AlokJain\Tem Outputs\Inputs\trip_rates_attraction_p2_hb_alpha.dvec
+  3: T:\AlokJain\Tem Outputs\Inputs\trip_rates_attraction_p3_hb_alpha.dvec
+  4: T:\AlokJain\Tem Outputs\Inputs\trip_rates_attraction_p4_hb_alpha.dvec
+  5: T:\AlokJain\Tem Outputs\Inputs\trip_rates_attraction_p5_hb_alpha.dvec
+  6: T:\AlokJain\Tem Outputs\Inputs\trip_rates_attraction_p6_hb_alpha.dvec
+  7: T:\AlokJain\Tem Outputs\Inputs\trip_rates_attraction_p7_hb_alpha.dvec
+  8: T:\AlokJain\Tem Outputs\Inputs\trip_rates_attraction_p8_hb_alpha.dvec
+hb_attr_tr_adj: T:\AlokJain\Tem Outputs\Inputs\trip_rate_adjustments_a_hb_fr_adj.dvec
+hb_attr_mts: T:\AlokJain\Tem Outputs\Inputs\mode_time_split_attraction_hb_fr_reg_rho.dvec
+hb_attr_mts_adj: T:\AlokJain\Tem Outputs\Inputs\mode_time_split_adjustments_a_hb_fr_adj.dvec
+hb_attr_mts_uni: T:\AlokJain\Tem Outputs\Inputs\mode_time_split_attraction_hb_fr_uni_reg_rho.dvec
+balance_hb: yes
+hb_attr_phi_factors: T:\AlokJain\Tem Outputs\Inputs\phi_factors
+hb_attr_mts_return: T:\AlokJain\Tem Outputs\Inputs\mode_time_split_attraction_hb_to_reg_trips.est.dvec
+hb_attr_mts_return_adj: T:\AlokJain\Tem Outputs\Inputs\mode_time_split_adjustments_p_hb_to_adj.dvec
+nhb_prod_triprates: T:\AlokJain\Tem Outputs\Inputs\nhb_trip_rates_production_gamma.dvec
+nhb_prod_mts: T:\AlokJain\Tem Outputs\Inputs\mode_time_split_production_nhb_reg_rho.dvec
+balance_nhb: yes
+nhb_attr_tr_adj: T:\AlokJain\Tem Outputs\Inputs\trip_rate_adjustments_a_nhb_adj.dvec
+nhb_attr_mts: T:\AlokJain\Tem Outputs\Inputs\mode_time_split_attraction_nhb_reg_rho.dvec
+nhb_attr_mts_adj: T:\AlokJain\Tem Outputs\Inputs\trip_rate_adjustments_a_nhb_adj.dvec
+nhb_attr_mts_uni: T:\AlokJain\Tem Outputs\Inputs\mode_time_split_attraction_nhb_uni_reg_rho.dvec
+nhb_attr_triprates:
+  11: T:\AlokJain\Tem Outputs\Inputs\trip_rates_attraction_p1_nhb_alpha.dvec
+  12: T:\AlokJain\Tem Outputs\Inputs\trip_rates_attraction_p2_nhb_alpha.dvec
+  13: T:\AlokJain\Tem Outputs\Inputs\trip_rates_attraction_p3_nhb_alpha.dvec
+  14: T:\AlokJain\Tem Outputs\Inputs\trip_rates_attraction_p4_nhb_alpha.dvec
+  15: T:\AlokJain\Tem Outputs\Inputs\trip_rates_attraction_p5_nhb_alpha.dvec
+  16: T:\AlokJain\Tem Outputs\Inputs\trip_rates_attraction_p6_nhb_alpha.dvec
+  17: T:\AlokJain\Tem Outputs\Inputs\trip_rates_attraction_p7_nhb_alpha.dvec
+  18: T:\AlokJain\Tem Outputs\Inputs\trip_rates_attraction_p8_nhb_alpha.dvec
