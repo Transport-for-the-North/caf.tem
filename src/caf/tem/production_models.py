@@ -534,7 +534,10 @@ class NHBProductionModel:
         return_segmentation: cb.Segmentation,
     ) -> None:
         ## Assign
+
         self.hb_attraction_model: AttractionModelPaths = hb_attraction_model
+        if self.hb_attraction_model.export_paths is None:
+            raise ValueError("Mypy whining.")
         self.hb_attraction_paths = (
             self.hb_attraction_model.export_paths.tem_segmented_from_home
         )
