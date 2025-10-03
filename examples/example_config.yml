@@ -10,7 +10,7 @@ scenario: Core
 output_zoning: normits
 agg_zoning: tfn_at
 iteration_name: conf_test
-export_home: C:\Temp\tem
+export_home: D:\tem
 return_segmentation:
 - p
 - m

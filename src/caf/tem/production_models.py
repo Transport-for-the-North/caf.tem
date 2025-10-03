@@ -270,7 +270,7 @@ class HBProductionModel:
                 )
             if return_tripends:
                 tem_return_home_prod = self.shared_methods.create_tem_return_home(
-                    tem_production, mts_geo_constraint
+                    tem_production, self.model_zoning
                 )
                 tem_return_home_prod_ = tem_return_home_prod.rename_segment(
                     {"p_return": "p", "tp_return": "tp"}
@@ -535,7 +535,6 @@ class NHBProductionModel:
     ) -> None:
         ## Assign
         self.hb_attraction_model: AttractionModelPaths = hb_attraction_model
-        assert isinstance(self.hb_attraction_model.export_paths, dict)
         self.hb_attraction_paths = (
             self.hb_attraction_model.export_paths.tem_segmented_from_home
         )

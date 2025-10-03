@@ -279,13 +279,17 @@ class SharedProdAttrMethods:
         """
         if adj_factors is None:
             return mts
-
+        agg_seg = [
+            i
+            for i in mts.segmentation.naming_order
+            if i not in ["m", "tp", "tp_return", "m_return"]
+        ]
         self.parent.logger.info(" Adjusting mode time split")
         adj_factors.fill(0, 1)
         adj = mts * adj_factors
 
-        numerator = mts.aggregate(["p_return"])
-        denominator = adj.aggregate(["p_return"])
+        numerator = mts.aggregate(agg_seg)
+        denominator = adj.aggregate(agg_seg)
         if geo_constraint is not None:
             if isinstance(mts.zoning_system, Sequence):
                 if geo_constraint not in mts.zoning_system:
@@ -299,7 +303,7 @@ class SharedProdAttrMethods:
 
         return mts_adj
 
-    def return_home_trip_ends(self, tem_attraction: cb.DVector, agg_segments: list[str]):
+    def return_home_trip_ends(self, tem_fr: cb.DVector, agg_segments: list[str]):
         """
         Compute return-home trip ends.
 
@@ -308,7 +312,7 @@ class SharedProdAttrMethods:
 
         Parameters
         ----------
-        tem_attraction : cb.DVector
+        tem_fr : cb.DVector
             The attraction DVector containing 'p' as a segment.
 
         agg_segments : list[str]
@@ -326,7 +330,7 @@ class SharedProdAttrMethods:
             phi = self._read_phi_factor_dvec(p_val)
 
             # Filter production DVector by current purpose value, keep 'p' segment
-            tem_filtered = tem_attraction.filter_segment_value("p", p_val, keep_filtered=True)
+            tem_filtered = tem_fr.filter_segment_value("p", p_val, keep_filtered=True)
 
             # Multiply and aggregate
             with warnings.catch_warnings():

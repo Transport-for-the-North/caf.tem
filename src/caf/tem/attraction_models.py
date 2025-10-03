@@ -325,15 +325,39 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
                 balanced_dvec.save(export_paths.tem_segmented_from_home[year])
             if return_tripends:
                 tem_return_home_attr = self.shared_methods.create_tem_return_home(
-                    balanced_dvec, mts_geo_constraint
+                    balanced_dvec, self.model_zoning
                 )
-                tem_return_home_attr_ = tem_return_home_attr.rename_segment(
+                tem_return_home_attr = tem_return_home_attr.rename_segment(
                     {"p_return": "p", "tp_return": "tp"}
+                )
+                tem_return_home_prod = cb.DVector.load(
+                    self.production_model.export_paths.tem_segmented_return_home[year]
+                )
+                agg_seg = [
+                    i
+                    for i in balanced_dvec.segmentation.naming_order
+                    if i not in ["p", "m", "tp"]
+                ]
+                attr_targ = balanced_dvec.aggregate(agg_seg).aggregate_comp_zones(
+                    self.model_zoning
+                )
+                targets = [
+                    cb.data_structures.IpfTarget(data=attr_targ),
+                    cb.data_structures.IpfTarget(data=tem_return_home_prod.remove_zoning()),
+                ]
+                self.logger.info(
+                    "Matching return home attractions to from home attractions and "
+                    "return home productions via IPF."
+                )
+                tem_return_home_attr_balanced, rmse = (
+                    tem_return_home_attr.aggregate_comp_zones(self.model_zoning).ipf(targets)
                 )
                 self.logger.info(
                     f"Saving return home attractions to {export_paths.tem_segmented_return_home[year]}"
                 )
-                tem_return_home_attr_.save(export_paths.tem_segmented_return_home[year])
+                tem_return_home_attr_balanced.save(
+                    export_paths.tem_segmented_return_home[year]
+                )
 
             return None
 

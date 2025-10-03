@@ -111,6 +111,6 @@ def main(params: MainConfig):
             )
 
 
-# if __name__ == "__main__":
-#     params = MainConfig.load_yaml("src/conf.yml")
-#     main(params)
+if __name__ == "__main__":
+    params = MainConfig.load_yaml(r"examples\example_config.yml")
+    main(params)
