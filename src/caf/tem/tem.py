@@ -23,8 +23,6 @@ from caf.tem.attraction_models import AttractionModel
 from caf.tem.inputs import Landuse, Scenarios, TEMExportPaths
 from caf.tem.production_models import HBProductionModel, NHBProductionModel
 
-
-# pylint: disable =too-many-positional-arguments,too-many-arguments
 class TEM:
     """
     The Trip End Model (TEM) for the caf.tem package.
@@ -67,43 +65,37 @@ class TEM:
     def __init__(
         self,
         model_years: list[int],
-        scenario: str,
+        scenario: Scenarios,
         output_zoning: cb.ZoningSystem,
         agg_zoning: cb.ZoningSystem,
         iteration_name: str,
-        export_home: os.PathLike,
+        export_home: Path,
         return_segmentation: list[str] | cb.Segmentation,
-        trans_file: os.PathLike,
+        trans_file: Path,
     ):
         self.years = model_years
-        self.scenario = Scenarios(scenario)
-        self.output_zoning = output_zoning
-        self.agg_zoning = agg_zoning
-        self.iteration_name = iteration_name
-        self.export_paths = TEMExportPaths(
+        self._scenario = Scenarios(scenario)
+        self._output_zoning = output_zoning
+        self._agg_zoning = agg_zoning
+        self._iteration_name = iteration_name
+        self._export_paths = TEMExportPaths(
             model_years,
-            self.scenario,
+            self._scenario,
             iteration_name,
             export_home,
             output_zoning,
             agg_zoning,
         )
         if isinstance(return_segmentation, cb.Segmentation):
-            self.return_segmentation = return_segmentation
+            self._return_segmentation = return_segmentation
         else:
-            self.return_segmentation = cb.Segmentation(
+            self._return_segmentation = cb.Segmentation(
                 cb.SegmentationInput(
                     enum_segments=[SegmentsSuper(i) for i in return_segmentation],
                     naming_order=return_segmentation,
                 )
             )
-        self.zone_trans = pd.read_csv(trans_file)
-
-        self.hb_prod_model: HBProductionModel | None = None
-        self.hb_attraction_model: AttractionModel | None = None
-        self.nhb_prod_model: NHBProductionModel | None = None
-        self.nhb_attraction_model: AttractionModel | None = None
-        self.attr_model: AttractionModel | None = None
+        self._zone_trans = pd.read_csv(trans_file)
 
     def check_years(self, to_check: dict[int, Any], dict_name: str):
         """
@@ -118,34 +110,34 @@ class TEM:
 
         Raises
         ------
-        AttributeError
+        ValueError
             If there are extra or missing years in the input dictionary.
         """
         years_set = set(self.years)
         dict_years_set = set(to_check.keys())
         extra = dict_years_set.difference(years_set)
-        if len(extra) > 0:
-            raise AttributeError(
-                f"There are years in the {dict_name} input not in "
-                f"expected years. Extra years are {extra}."
-            )
-        missing = years_set.difference(dict_years_set)
-        if len(missing) > 0:
-            raise AttributeError(
-                f"There are years missing from {dict_name} input "
-                f"Missing years are {missing}."
+        if len(extra) > 0:  
+            raise ValueError(  
+                f"There are years in the {dict_name} input not in "  
+                f"expected years. Extra years are {extra}."  
+            )  
+        missing = years_set.difference(dict_years_set)  
+        if len(missing) > 0:  
+            raise ValueError(  
+                f"There are years missing from {dict_name} input "  
+                f"Missing years are {missing}."  
             )
 
     def hb_production_model(
         self,
         population: dict[int, Landuse],
-        trip_rates_path: os.PathLike,
-        mode_time_splits_path: os.PathLike,
+        trip_rates_path: Path,
+        mode_time_splits_path: Path,
         phi_factors_path: Path | None = None,
-        mts_return_home_path: os.PathLike | None = None,
-        mts_return_home_adj_factor_path: os.PathLike | None = None,
-        adjustment_path: os.PathLike | None = None,
-        mts_adj_path: os.PathLike | None = None,
+        mts_return_home_path: Path | None = None,
+        mts_return_home_adj_factor_path: Path | None = None,
+        adjustment_path: Path | None = None,
+        mts_adj_path: Path | None = None,
     ) -> HBProductionModel:
         """
         Initialize and return the Home-Based (HB) Production Model.
@@ -157,19 +149,19 @@ class TEM:
         ----------
         population : dict[int, Landuse]
             Dictionary mapping year to Landuse objects for population.
-        trip_rates_path : os.PathLike
+        trip_rates_path : Path
             Path to the production trip rates file.
-        mode_time_splits_path : os.PathLike
+        mode_time_splits_path : Path
             Path to the mode-time splits file.
-        phi_factors_path : os.PathLike, optional
+        phi_factors_path : Path, optional
             Path to phi factor files for return-home calculations.
-        mts_return_home_path : os.PathLike, optional
+        mts_return_home_path : Path, optional
             Path to MTS return-home DVector file.
-        mts_return_home_adj_factor_path : os.PathLike, optional
+        mts_return_home_adj_factor_path : Path, optional
             Path to adjustment factors for MTS return-home.
-        adjustment_path : os.PathLike, optional
+        adjustment_path : Path, optional
             Path to adjustment factors for trip rates.
-        mts_adj_path : os.PathLike, optional
+        mts_adj_path : Path, optional
             Path to adjustment factors for MTS.
 
         Returns
@@ -179,14 +171,14 @@ class TEM:
         """
         self.check_years(population, "population")
         self.hb_prod_model = HBProductionModel(
-            model=self.export_paths.hb_production,
+            model=self._export_paths.hb_production,
             population=population,
             trip_rates_path=trip_rates_path,
             trip_rate_adjustment_path=adjustment_path,
             mts_path=mode_time_splits_path,
             mts_adjustment_path=mts_adj_path,
-            tem_segmentation=self.return_segmentation,
-            translation=self.zone_trans,
+            tem_segmentation=self._return_segmentation,
+            translation=self._zone_trans,
             phi_factors_path=phi_factors_path,
             mts_return_home_path=mts_return_home_path,
             mts_return_home_adj_factor_path=mts_return_home_adj_factor_path,
@@ -199,13 +191,13 @@ class TEM:
         trip_rates_paths: dict[int, Path],
         emp_landuse: dict[int, Landuse],
         hh_landuse: dict[int, Landuse],
-        mode_time_splits_path: os.PathLike,
+        mode_time_splits_path: Path,
         balance_production: cb.BalancingZones | bool = True,
-        trip_rate_adjustment_path: os.PathLike | None = None,
-        mode_time_splits_adjustment_path: os.PathLike | None = None,
-        mts_uni_path: os.PathLike | None = None,
-        mts_return_home_path: os.PathLike | None = None,
-        mts_return_home_adj_factor_path: os.PathLike | None = None,
+        trip_rate_adjustment_path: Path | None = None,
+        mode_time_splits_adjustment_path: Path | None = None,
+        mts_uni_path: Path | None = None,
+        mts_return_home_path: Path | None = None,
+        mts_return_home_adj_factor_path: Path | None = None,
         phi_factors_path: Path | None = None,
         origin: Literal["hb", "nhb"] = "hb",
     ) -> AttractionModel:
@@ -217,27 +209,27 @@ class TEM:
 
         Parameters
         ----------
-        trip_rates_paths : dict[int, os.PathLike]
+        trip_rates_paths : dict[int, Path]
             Dictionary mapping purpose to trip rates file paths.
         emp_landuse : dict[int, Landuse]
             Dictionary mapping year to employment Landuse objects.
         hh_landuse : dict[int, Landuse]
             Dictionary mapping year to household Landuse objects.
-        mode_time_splits_path : os.PathLike
+        mode_time_splits_path : Path
             Path to the mode-time splits file.
         balance_production : bool, optional
             Whether to balance attractions to productions (default: True).
-        trip_rate_adjustment_path : os.PathLike, optional
+        trip_rate_adjustment_path : Path, optional
             Path to adjustment factors for trip rates.
-        mode_time_splits_adjustment_path : os.PathLike, optional
+        mode_time_splits_adjustment_path : Path, optional
             Path to adjustment factors for mode-time splits.
-        mts_uni_path : os.PathLike, optional
+        mts_uni_path : Path, optional
             Path to university-specific MTS data.
-        mts_return_home_path : os.PathLike, optional
+        mts_return_home_path : Path, optional
             Path to MTS return-home DVector file.
-        mts_return_home_adj_factor_path : os.PathLike, optional
+        mts_return_home_adj_factor_path : Path, optional
             Path to adjustment factors for MTS return-home.
-        phi_factors_path : os.PathLike, optional
+        phi_factors_path : Path, optional
             Path to phi factor files for return-home calculations.
         origin : Literal["hb", "nhb"], optional
             Whether this is a home-based or non-home-based model (default: "hb").
@@ -254,46 +246,25 @@ class TEM:
         """
         self.check_years(hh_landuse, "households")
         self.check_years(emp_landuse, "employment")
-        if origin == "hb":
-            self.attr_model = AttractionModel(
-                production_model=self.export_paths.hb_production,
-                model=self.export_paths.hb_attraction,
-                trip_rates_paths=trip_rates_paths,
-                trip_rate_adj_path=trip_rate_adjustment_path,
-                balance_production=balance_production,
-                emp_landuse=emp_landuse,
-                hh_landuse=hh_landuse,
-                mts_path=mode_time_splits_path,
-                mts_return_home_path=mts_return_home_path,
-                mts_adjustment_path=mode_time_splits_adjustment_path,
-                mts_return_home_adj_factor_path=mts_return_home_adj_factor_path,
-                phi_factors_path=phi_factors_path,
-                tem_segmentation=self.return_segmentation,
-                mts_uni_path=mts_uni_path,
-                model_zoning=self.output_zoning,
-                agg_zoning=self.agg_zoning,
-                translation=self.zone_trans,
-            )
-        else:
-            self.attr_model = AttractionModel(
-                production_model=self.export_paths.nhb_production,
-                model=self.export_paths.nhb_attraction,
-                trip_rates_paths=trip_rates_paths,
-                trip_rate_adj_path=trip_rate_adjustment_path,
-                balance_production=balance_production,
-                emp_landuse=emp_landuse,
-                hh_landuse=hh_landuse,
-                mts_path=mode_time_splits_path,
-                mts_return_home_path=mts_return_home_path,
-                mts_adjustment_path=mode_time_splits_adjustment_path,
-                mts_return_home_adj_factor_path=mts_return_home_adj_factor_path,
-                phi_factors_path=phi_factors_path,
-                tem_segmentation=self.return_segmentation,
-                mts_uni_path=mts_uni_path,
-                model_zoning=self.output_zoning,
-                agg_zoning=self.agg_zoning,
-                translation=self.zone_trans,
-            )
+        self.attr_model = AttractionModel(
+            production_model=self._export_paths.hb_production if origin == "hb" else self._export_paths.nhb_production,
+            model=self._export_paths.hb_attraction if origin == "hb" else self._export_paths.nhb_attraction,
+            trip_rates_paths=trip_rates_paths,
+            trip_rate_adj_path=trip_rate_adjustment_path,
+            balance_production=balance_production,
+            emp_landuse=emp_landuse,
+            hh_landuse=hh_landuse,
+            mts_path=mode_time_splits_path,
+            mts_return_home_path=mts_return_home_path,
+            mts_adjustment_path=mode_time_splits_adjustment_path,
+            mts_return_home_adj_factor_path=mts_return_home_adj_factor_path,
+            phi_factors_path=phi_factors_path,
+            tem_segmentation=self._return_segmentation,
+            mts_uni_path=mts_uni_path,
+            model_zoning=self._output_zoning,
+            agg_zoning=self._agg_zoning,
+            translation=self._zone_trans,
+        )  
 
         # User Input Test
         for p in trip_rates_paths.keys():
@@ -307,8 +278,8 @@ class TEM:
 
     def nhb_production_model(
         self,
-        trip_rates_path: os.PathLike,
-        mode_time_splits_path: os.PathLike,
+        trip_rates_path: Path,
+        mode_time_splits_path: Path,
         balance_production: bool = True,
     ) -> NHBProductionModel:
         """
@@ -318,9 +289,9 @@ class TEM:
 
         Parameters
         ----------
-        trip_rates_path : os.PathLike
+        trip_rates_path : Path
             Path to the NHB production trip rates file.
-        mode_time_splits_path : os.PathLike
+        mode_time_splits_path : Path
             Path to the mode-time splits file.
         balance_production : bool, optional
             Whether to balance production totals to match attractions (default: True).
@@ -330,16 +301,11 @@ class TEM:
         NHBProductionModel
             An initialized NHBProductionModel object.
         """
-        self.nhb_prod_model = NHBProductionModel(
-            self.export_paths.hb_attraction,
-            self.export_paths.nhb_production,
+        return NHBProductionModel(
+            self._export_paths.hb_attraction,
+            self._export_paths.nhb_production,
             trip_rates_path,
             balance_production,
             mode_time_splits_path,
-            self.return_segmentation,
+            self._return_segmentation,
         )
-
-        return self.nhb_prod_model
-
-
-# pylint: enable =too-many-positional-arguments,too-many-arguments
