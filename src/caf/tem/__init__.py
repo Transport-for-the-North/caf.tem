@@ -1,6 +1,5 @@
-"""Package description."""
+"""Common Analytical Framework trip end model for transport planning and analysis."""
 
-# from caf.tem import NoTEM, utils, attraction_models, production_models, tripend_models
 
 from caf.tem.tem import TEM
 

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "caf.tem"
 dynamic = ["version", "dependencies", "optional-dependencies"]
-description = "A tem of transport planning and appraisal functionalities"
+description = "Common Analytical Framework trip end model for transport planning and analysis."
 readme = "README.md"
 license = { "file" = "LICENSE" }
 requires-python = ">=3.10"
