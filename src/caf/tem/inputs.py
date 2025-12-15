@@ -13,25 +13,24 @@ from __future__ import annotations
 # Built-Ins
 # Built-Ins TODO tidy this file
 import enum
-import os
-import pathlib
+from pathlib import Path
 import warnings
 from dataclasses import dataclass
-from typing import Annotated, Literal, NamedTuple
+from typing import Annotated, Literal, NamedTuple, Any
 
 # Third Party
 import caf.base as cb
 import pandas as pd
 from caf.base.segments import SegmentsSuper
 from caf.toolkit import config_base
-from pydantic import BeforeValidator, model_validator
+from pydantic import BeforeValidator, model_validator, FilePath, dataclasses, DirectoryPath
 
-
-# pylint: disable =too-many-positional-arguments,too-few-public-methods
 # # # CLASSES # # #
-def create_segmentation(seg_list: list[str] | cb.Segmentation):
+def _create_segmentation(seg_list: list[str] | cb.Segmentation):
     """
-    Create a cb.Segmentation object from a list of segment names or return the input if already a Segmentation.
+    Create a :class:`cb.Segmentation` object.
+    Creates a :class:`cb.Segmentation` object from a list of segment names
+     or returns the input if already a Segmentation.
 
     Parameters
     ----------
@@ -51,7 +50,7 @@ def create_segmentation(seg_list: list[str] | cb.Segmentation):
     return cb.Segmentation(inp)
 
 
-def create_zoningsystem(zoning: str | cb.ZoningSystem | list[str | cb.ZoningSystem]):
+def _create_zoningsystem(zoning: str | cb.ZoningSystem | list[str | cb.ZoningSystem]) -> cb.ZoningSystem | list[str | cb.ZoningSystem] | list[Any]:
     """
     Create a cb.ZoningSystem object (or list of them) from a string, existing ZoningSystem, or list.
 
@@ -90,7 +89,7 @@ class Landuse:
     ----------
     type : Literal["pop", "emp", "hh"]
         Specifies the type of land use ("pop", "emp", or "hh").
-    land_use : os.PathLike or cb.DVector
+    land_use : Path or cb.DVector
         Path to land use data or a DVector object.
     trans_tag : str, optional
         Optional tag for transformation processes.
@@ -105,21 +104,20 @@ class Landuse:
     """
 
     type: Literal["pop", "emp", "hh"]
-    land_use: os.PathLike | cb.DVector
+    land_use: Path | cb.DVector
     trans_tag: str | None = None
     prefix: str | None = None
-    segmentation: Annotated[cb.Segmentation, BeforeValidator(create_segmentation)] | None = (
+    segmentation: Annotated[cb.Segmentation, BeforeValidator(_create_segmentation)] | None = (
         None
     )
     geographies: str | list[str] | None = None
     out_zoning: (
         cb.ZoningSystem
         | str
-        | Annotated[list[cb.ZoningSystem | str], BeforeValidator(func=create_zoningsystem)]
+        | Annotated[list[cb.ZoningSystem | str], BeforeValidator(func=_create_zoningsystem)]
         | None
     ) = None
 
-    # pylint: disable = too-many-branches
     def read_landuse(
         self,
         translation: pd.DataFrame | None = None,
@@ -147,7 +145,7 @@ class Landuse:
         """
         if isinstance(self.land_use, cb.DVector):
             return self.land_use
-        source_path = pathlib.Path(self.land_use)
+        source_path = Path(self.land_use)
         if isinstance(self.segmentation, list):
             self.segmentation = cb.Segmentation(
                 cb.SegmentationInput(
@@ -178,7 +176,8 @@ class Landuse:
                 )
             lu_data = pd.concat([dvec.data for dvec in dvecs], axis=1)
             # mypy
-            assert segmentation is not None
+            if segmentation is None:  
+                raise ValueError("segmentation is required") 
             lu = cb.DVector(
                 segmentation=segmentation,
                 zoning_system=init_zoning,
@@ -196,8 +195,6 @@ class Landuse:
                 lu = lu.translate_zoning(self.out_zoning, trans_vector=translation)
         self.land_use = lu
         return lu
-
-    # pylint: enable = too-many-branches
 
 
 @enum.unique
@@ -229,20 +226,20 @@ class Scenarios(enum.Enum):
 class ExportPathsOutputs(NamedTuple):
     """Paths for outputs to be saved to."""
 
-    home: pathlib.Path
-    pure_demand: dict[int, os.PathLike]
-    pure_demand_adj: dict[int, os.PathLike]
-    mts_demand: dict[int, os.PathLike]
-    mts_demand_adj: dict[int, os.PathLike]
-    tem_segmented: dict[int, os.PathLike]
-    tem_segmented_return_home: dict[int, os.PathLike]
-    tem_segmented_from_home: dict[int, os.PathLike]
+    home: Path
+    pure_demand: dict[int, Path]
+    pure_demand_adj: dict[int, Path]
+    mts_demand: dict[int, Path]
+    mts_demand_adj: dict[int, Path]
+    tem_segmented: dict[int, Path]
+    tem_segmented_return_home: dict[int, Path]
+    tem_segmented_from_home: dict[int, Path]
 
 
 class ExportPathsReports(NamedTuple):
     """Paths for reports to be saved to."""
 
-    home: pathlib.Path
+    home: Path
     pure_demand: ReportPaths
     pure_demand_adj: ReportPaths
     mts_demand: ReportPaths
@@ -255,10 +252,10 @@ class ExportPathsReports(NamedTuple):
 class ReportPaths(NamedTuple):
     """Lower level reports paths."""
 
-    segment_total: dict[int, os.PathLike]
-    ca_sector: dict[int, os.PathLike]
-    ie_sector: dict[int, os.PathLike]
-    lad_report: dict[int, os.PathLike]
+    segment_total: dict[int, Path]
+    ca_sector: dict[int, Path]
+    ie_sector: dict[int, Path]
+    lad_report: dict[int, Path]
 
 
 class TEMModelPaths:
@@ -272,9 +269,9 @@ class TEMModelPaths:
     ----------
     path_years : list[int]
         List of years for which paths are generated.
-    export_home : os.PathLike
+    export_home : Path
         Home directory for all exports.
-    report_home : os.PathLike
+    report_home : Path
         Home directory for all reports.
     export_paths : namedtuple
         Named tuple of export paths for various outputs.
@@ -304,11 +301,11 @@ class TEMModelPaths:
     def __init__(
         self,
         path_years: list[int],
-        export_home: os.PathLike,
-        report_home: os.PathLike,
+        export_home: Path,
+        report_home: Path,
         model_zoning: cb.ZoningSystem,
         agg_zoning: cb.ZoningSystem,
-        _trip_origin,
+        trip_origin: Literal["hb", "nhb"],
     ):
         """
         Initialize the TEMModelPaths and validate input directories.
@@ -317,9 +314,9 @@ class TEMModelPaths:
         ----------
         path_years : list[int]
             Years for which the model will run.
-        export_home : os.PathLike
+        export_home : Path
             Directory for export outputs.
-        report_home : os.PathLike
+        report_home : Path
             Directory for report outputs.
         model_zoning : str
             Name of the model zoning system.
@@ -330,9 +327,9 @@ class TEMModelPaths:
         """
         # Assign attributes
         self.path_years = path_years
-        self.export_home = pathlib.Path(export_home)
-        self.report_home = pathlib.Path(report_home)
-        self._trip_origin = _trip_origin
+        self.export_home = Path(export_home)
+        self.report_home = Path(report_home)
+        self.trip_origin = trip_origin
         self.model_zoning = model_zoning
         self.agg_zoning = agg_zoning
         self.export_paths: ExportPathsOutputs | None = None
@@ -345,7 +342,7 @@ class TEMModelPaths:
             raise FileNotFoundError(f"{report_home} is not a valid dir.")
 
         # Make sure variables that need to be overwritten, are
-        if self._trip_origin is None:
+        if self.trip_origin is None:
             raise ValueError(
                 "When inheriting TEMModelPaths the class variable "
                 "_trip_origin needs to be set. This is usually set to "
@@ -355,22 +352,18 @@ class TEMModelPaths:
     def _create_export_paths(self) -> None:
         """
         Create and assign export paths for all model outputs.
-
-        Returns
-        -------
-        None
         """
         # Init
         base_fname = self._base_output_fname
         fname_parts = [self._trip_origin, self.model_zoning.name]
 
-        pure_demand_paths: dict[int, os.PathLike] = dict()
-        pure_demand_adj_paths: dict[int, os.PathLike] = dict()
-        mts_demand_paths: dict[int, os.PathLike] = dict()
-        mts_demand_adj_paths: dict[int, os.PathLike] = dict()
-        tem_segmented_paths: dict[int, os.PathLike] = dict()
-        tem_segmented_return_home_paths: dict[int, os.PathLike] = dict()
-        tem_segmented_from_home_paths: dict[int, os.PathLike] = dict()
+        pure_demand_paths: dict[int, Path] = dict()
+        pure_demand_adj_paths: dict[int, Path] = dict()
+        mts_demand_paths: dict[int, Path] = dict()
+        mts_demand_adj_paths: dict[int, Path] = dict()
+        tem_segmented_paths: dict[int, Path] = dict()
+        tem_segmented_return_home_paths: dict[int, Path] = dict()
+        tem_segmented_from_home_paths: dict[int, Path] = dict()
 
         for year in self.path_years:
             # Pure demand path
@@ -416,10 +409,6 @@ class TEMModelPaths:
     def _create_report_paths(self) -> None:
         """
         Create and assign report paths for all model outputs.
-
-        Returns
-        -------
-        None
         """
         self.report_paths = ExportPathsReports(
             home=self.report_home,
@@ -455,10 +444,10 @@ class TEMModelPaths:
         base_fname = self._base_report_fname
         fname_parts = [self._trip_origin, report_name]
 
-        segment_total_paths: dict[int, os.PathLike] = dict()
-        ca_sector_paths: dict[int, os.PathLike] = dict()
-        ie_sector_paths: dict[int, os.PathLike] = dict()
-        lad_paths: dict[int, os.PathLike] = dict()
+        segment_total_paths: dict[int, Path] = dict()
+        ca_sector_paths: dict[int, Path] = dict()
+        ie_sector_paths: dict[int, Path] = dict()
+        lad_paths: dict[int, Path] = dict()
 
         # Create the paths for each year
         for year in self.path_years:
@@ -564,7 +553,7 @@ class TEMExportPaths:
         Scenario name.
     iteration_name : str
         Name of the model iteration.
-    export_home : os.PathLike
+    export_home : Path
         Root export directory.
     hb_production : ProductionModelPaths
         Paths for HB production model.
@@ -589,7 +578,7 @@ class TEMExportPaths:
         path_years: list[int],
         scenario: Scenarios,
         iteration_name: str,
-        export_home: os.PathLike,
+        export_home: Path,
         model_zoning: cb.ZoningSystem,
         agg_zoning: cb.ZoningSystem,
     ):
@@ -604,7 +593,7 @@ class TEMExportPaths:
             Scenario name.
         iteration_name : str
             Name of the model iteration.
-        export_home : os.PathLike
+        export_home : Path
             Root export directory.
         model_zoning : str
             Model zoning system name.
@@ -612,7 +601,7 @@ class TEMExportPaths:
             Aggregation zoning system name.
         """
         # Init
-        export_home = pathlib.Path(export_home)
+        export_home = Path(export_home)
         if not export_home.is_dir():
             raise FileExistsError(f"{export_home} is not a valid directory.")
 
@@ -683,15 +672,9 @@ class TEMExportPaths:
         )
 
 
-class MainConfig(config_base.BaseConfig):
+@dataclasses.dataclass
+class RunOptions:
     """
-    Main configuration class for the TEM model.
-
-    Stores all global and model-specific configuration options, validates consistency,
-    and supports YAML import/export.
-
-    Attributes
-    ----------
     run_hb_prod : bool
         Whether to run the HB production model.
     run_hb_attr : bool
@@ -702,6 +685,119 @@ class MainConfig(config_base.BaseConfig):
         Whether to run the NHB attraction model.
     return_home : bool
         Whether to generate return-home trips.
+    """
+    run_hb_prod: bool
+    run_hb_attr: bool
+    run_nhb_prod: bool
+    run_nhb_attr: bool
+    return_home: bool = False
+
+@dataclasses.dataclass
+class HBProdParams:
+    """
+    triprates: Path
+        Path to hb production trip rates.
+    tr_adj: Path | None = None
+        Path to hb production trip rate adjustment factors, if applicable.
+    mts: Path
+        Path to hb prodction mode time splits.
+    mts_adjustment: Path | None = None
+        Path to hb produciton mode time split adjustment factors, if applicable.
+    phi_factors: Path | None = None
+        Path to a directory containing hb production phi (return home) factors. These must be provided
+        if 'return_home' is set to True.
+    mts_return: Path | None = None
+        Path to hb return home mode time splits. These should be provided as trips, rather than
+        factors, as they are converted to factors based on the segmentation of the phi factors.
+    mts_return_adj: Path | None = None
+        Path to hb return home mode time split adjustment factors.
+    """
+    triprates: FilePath
+    mts: FilePath
+    tr_adj: FilePath | None = None
+    mts_adjustment: FilePath | None = None
+    phi_factors: FilePath | None = None
+    mts_return: FilePath | None = None
+    mts_return_adj: FilePath | None = None
+
+@dataclasses.dataclass
+class HBAttrParams:
+    """
+    triprates: dict[int, Path]
+        Dictionary of purposes to paths to hb attraction trip rates.
+    tr_adj: Path | None = None
+        Path to hb attraction trip rate adjustment factors, if applicable.
+    mts: Path
+        Path to hb attraction mode time splits.
+    mts_adj: Path | None = None
+        Path to hb attraction mode time split adjustment factors, if applicable.
+    mts_uni: Path
+        Path to hb attraction university mode time splits.
+    balance_hb: BalancingZones | bool = True
+        Whether to balance hb attractions to prodcutions. If True, balancing takes place at GB level,
+        if an instance of BalancingZones is passed, balancing will be done according to that.
+    phi_factors: Path | None = None
+        Path to a directory containing hb attraction phi (return home) factors. These must be
+        provided if 'return_home' is set to True.
+    mts_return: Path | None = None
+        Path to hb return home mode time splits. These should be provided as trips, rather than
+        factors, as they are converted to factors based on the segmentation of the phi factors.
+    mts_return_adj: Path | None = None
+        Path to hb return home mode time split adjustment factors.
+    """
+    triprates: dict[int, Path]
+    mts: FilePath
+    mts_uni: FilePath
+    tr_adj: FilePath | None = None
+    mts_adj: FilePath | None = None
+    hb: cb.BalancingZones | bool = True
+    phi_factors: FilePath | None = None
+    mts_return: FilePath | None = None
+    mts_return_adj: FilePath | None = None
+
+@dataclasses.dataclass
+class NHBProdParams:
+    """
+    triprates: Path
+        Path to nhb production trip rates.
+    mts: Path
+        Path to nhb production mode time splits
+    balance_nhb: bool = True
+        See balance_hb.
+    """
+    triprates: FilePath
+    mts: FilePath
+    balance_nhb: bool = True
+
+@dataclasses.dataclass
+class NHBAttrParams:
+    """
+    nhb_attr_triprates: dict[int, Path]
+        Dict of purposes to paths to nhb attraction trip rates.
+    nhb_attr_tr_adj: Path | None = None
+        Path to nhb attraction trip rate adjustment factors, if applicable.
+    nhb_attr_mts: Path
+        Path to nhb attraction mode time splits.
+    nhb_attr_mts_adj: Path | None = None
+        Path to nhb attraction mode time split adjustment factors, if applicable.
+    nhb_attr_mts_uni: Path
+        Path to nhb attraction uni mode time splits.
+    """
+    triprates: dict[int, FilePath]
+    mts: FilePath
+    mts_uni: FilePath
+    tr_adj: FilePath | None = None
+    mts_adj: FilePath | None = None
+    
+class MainConfig(config_base.BaseConfig):
+    """
+    Main configuration class for the TEM model.
+
+    Stores all global and model-specific configuration options, validates consistency,
+    and supports YAML import/export.
+
+    Attributes
+    ----------
     model_years : list[int]
         List of years for the model run.
     scenario : str
@@ -712,11 +808,11 @@ class MainConfig(config_base.BaseConfig):
         Aggregation zoning system.
     iteration_name : str
         Model iteration name.
-    export_home : pathlib.Path
+    export_home : Path
         Root export directory.
     return_segmentation : cb.Segmentation
         Segmentation trip-ends are returned at.
-    trans_file : pathlib.Path
+    trans_file : Path
         Path to translation file.
     export_pure : bool
         Whether to export pure demand.
@@ -734,114 +830,40 @@ class MainConfig(config_base.BaseConfig):
         Employment land use data by year.
     hh : dict[int, Landuse]
         Household land use data by year.
-    hb_prod_triprates: pathlib.Path
-        Path to hb production trip rates.
-    hb_prod_tr_adj: pathlib.Path | None = None
-        Path to hb production trip rate adjustment factors, if applicable.
-    hb_prod_mts: pathlib.Path
-        Path to hb prodction mode time splits.
-    hb_prod_mts_adjustment: pathlib.Path | None = None
-        Path to hb produciton mode time split adjustment factors, if applicable.
-    hb_prod_phi_factors: pathlib.Path | None = None
-        Path to a directory containing hb production phi (return home) factors. These must be provided
-        if 'return_home' is set to True.
-    hb_prod_mts_return: pathlib.Path | None = None
-        Path to hb return home mode time splits. These should be provided as trips, rather than
-        factors, as they are converted to factors based on the segmentation of the phi factors.
-    hb_prod_mts_return_adj: pathlib.Path | None = None
-        Path to hb return home mode time split adjustment factors.
-    hb_attr_triprates: dict[int, pathlib.Path]
-        Dictionary of purposes to paths to hb attraction trip rates.
-    hb_attr_tr_adj: pathlib.Path | None = None
-        Path to hb attraction trip rate adjustment factors, if applicable.
-    hb_attr_mts: pathlib.Path
-        Path to hb attraction mode time splits.
-    hb_attr_mts_adj: pathlib.Path | None = None
-        Path to hb attraction mode time split adjustment factors, if applicable.
-    hb_attr_mts_uni: pathlib.Path
-        Path to hb attraction university mode time splits.
-    balance_hb: BalancingZones | bool = True
-        Whether to balance hb attractions to prodcutions. If True, balancing takes place at GB level,
-        if an instance of BalancingZones is passed, balancing will be done according to that.
-    hb_attr_phi_factors: pathlib.Path | None = None
-        Path to a directory containing hb attraction phi (return home) factors. These must be
-        provided if 'return_home' is set to True.
-    hb_attr_mts_return: pathlib.Path | None = None
-        Path to hb return home mode time splits. These should be provided as trips, rather than
-        factors, as they are converted to factors based on the segmentation of the phi factors.
-    hb_attr_mts_return_adj: pathlib.Path | None = None
-        Path to hb return home mode time split adjustment factors.
-    nhb_prod_triprates: pathlib.Path
-        Path to nhb production trip rates.
-    nhb_prod_mts: pathlib.Path
-        Path to nhb production mode time splits
-    balance_nhb: bool = True
-        See balance_hb.
-    nhb_attr_triprates: dict[int, pathlib.Path]
-        Dict of purposes to paths to nhb attraction trip rates.
-    nhb_attr_tr_adj: pathlib.Path | None = None
-        Path to nhb attraction trip rate adjustment factors, if applicable.
-    nhb_attr_mts: pathlib.Path
-        Path to nhb attraction mode time splits.
-    nhb_attr_mts_adj: pathlib.Path | None = None
-        Path to nhb attraction mode time split adjustment factors, if applicable.
-    nhb_attr_mts_uni: pathlib.Path
-        Path to nhb attraction uni mode time splits.
+    hb_prod_params: HBProdParams | None = None
+        Params for home based production model. See class.
+    hb_attr_params: HBAttrParams | None = None
+        Params for home based attraction model. See class.
+    nhb_prod_params: NHBProdParams | None = None
+        Params for non-home based production model. See class.
+    nhb_attr_params: NHBAttrParams | None = None
+        Params for non-home based production model. See class.
     """
-
     ### options ###
-    run_hb_prod: bool
-    run_hb_attr: bool
-    run_nhb_prod: bool
-    run_nhb_attr: bool
-    return_home: bool = False
+    run_options: RunOptions
     ### global ###
     model_years: list[int]
-    scenario: str
-    output_zoning: Annotated[cb.ZoningSystem, BeforeValidator(create_zoningsystem)]
-    agg_zoning: Annotated[cb.ZoningSystem, BeforeValidator(create_zoningsystem)]
+    scenario: Scenarios
+    output_zoning: Annotated[cb.ZoningSystem, BeforeValidator(_create_zoningsystem)]
+    agg_zoning: Annotated[cb.ZoningSystem, BeforeValidator(_create_zoningsystem)]
     iteration_name: str
-    export_home: pathlib.Path
-    return_segmentation: Annotated[cb.Segmentation, BeforeValidator(create_segmentation)]
-    trans_file: pathlib.Path
+    export_home: DirectoryPath
+    return_segmentation: Annotated[cb.Segmentation, BeforeValidator(_create_segmentation)]
+    trans_file: FilePath
     export_pure: bool = True
     export_mts: bool = True
     export_tem: bool = True
     export_reports: bool = True
     mts_geo_constraint: (
-        Annotated[cb.ZoningSystem, BeforeValidator(create_zoningsystem)] | None
+        Annotated[cb.ZoningSystem, BeforeValidator(_create_zoningsystem)] | None
     ) = None
     pop: dict[int, Landuse]
     emp: dict[int, Landuse]
     hh: dict[int, Landuse]
-    ### hb_prod ###
-    hb_prod_triprates: pathlib.Path
-    hb_prod_tr_adj: pathlib.Path | None = None
-    hb_prod_mts: pathlib.Path
-    hb_prod_mts_adjustment: pathlib.Path | None = None
-    hb_prod_phi_factors: pathlib.Path | None = None
-    hb_prod_mts_return: pathlib.Path | None = None
-    hb_prod_mts_return_adj: pathlib.Path | None = None
-    ### hb_attr ###
-    hb_attr_triprates: dict[int, pathlib.Path]
-    hb_attr_tr_adj: pathlib.Path | None = None
-    hb_attr_mts: pathlib.Path
-    hb_attr_mts_adj: pathlib.Path | None = None
-    hb_attr_mts_uni: pathlib.Path
-    balance_hb: cb.BalancingZones | bool = True
-    hb_attr_phi_factors: pathlib.Path | None = None
-    hb_attr_mts_return: pathlib.Path | None = None
-    hb_attr_mts_return_adj: pathlib.Path | None = None
-    ### nhb_prod ###
-    nhb_prod_triprates: pathlib.Path
-    nhb_prod_mts: pathlib.Path
-    balance_nhb: bool = True
-    ### nhb_attr ###
-    nhb_attr_triprates: dict[int, pathlib.Path]
-    nhb_attr_tr_adj: pathlib.Path | None = None
-    nhb_attr_mts: pathlib.Path
-    nhb_attr_mts_adj: pathlib.Path | None = None
-    nhb_attr_mts_uni: pathlib.Path
+    hb_prod_params: HBProdParams | None = None
+    hb_attr_params: HBAttrParams | None = None
+    nhb_prod_params: NHBProdParams | None = None
+    nhb_attr_params: NHBAttrParams | None = None
 
     class Config:
         """
@@ -861,7 +883,7 @@ class MainConfig(config_base.BaseConfig):
         }
 
     @model_validator(mode="after")
-    def phi_factors_if_return(self):
+    def _phi_factors_if_return(self):
         """
         Validate that phi factors and return-home files are provided if return_home is True.
 
@@ -890,7 +912,7 @@ class MainConfig(config_base.BaseConfig):
         return self
 
     @model_validator(mode="after")
-    def consistent_years(self):
+    def _consistent_years(self):
         """
         Validate that population, employment, and household years match model_years.
 
@@ -906,8 +928,23 @@ class MainConfig(config_base.BaseConfig):
         if set(self.hh.keys()) != set(self.model_years):
             raise ValueError("Household years must match model_years.")
         return self
+    
+    @model_validator(mode="after")
+    def _inputs_supplied(self):
+        options = self.run_options
+        if options.run_hb_prod:
+            if self.hb_prod_params is None:
+                raise ValueError("To run hb_prod, hb_prod params must be provided.")
+        if options.run_hb_attr:
+            if self.hb_attr_params is None:
+                raise ValueError("To run hb_attr, hb_attr params must be provided.")
+        if options.run_nhb_prod:
+            if self.nhb_prod_params is None:
+                raise ValueError("To run nhb_prod, nhb_prod params must be provided.")
+        if options.run_nhb_attr:
+            if self.nhb_attr_params is None:
+                raise ValueError("To run nhb_attr, nhb_attr params must be provided.")
+        return self
 
-
-# pylint: enable =too-many-positional-arguments,too-few-public-methods
 
 # # # FUNCTIONS # # #
