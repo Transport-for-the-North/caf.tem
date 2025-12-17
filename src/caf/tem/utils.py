@@ -30,21 +30,18 @@ if TYPE_CHECKING:
     from caf.tem.attraction_models import AttractionModel
     from caf.tem.production_models import HBProductionModel
 
-# pylint: disable=import-error,wrong-import-position
-# Local imports here
-# pylint: enable=import-error,wrong-import-position
 
 # # # CONSTANTS # # #
-tt_enum = ["adult_nssec", "gender_3", "ns_sec", "soc", "aws", "hh_type"]
+_TT_ENUM = ["adult_nssec", "gender_3", "ns_sec", "soc", "aws", "hh_type"]
 TT = cb.SegmentationInput(
-    enum_segments=[SegmentsSuper(i) for i in tt_enum],
-    naming_order=tt_enum,
+    enum_segments=[SegmentsSuper(i) for i in _TT_ENUM],
+    naming_order=_TT_ENUM,
 )
 
-lad_seg = ["p", "m", "tp"]
+_LAD_SEG = ["p", "m", "tp"]
 LAD_REPORT_SEG: cb.SegmentationInput = cb.SegmentationInput(
-    enum_segments=[SegmentsSuper(i) for i in lad_seg],
-    naming_order=lad_seg,
+    enum_segments=[SegmentsSuper(i) for i in _LAD_SEG],
+    naming_order=_LAD_SEG,
     subsets={"tp": [1, 2, 3, 4, 5, 6]},
 )
 
@@ -127,36 +124,6 @@ def write_reports(dvec: cb.DVector, report_path, year: int) -> None:
         lad_report_path=report_path.lad_report[year],
         lad_report_seg=cb.Segmentation(LAD_REPORT_SEG),
     )
-
-
-def file_exists(file_path: os.PathLike) -> bool:
-    """
-    Check if a file exists at the given path.
-
-    Parameters
-    ----------
-    file_path : os.PathLike
-        Path to the file to check.
-
-    Returns
-    -------
-    bool
-        True if a file exists, else False.
-
-    Raises
-    ------
-    IsADirectoryError
-        If the path exists but is a directory, not a file.
-    """
-    if not os.path.exists(file_path):
-        return False
-
-    if not os.path.isfile(file_path):
-        raise IsADirectoryError(
-            f"The given path exists, but does not point to a file. Given path: {file_path}"
-        )
-
-    return True
 
 
 def filter_segments(custom_seg_list, df) -> list:
