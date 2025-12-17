@@ -32,11 +32,12 @@ from caf.tem.inputs import (
     AttractionModelPaths,
     Landuse,
     ProductionModelPaths,
+    HBProdParams,
+    NHBProdParams
 )
 
-# pylint: disable =too-many-instance-attributes,too-many-positional-arguments,too-many-locals,too-many-arguments,too-few-public-methods
+# pylint: disable=,too-few-public-methods
 
-custom_segments = Tuples._fields
 
 
 class HBProductionModel:
@@ -76,31 +77,25 @@ class HBProductionModel:
     def __init__(
         self,
         model: ProductionModelPaths,
+        params: HBProdParams,
         population: dict[int, Landuse],
-        trip_rates_path: os.PathLike,
-        trip_rate_adjustment_path: os.PathLike | None,
-        mts_path: os.PathLike,
-        mts_adjustment_path: os.PathLike | None,
         tem_segmentation: cb.Segmentation,
         translation: pd.DataFrame,
-        phi_factors_path: Path | None = None,
-        mts_return_home_path: os.PathLike | None = None,
-        mts_return_home_adj_factor_path: os.PathLike | None = None,
     ):
         # ## Assign ## #
         self.model = model
         self.population = population
-        self.trip_rates_path = trip_rates_path
-        self.mts_path = mts_path
+        self.trip_rates_path = params.triprates
+        self.mts_path = params.mts
         self.years = list(self.population.keys())
         self.tem_segmentation = tem_segmentation
-        self.trip_rate_adjustment_path = trip_rate_adjustment_path
+        self.trip_rate_adjustment_path = params.tr_adj
         self.model_zoning = self.model.model_zoning
         self.agg_zoning = self.model.agg_zoning
-        self.phi_factors_path = phi_factors_path
-        self.mts_return_home_path = mts_return_home_path
-        self.mts_adjust_path = mts_adjustment_path
-        self.mts_return_home_adj_factor_path = mts_return_home_adj_factor_path
+        self.phi_factors_path = params.phi_factors
+        self.mts_return_home_path = params.mts_return
+        self.mts_adjust_path = params.mts_adjustment
+        self.mts_return_home_adj_factor_path = params.mts_return_adj
         self.zone_trans = translation
         self.shared_methods = utils.SharedProdAttrMethods(self)
         self.logger = logging.getLogger(__name__)
@@ -141,10 +136,6 @@ class HBProductionModel:
             Zoning system for constraining MTS adjustment.
         return_tripends : bool
             Whether to process return-home productions.
-
-        Returns
-        -------
-        None
         """
 
         # ## START ## #
@@ -169,8 +160,8 @@ class HBProductionModel:
         # ## READ INPUTS ## #
         # Read in the trip rates DVector file. Trip rates are not year dependent.
         # mypy
-        assert self.model.export_paths is not None
-        assert self.model.report_paths is not None
+        if self.model.export_paths is None or self.model.report_paths is None:  
+            raise ValueError("model export and report paths are required") 
         trip_rates: cb.DVector = self._read_trip_rates()
         # Read in the MTS dvec file. MTS is not year dependent.
         mts: cb.DVector = self._read_mts()
@@ -189,13 +180,10 @@ class HBProductionModel:
             )
 
             # ## PURE PRODUCTION ## #
-            # Creat pure productions
             pure_production = self._create_pure_production(population, trip_rates)
-            # Adjust rate
             pure_production_adj = self._adjust_production(
                 pure_production, trip_rate_adj_factors
             )
-            # Export pure productions
             if export_pure_production:
                 self.logger.info(
                     f"Saving pure hb production trip ends to {self.model.export_paths.pure_demand[year]}."
@@ -224,11 +212,11 @@ class HBProductionModel:
             del pure_production, pure_production_adj
             mts_production = self._create_mts_production(
                 tem_seged, mts
-            )  # Only carry on adj from here
+            )
+            # Only carry on adj from here
             mts_production_adj = self._adjust_mts_production(
                 mts_production, mts_adj_factors, geo_constraint=mts_geo_constraint
             )
-            # Export mts production
             if export_mts_production:
                 self.logger.info(
                     f"Saving hb mts prodcution trip ends to {self.model.export_paths.mts_demand[year]}"
@@ -249,11 +237,9 @@ class HBProductionModel:
                     self.model.report_paths.mts_demand_adj,
                     year,
                 )
-            # No longer need Pure Production
 
             # ## TEM SEGMENTATION ## #
             tem_production = self._create_tem_production(mts_production_adj)
-            # Export tem productions
             if export_tem_segmentation:
                 self.logger.info(
                     f"Saving tem segmented hb production trip ends to {self.model.export_paths.tem_segmented_from_home[year]}"
@@ -577,15 +563,11 @@ class NHBProductionModel:
             Export TEM-segmented NHB production to disk.
         export_reports : bool
             Output reports during processing.
-
-        Returns
-        -------
-        None
         """
 
         # ## START ## #
-        assert self.model.export_paths is not None
-        assert self.model.report_paths is not None
+        if self.model.export_paths is None or self.model.report_paths is None:  
+            raise ValueError("model export and report paths are required") 
         # ## READ INPUTS ## #
         trip_rates = self._read_trip_rates()
 
@@ -719,7 +701,6 @@ class NHBProductionModel:
                 ) * trip_rates.filter_segment_value("p_hb", p)
 
             segs = pure_prod_p.segmentation.names
-            # segs.remove("p_hb")
             segs.remove("m_hb")
             pure_prod_p = pure_prod_p.aggregate(segs)
             pure_prod_p = pure_prod_p.rename_segment({"p_nhb": "p", "m_nhb": "m"})
