@@ -11,17 +11,18 @@ from __future__ import annotations
 # Built-Ins
 import copy
 import gc
+import logging
 
 # Built-in
 import math
-import os
 import warnings
-from typing import TYPE_CHECKING, Sequence
+from typing import TYPE_CHECKING, Sequence, Generic, TypeVar
 
 # Third Party
 # Local
 import caf.base as cb
 from caf.base.segmentation import SegmentationError, SegmentationWarning
+from caf.tem.inputs import SharedParams, SharedParamsProto
 
 # Third-party
 from caf.base.segments import SegmentsSuper
@@ -44,6 +45,10 @@ LAD_REPORT_SEG: cb.SegmentationInput = cb.SegmentationInput(
     naming_order=_LAD_SEG,
     subsets={"tp": [1, 2, 3, 4, 5, 6]},
 )
+
+PARAMS = TypeVar("PARAMS", bound=SharedParamsProto)
+
+LOG = logging.getLogger(__name__)
 
 # # # CLASSES # # #
 
@@ -153,11 +158,12 @@ def filter_segments(custom_seg_list, df) -> list:
     return filtered_seg_list
 
 
-class SharedProdAttrMethods:
+class SharedProdAttrMethods(Generic[PARAMS]):
     """Class for methods shared between production and attraction models."""
 
-    def __init__(self, parent: "AttractionModel | HBProductionModel"):
-        self.parent = parent
+    def __init__(self, params: PARAMS, tem_segmentation: cb.Segmentation):
+        self.params: PARAMS = params
+        self.tem_segmentation = tem_segmentation
 
     def _read_mts_return_home(self, mts_segs: list[str]) -> cb.DVector:
         """
@@ -174,12 +180,12 @@ class SharedProdAttrMethods:
             Normalized mode-time splits reshaped by tfn_at.
         """
         # Load the raw DVector
-        self.parent.logger.info(
-            f"Loading return home mode time splits from {self.parent.mts_return_home_path}."
+        LOG.info(
+            f"Loading return home mode time splits from {self.params.mts_return}."
         )
-        if self.parent.mts_return_home_path is None:
+        if self.params.mts_return is None:
             raise TypeError("MTS return_home must be provided.")
-        trips = cb.DVector.load(self.parent.mts_return_home_path)
+        trips: cb.DVector = cb.DVector.load(self.params.mts_return)
         full_seg = trips.segmentation.naming_order
         agg_segs = [i for i in full_seg if i not in mts_segs]
 
@@ -205,13 +211,13 @@ class SharedProdAttrMethods:
         FileNotFoundError
             If the phi factor file does not exist.
         """
-        if self.parent.phi_factors_path is None:
+        if self.params.phi_factors is None:
             raise TypeError("A path to phi_factors must be provided for return home trips.")
         phi_factors_file_path = (
-            self.parent.phi_factors_path / f"phi_factors_P_p{p}_reg_phi.dvec"
+            self.params.phi_factors / f"phi_factors_P_p{p}_reg_phi.dvec"
         )
         if log:
-            self.parent.logger.info(f"Loading phi factors from {phi_factors_file_path}")
+            LOG.info(f"Loading phi factors from {phi_factors_file_path}")
 
         if not phi_factors_file_path.exists():
             raise FileNotFoundError(
@@ -224,7 +230,7 @@ class SharedProdAttrMethods:
     def _adjust_mts_return_home(
         self,
         mts: cb.DVector,
-        adj_factors: cb.DVector,
+        adj_factors: cb.DVector | None = None,
         geo_constraint: cb.ZoningSystem | None = None,
     ) -> cb.DVector:
         """
@@ -251,7 +257,7 @@ class SharedProdAttrMethods:
             for i in mts.segmentation.naming_order
             if i not in ["m", "tp", "tp_return", "m_return"]
         ]
-        self.parent.logger.info(" Adjusting mode time split")
+        LOG.info(" Adjusting mode time split")
         adj_factors.fill(0, 1)
         adj = mts * adj_factors
 
@@ -326,10 +332,10 @@ class SharedProdAttrMethods:
         cb.DVector or None
             Adjustment factors or None if not provided.
         """
-        if self.parent.mts_return_home_adj_factor_path is None:
+        if self.params.mts_return_adj is None:
             return None
 
-        adj_factors = cb.DVector.load(self.parent.mts_return_home_adj_factor_path)
+        adj_factors = cb.DVector.load(self.params.mts_return_adj)
 
         return adj_factors
 
@@ -347,23 +353,19 @@ class SharedProdAttrMethods:
         cb.DVector
             Adjusted return-home vector.
         """
-        self.parent.logger.info("Processing return home trips")
+        LOG.info("Processing return home trips")
 
         # Reading one Phi factor Dvec to get its segmentation
         phi_segmentation = self._read_phi_factor_dvec(1, log=False).segmentation.naming_order
 
         aggregation_segments = list(
             s
-            for s in (
-                set(self.parent.tem_segmentation)
-                ^ set(phi_segmentation)
-                # symmetric difference: keep segments that are in only one of the two
-            )
-            if s
-            not in {
+            for s in (set(self.tem_segmentation) ^ set(phi_segmentation))
+            if s not
+            in {
                 "m",
                 "tp",
-            }  # manually exclude 'm' and 'tp' even if they are not common
+            }
         )
 
         tem_return_home_tripends = self.return_home_trip_ends(tem, aggregation_segments)

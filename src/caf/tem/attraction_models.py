@@ -15,7 +15,6 @@ import logging
 # Builtins
 import os
 import warnings
-from pathlib import Path
 from typing import Sequence
 
 # Third Party
@@ -25,17 +24,22 @@ import caf.toolkit as ctk
 # Third party imports
 import pandas as pd
 from caf.base.segmentation import SegmentationWarning
-from caf.nts.utils import Tuples
 
 # Local Imports
 from caf.tem import utils
-from caf.tem.inputs import AttractionModelPaths, Landuse, ProductionModelPaths
+from caf.tem.inputs import (
+    AttractionModelPaths,
+    Landuse,
+    ProductionModelPaths,
+    AttrParams,
+    AttrProto,
+)
 
-custom_segments = Tuples._fields
+LOG = logging.getLogger(__name__)
 
 
 # pylint: disable="too-few-public-methods"
-class AttractionModel:  # pylint:disable=too-many-instance-attributes
+class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable=too-many-instance-attributes
     """
     Estimate and balances trip attractions.
 
@@ -98,47 +102,31 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
     mts_return_home_adj_factor_path : os.PathLike, optional
         Path to the file containing return-home adjustment factors.
     """
-
     def __init__(  # pylint:disable=too-many-arguments,too-many-positional-arguments,too-many-locals
         self,
+        params: AttrParams,
+        tem_segmentation: cb.Segmentation,
         production_model: ProductionModelPaths,
         model: AttractionModelPaths,
-        trip_rates_paths: dict[int, Path],
-        trip_rate_adj_path: os.PathLike | None,
-        balance_production: cb.zoning.BalancingZones | bool,
         emp_landuse: dict[int, Landuse],
         hh_landuse: dict[int, Landuse],
-        mts_path: os.PathLike,
-        mts_adjustment_path: os.PathLike | None,
-        tem_segmentation: cb.Segmentation,
-        mts_uni_path: os.PathLike | None,
         model_zoning: cb.ZoningSystem,
         agg_zoning: cb.ZoningSystem,
         translation: pd.DataFrame,
-        phi_factors_path: Path | None = None,
-        mts_return_home_path: os.PathLike | None = None,
-        mts_return_home_adj_factor_path: os.PathLike | None = None,
     ):
+        super().__init__(params, tem_segmentation)
         self.production_model = production_model
         self.model = model
-        self.trip_rates_paths = trip_rates_paths
+        self.trip_rates_paths = params.triprates
         self.emp_landuse = emp_landuse
         self.hh_landuse = hh_landuse
-        self.mts_path = mts_path
         self.years = list(self.hh_landuse.keys())
-        self.mts_return_home_path = mts_return_home_path
-        self.phi_factors_path = phi_factors_path
         self.tem_segmentation = tem_segmentation
-        self.balance_production = balance_production
-        self.tr_adjustment_path = trip_rate_adj_path
-        self.mts_adjustment_path = mts_adjustment_path
-        self.mts_return_home_adj_factor_path = mts_return_home_adj_factor_path
-        self.mts_uni_path = mts_uni_path
+        self.balance_production = params.balance
+        self.mts_uni_path = params.mts_uni
         self.model_zoning = model_zoning
         self.agg_zoning = agg_zoning
         self.zone_trans = translation
-        self.shared_methods = utils.SharedProdAttrMethods(self)
-        self.logger = logging.getLogger(__name__)
 
     def run(  # pylint:disable=too-many-positional-arguments,too-many-locals,too-many-branches
         self,
@@ -176,18 +164,18 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
         # ## TEM PRE-REQUISITES ## #
         # If all exports are False, then the run() function is redundant.
         start_time = ctk.timing.current_milli_time()
-        self.logger.info("Starting attraction Model")
+        LOG.info("Starting attraction Model")
         assert self.production_model.export_paths is not None
         assert self.production_model.report_paths is not None
         assert self.model.export_paths is not None
         assert self.model.report_paths is not None
 
         if not (export_pure_attractions or export_tem_segmentation or export_reports):
-            self.logger.info("All exports set to False. Run not executed.")
+            LOG.info("All exports set to False. Run not executed.")
             end_time = ctk.timing.current_milli_time()
             time_taken = ctk.timing.time_taken(start_time, end_time)
-            self.logger.info("HB Production Model took:%s", time_taken)
-            self.logger.info("HB Production Model Finished")
+            LOG.info("HB Production Model took:%s", time_taken)
+            LOG.info("HB Production Model Finished")
             return None
 
         # Ensure production balance file exists... (if balance_production is True)
@@ -206,15 +194,15 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
         # ## READ INPUTS ## #
         # Read in the trip rates DVector files for each purpose. Trip rates are not year dependent.
         trip_rates: dict[int, cb.DVector] = {
-            p: self._read_trip_rate(p) for p in self.trip_rates_paths
+            p: self._read_trip_rate(p) for p in self.params.triprates
         }
         # Read in the MTS dvec file. MTS is not year dependent.
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=SegmentationWarning)
-            mts: cb.DVector = cb.DVector.load(self.mts_path)
+            mts: cb.DVector = cb.DVector.load(self.params.mts)
             # Read in the adjustment factors, if passed
             adj_factors_dict = self._read_adj_factors()
-            if self.mts_uni_path is not None:
+            if self.params.mts_uni is not None:
                 mts_uni = cb.DVector.load(self.mts_uni_path)
 
                 mts_uni = cb.DVector.concat_to_comp_zoning(
@@ -297,7 +285,7 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
             for p, v in seg_dict.items():
                 seg_dict_sum += v.sum()
             if not tem_dvec.sum_is_close(seg_dict_sum, 0.01, 100):
-                self.logger.warning(
+                LOG.warning(
                     f"The sum of the TEM Segmented segmented attraction (split by TEM Production) does not match the expected sum.\n"
                     f"Expected: {seg_dict_sum}\nGot: {tem_dvec.sum()}"
                 )
@@ -310,7 +298,7 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
 
             # ## TEM SEGMENTATION EXPORT ## #
             if export_reports:
-                self.logger.info(
+                LOG.info(
                     f"Writing reports for tem segmented attractions to {report_paths.tem_segmented_from_home}"
                 )
                 utils.write_reports(
@@ -319,12 +307,12 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
                     year,
                 )
             if export_tem_segmentation:
-                self.logger.info(
+                LOG.info(
                     f"Saving tem segmented attractions to {export_paths.tem_segmented_from_home[year]}"
                 )
                 balanced_dvec.save(export_paths.tem_segmented_from_home[year])
             if return_tripends:
-                tem_return_home_attr = self.shared_methods.create_tem_return_home(
+                tem_return_home_attr = self.create_tem_return_home(
                     balanced_dvec, self.model_zoning
                 )
                 tem_return_home_attr = tem_return_home_attr.rename_segment(
@@ -345,14 +333,14 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
                     cb.data_structures.IpfTarget(data=attr_targ),
                     cb.data_structures.IpfTarget(data=tem_return_home_prod.remove_zoning()),
                 ]
-                self.logger.info(
+                LOG.info(
                     "Matching return home attractions to from home attractions and "
                     "return home productions via IPF."
                 )
                 tem_return_home_attr_balanced, rmse = (
                     tem_return_home_attr.aggregate_comp_zones(self.model_zoning).ipf(targets)
                 )
-                self.logger.info(
+                LOG.info(
                     f"Saving return home attractions to {export_paths.tem_segmented_return_home[year]}"
                 )
                 tem_return_home_attr_balanced.save(
@@ -380,7 +368,7 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
             Loaded trip rate vector.
         """
         # Each trip rate file is explicitly defined in the input dictionary by purpose HB Attraction Model, similar assumption for NHB
-        self.logger.info(f"Loading in purpose {p} trip rates from {self.trip_rates_paths[p]}.")
+        LOG.info(f"Loading in purpose {p} trip rates from {self.trip_rates_paths[p]}.")
         if self.trip_rates_paths[p].name.endswith("csv"):
             trip_rate = pd.read_csv(self.trip_rates_paths[p], index_col=0).squeeze()
             trip_rate.index.name = self.agg_zoning.column_name
@@ -388,19 +376,6 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
             trip_rate = cb.DVector.load(self.trip_rates_paths[p])
 
         return trip_rate
-
-    def _read_mts(self) -> cb.DVector:
-        """
-        Read the mode-time split (MTS) DVector from the path given in the constructor.
-
-        Returns
-        -------
-        cb.DVector
-            Loaded MTS vector.
-        """
-        self.logger.info(f"Loading mode time splits from {self.mts_path}.")
-        mts = cb.DVector.load(self.mts_path)
-        return mts
 
     def _read_adj_factors(self) -> dict[str, cb.DVector | None]:
         """
@@ -412,16 +387,16 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
             Dictionary with keys 'tr' and 'mts' for adjustment factors.
         """
         adj_factors_dict: dict[str, cb.DVector | None] = {"tr": None, "mts": None}
-        if self.tr_adjustment_path is not None:
+        if self.params.tr_adj is not None:
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", category=UserWarning)
-                tr = cb.DVector.load(self.tr_adjustment_path)
+                tr = cb.DVector.load(self.params.tr_adj)
             # Ensure zoning system of mts matches the TEM Model zoning system
             tr.fill(0, 1)
             tr.fillna(1)
             adj_factors_dict["tr"] = tr
-        if self.mts_adjustment_path is not None:
-            mts = cb.DVector.load(self.mts_adjustment_path)
+        if self.params.mts_adj is not None:
+            mts = cb.DVector.load(self.params.mts_adj)
             # Ensure zoning system of mts matches the TEM Model zoning system
             mts.fill(0, 1)
             mts.fillna(1)
@@ -496,7 +471,7 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
         dict[int, cb.DVector]
             Attractions by purpose.
         """
-        self.logger.info("Creating pure attractions.")
+        LOG.info("Creating pure attractions.")
         # Create an empty dict to store attraction by purpose
         attr_dict: dict[int, cb.DVector] = {}
         # For each purpose...
@@ -542,7 +517,7 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
         dict[int, cb.DVector]
             Adjusted attractions by purpose.
         """
-        self.logger.info("Adjusting pure attractions.")
+        LOG.info("Adjusting pure attractions.")
         attr_dict_adj: dict[int, cb.DVector] = {}
         if adj_factors is not None:
             for p in attr_dict.keys():
@@ -585,7 +560,7 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
         if adj:
             out_path = self.model.export_paths.pure_demand_adj[year]
         assert isinstance(output_pure, cb.DVector)
-        self.logger.info(f"Saving pure attractions to {out_path}")
+        LOG.info(f"Saving pure attractions to {out_path}")
         output_pure.save(out_path)
 
     def _create_mts_dict(
@@ -611,7 +586,7 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
         dict[int, cb.DVector]
             MTS-attributed attractions by purpose.
         """
-        self.logger.info("Applying mode time splits to pure attractions.")
+        LOG.info("Applying mode time splits to pure attractions.")
         mts_dict: dict[int, cb.DVector] = {}
         for p, trips in attr_dict.items():
             if mts_uni is None:
@@ -646,7 +621,7 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
         """
         for p in mts_dict.keys():
             if not mts_dict[p].sum_is_close(attr_dict[p], 0.01, 100):
-                self.logger.warning(
+                LOG.warning(
                     f"The sum of mode-time split, of the Pure Attractions for purpose {p}, does not match the expected sum.\n"
                     f"Expected: {attr_dict[p].sum()}\nGot: {mts_dict[p].sum()}\n"
                 )
@@ -676,7 +651,7 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
         """
         mts_dict_adj: dict[int, cb.DVector] = {}
         if adj_factors is not None:
-            self.logger.info("Adjusting mts attractions.")
+            LOG.info("Adjusting mts attractions.")
             for p, mts in mts_dict.items():
                 if "total" not in mts.segmentation.names:
                     mts = mts.add_segments(
@@ -732,7 +707,7 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
         if adj:
             out_path = self.model.export_paths.mts_demand_adj[year]
         assert output_mts is not None
-        self.logger.info(f"Saving mts attractions to {out_path}")
+        LOG.info(f"Saving mts attractions to {out_path}")
         output_mts.save(out_path)
 
     def _create_seg_dict(
@@ -755,7 +730,7 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
         dict[int, cb.DVector]
             Segmented attractions by purpose.
         """
-        self.logger.info("Matching segmentation to tem_segmented_productions.")
+        LOG.info("Matching segmentation to tem_segmented_productions.")
         seg_dict: dict[int, cb.DVector] = {}
         for p, mts in mts_dict.items():
             agg_seg = list(self.tem_segmentation.overlap(mts.segmentation))
@@ -787,7 +762,7 @@ class AttractionModel:  # pylint:disable=too-many-instance-attributes
         """
         for p in seg_dict.keys():
             if not seg_dict[p].sum_is_close(mts_dict[p], 0.01, 100):
-                self.logger.warning(
+                LOG.warning(
                     f"The sum of Segmented MTS Attractions, of the pre-segmented MTS Attractions for purpose {p}, does not match the expected sum.\n"
                     f"Expected: {mts_dict[p].sum()}\nGot: {seg_dict[p].sum()}\n"
                 )

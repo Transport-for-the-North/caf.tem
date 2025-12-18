@@ -23,6 +23,7 @@ from caf.tem.attraction_models import AttractionModel
 from caf.tem.inputs import Landuse, Scenarios, TEMExportPaths
 from caf.tem.production_models import HBProductionModel, NHBProductionModel
 
+
 class TEM:
     """
     The Trip End Model (TEM) for the caf.tem package.
@@ -116,16 +117,16 @@ class TEM:
         years_set = set(self.years)
         dict_years_set = set(to_check.keys())
         extra = dict_years_set.difference(years_set)
-        if len(extra) > 0:  
-            raise ValueError(  
-                f"There are years in the {dict_name} input not in "  
-                f"expected years. Extra years are {extra}."  
-            )  
-        missing = years_set.difference(dict_years_set)  
-        if len(missing) > 0:  
-            raise ValueError(  
-                f"There are years missing from {dict_name} input "  
-                f"Missing years are {missing}."  
+        if len(extra) > 0:
+            raise ValueError(
+                f"There are years in the {dict_name} input not in "
+                f"expected years. Extra years are {extra}."
+            )
+        missing = years_set.difference(dict_years_set)
+        if len(missing) > 0:
+            raise ValueError(
+                f"There are years missing from {dict_name} input "
+                f"Missing years are {missing}."
             )
 
     def hb_production_model(
@@ -247,8 +248,16 @@ class TEM:
         self.check_years(hh_landuse, "households")
         self.check_years(emp_landuse, "employment")
         self.attr_model = AttractionModel(
-            production_model=self._export_paths.hb_production if origin == "hb" else self._export_paths.nhb_production,
-            model=self._export_paths.hb_attraction if origin == "hb" else self._export_paths.nhb_attraction,
+            production_model=(
+                self._export_paths.hb_production
+                if origin == "hb"
+                else self._export_paths.nhb_production
+            ),
+            model=(
+                self._export_paths.hb_attraction
+                if origin == "hb"
+                else self._export_paths.nhb_attraction
+            ),
             trip_rates_paths=trip_rates_paths,
             trip_rate_adj_path=trip_rate_adjustment_path,
             balance_production=balance_production,
@@ -264,7 +273,7 @@ class TEM:
             model_zoning=self._output_zoning,
             agg_zoning=self._agg_zoning,
             translation=self._zone_trans,
-        )  
+        )
 
         # User Input Test
         for p in trip_rates_paths.keys():

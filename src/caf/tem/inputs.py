@@ -16,7 +16,7 @@ import enum
 from pathlib import Path
 import warnings
 from dataclasses import dataclass
-from typing import Annotated, Literal, NamedTuple, Any
+from typing import Annotated, Literal, NamedTuple, Any, Protocol
 
 # Third Party
 import caf.base as cb
@@ -24,6 +24,7 @@ import pandas as pd
 from caf.base.segments import SegmentsSuper
 from caf.toolkit import config_base
 from pydantic import BeforeValidator, model_validator, FilePath, dataclasses, DirectoryPath
+
 
 # # # CLASSES # # #
 def _create_segmentation(seg_list: list[str] | cb.Segmentation):
@@ -50,7 +51,9 @@ def _create_segmentation(seg_list: list[str] | cb.Segmentation):
     return cb.Segmentation(inp)
 
 
-def _create_zoningsystem(zoning: str | cb.ZoningSystem | list[str | cb.ZoningSystem]) -> cb.ZoningSystem | list[str | cb.ZoningSystem] | list[Any]:
+def _create_zoningsystem(
+    zoning: str | cb.ZoningSystem | list[str | cb.ZoningSystem],
+) -> cb.ZoningSystem | list[str | cb.ZoningSystem] | list[Any]:
     """
     Create a cb.ZoningSystem object (or list of them) from a string, existing ZoningSystem, or list.
 
@@ -176,8 +179,8 @@ class Landuse:
                 )
             lu_data = pd.concat([dvec.data for dvec in dvecs], axis=1)
             # mypy
-            if segmentation is None:  
-                raise ValueError("segmentation is required") 
+            if segmentation is None:
+                raise ValueError("segmentation is required")
             lu = cb.DVector(
                 segmentation=segmentation,
                 zoning_system=init_zoning,
@@ -686,14 +689,15 @@ class RunOptions:
     return_home : bool
         Whether to generate return-home trips.
     """
+
     run_hb_prod: bool
     run_hb_attr: bool
     run_nhb_prod: bool
     run_nhb_attr: bool
     return_home: bool = False
 
-@dataclasses.dataclass
-class HBProdParams:
+@dataclasses.dataclass(kw_only=True)
+class SharedParams:
     """
     triprates: Path
         Path to hb production trip rates.
@@ -712,65 +716,38 @@ class HBProdParams:
     mts_return_adj: Path | None = None
         Path to hb return home mode time split adjustment factors.
     """
-    triprates: FilePath
-    mts: FilePath
-    tr_adj: FilePath | None = None
-    mts_adjustment: FilePath | None = None
-    phi_factors: FilePath | None = None
-    mts_return: FilePath | None = None
-    mts_return_adj: FilePath | None = None
 
-@dataclasses.dataclass
-class HBAttrParams:
-    """
-    triprates: dict[int, Path]
-        Dictionary of purposes to paths to hb attraction trip rates.
-    tr_adj: Path | None = None
-        Path to hb attraction trip rate adjustment factors, if applicable.
-    mts: Path
-        Path to hb attraction mode time splits.
-    mts_adj: Path | None = None
-        Path to hb attraction mode time split adjustment factors, if applicable.
-    mts_uni: Path
-        Path to hb attraction university mode time splits.
-    balance_hb: BalancingZones | bool = True
-        Whether to balance hb attractions to prodcutions. If True, balancing takes place at GB level,
-        if an instance of BalancingZones is passed, balancing will be done according to that.
-    phi_factors: Path | None = None
-        Path to a directory containing hb attraction phi (return home) factors. These must be
-        provided if 'return_home' is set to True.
-    mts_return: Path | None = None
-        Path to hb return home mode time splits. These should be provided as trips, rather than
-        factors, as they are converted to factors based on the segmentation of the phi factors.
-    mts_return_adj: Path | None = None
-        Path to hb return home mode time split adjustment factors.
-    """
-    triprates: dict[int, Path]
     mts: FilePath
-    mts_uni: FilePath
     tr_adj: FilePath | None = None
     mts_adj: FilePath | None = None
-    hb: cb.BalancingZones | bool = True
     phi_factors: FilePath | None = None
     mts_return: FilePath | None = None
     mts_return_adj: FilePath | None = None
 
-@dataclasses.dataclass
-class NHBProdParams:
-    """
-    triprates: Path
-        Path to nhb production trip rates.
+class SharedParamsProto(Protocol):
     mts: Path
-        Path to nhb production mode time splits
-    balance_nhb: bool = True
-        See balance_hb.
-    """
-    triprates: FilePath
-    mts: FilePath
-    balance_nhb: bool = True
+    tr_adj: Path | None = None
+    mts_adj: Path | None = None
+    phi_factors: Path | None = None
+    mts_return: Path | None = None
+    mts_return_adj: Path | None = None
+
+class HBProdProto(SharedParamsProto):
+    triprates: Path
+
+class AttrProto(SharedParamsProto):
+    triprates: dict[int, Path]
+    mts_uni: Path
+    balance: cb.BalancingZones | bool = True
+
 
 @dataclasses.dataclass
-class NHBAttrParams:
+class HBProdParams(SharedParams):
+    triprates: FilePath
+
+
+@dataclasses.dataclass
+class AttrParams(SharedParams):
     """
     nhb_attr_triprates: dict[int, Path]
         Dict of purposes to paths to nhb attraction trip rates.
@@ -784,11 +761,27 @@ class NHBAttrParams:
         Path to nhb attraction uni mode time splits.
     """
     triprates: dict[int, FilePath]
-    mts: FilePath
     mts_uni: FilePath
-    tr_adj: FilePath | None = None
-    mts_adj: FilePath | None = None
-    
+    balance: cb.BalancingZones | bool = True
+
+
+
+@dataclasses.dataclass
+class NHBProdParams:
+    """
+    triprates: Path
+        Path to nhb production trip rates.
+    mts: Path
+        Path to nhb production mode time splits
+    balance: bool = True
+        See balance_hb.
+    """
+
+    triprates: FilePath
+    mts: FilePath
+    balance: bool = True
+
+
 class MainConfig(config_base.BaseConfig):
     """
     Main configuration class for the TEM model.
@@ -839,6 +832,7 @@ class MainConfig(config_base.BaseConfig):
     nhb_attr_params: NHBAttrParams | None = None
         Params for non-home based production model. See class.
     """
+
     ### options ###
     run_options: RunOptions
     ### global ###
@@ -928,7 +922,7 @@ class MainConfig(config_base.BaseConfig):
         if set(self.hh.keys()) != set(self.model_years):
             raise ValueError("Household years must match model_years.")
         return self
-    
+
     @model_validator(mode="after")
     def _inputs_supplied(self):
         options = self.run_options
