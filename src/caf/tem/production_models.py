@@ -32,11 +32,12 @@ from caf.tem.inputs import (
     ProductionModelPaths,
     HBProdParams,
     NHBProdParams,
-    HBProdProto
+    HBProdProto,
 )
 
 # pylint: disable=,too-few-public-methods
 LOG = logging.getLogger(__name__)
+
 
 class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
     """
@@ -164,8 +165,7 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
         else:
             LOG.info("Loading the trip rates adjustment factors")
             trip_rate_adj_factors = cb.DVector.load(self.params.tr_adj)
-        
-        mts_adj_factors = None
+        mts_adj_factors: cb.DVector | None = None
         if self.params.mts_adj is not None:
             LOG.info(f"Loading the MTS adjustment factors from {self.params.mts_adj}")
             mts_adj_factors = cb.DVector.load(self.params.mts_adj)
@@ -359,7 +359,7 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
     def _adjust_mts_production(
         self,
         mts_production: cb.DVector,
-        adj_factors: cb.DVector,
+        adj_factors: cb.DVector | None,
         geo_constraint: cb.ZoningSystem | None = None,
     ) -> cb.DVector:
         """
@@ -430,6 +430,7 @@ class NHBProductionModel:
 
     def __init__(
         self,
+        *,
         hb_attraction_model: AttractionModelPaths,
         model: ProductionModelPaths,
         params: NHBProdParams,
@@ -451,7 +452,6 @@ class NHBProductionModel:
         self.return_segmentation: cb.Segmentation = return_segmentation
         self.model_zoning: cb.ZoningSystem = self.model.model_zoning
         self.agg_zoning: cb.ZoningSystem = self.model.agg_zoning
-        LOG: logging.Logger = logging.getLogger(__name__)
 
     def run(
         self,
@@ -577,9 +577,7 @@ class NHBProductionModel:
         cb.DVector
             Pure NHB production vector.
         """
-        LOG.info(
-            "Multiplying hb attractions by trip rates to produce nhb productions."
-        )
+        LOG.info("Multiplying hb attractions by trip rates to produce nhb productions.")
         pure_prod: cb.DVector | None = None
         for p in hbattr.segmentation.get_segment("p_hb").int_values:
             with warnings.catch_warnings():

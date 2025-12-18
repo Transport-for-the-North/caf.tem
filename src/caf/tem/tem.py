@@ -20,7 +20,14 @@ from caf.base.segments import SegmentsSuper
 
 # Local Imports
 from caf.tem.attraction_models import AttractionModel
-from caf.tem.inputs import Landuse, Scenarios, TEMExportPaths
+from caf.tem.inputs import (
+    Landuse,
+    Scenarios,
+    TEMExportPaths,
+    HBProdParams,
+    AttrParams,
+    NHBProdParams,
+)
 from caf.tem.production_models import HBProductionModel, NHBProductionModel
 
 
@@ -130,15 +137,7 @@ class TEM:
             )
 
     def hb_production_model(
-        self,
-        population: dict[int, Landuse],
-        trip_rates_path: Path,
-        mode_time_splits_path: Path,
-        phi_factors_path: Path | None = None,
-        mts_return_home_path: Path | None = None,
-        mts_return_home_adj_factor_path: Path | None = None,
-        adjustment_path: Path | None = None,
-        mts_adj_path: Path | None = None,
+        self, population: dict[int, Landuse], params: HBProdParams
     ) -> HBProductionModel:
         """
         Initialize and return the Home-Based (HB) Production Model.
@@ -172,34 +171,20 @@ class TEM:
         """
         self.check_years(population, "population")
         self.hb_prod_model = HBProductionModel(
+            params=params,
             model=self._export_paths.hb_production,
             population=population,
-            trip_rates_path=trip_rates_path,
-            trip_rate_adjustment_path=adjustment_path,
-            mts_path=mode_time_splits_path,
-            mts_adjustment_path=mts_adj_path,
             tem_segmentation=self._return_segmentation,
             translation=self._zone_trans,
-            phi_factors_path=phi_factors_path,
-            mts_return_home_path=mts_return_home_path,
-            mts_return_home_adj_factor_path=mts_return_home_adj_factor_path,
         )
 
         return self.hb_prod_model
 
     def attraction_model(
         self,
-        trip_rates_paths: dict[int, Path],
         emp_landuse: dict[int, Landuse],
         hh_landuse: dict[int, Landuse],
-        mode_time_splits_path: Path,
-        balance_production: cb.BalancingZones | bool = True,
-        trip_rate_adjustment_path: Path | None = None,
-        mode_time_splits_adjustment_path: Path | None = None,
-        mts_uni_path: Path | None = None,
-        mts_return_home_path: Path | None = None,
-        mts_return_home_adj_factor_path: Path | None = None,
-        phi_factors_path: Path | None = None,
+        params: AttrParams,
         origin: Literal["hb", "nhb"] = "hb",
     ) -> AttractionModel:
         """
@@ -258,38 +243,20 @@ class TEM:
                 if origin == "hb"
                 else self._export_paths.nhb_attraction
             ),
-            trip_rates_paths=trip_rates_paths,
-            trip_rate_adj_path=trip_rate_adjustment_path,
-            balance_production=balance_production,
+            params=params,
             emp_landuse=emp_landuse,
             hh_landuse=hh_landuse,
-            mts_path=mode_time_splits_path,
-            mts_return_home_path=mts_return_home_path,
-            mts_adjustment_path=mode_time_splits_adjustment_path,
-            mts_return_home_adj_factor_path=mts_return_home_adj_factor_path,
-            phi_factors_path=phi_factors_path,
             tem_segmentation=self._return_segmentation,
-            mts_uni_path=mts_uni_path,
             model_zoning=self._output_zoning,
             agg_zoning=self._agg_zoning,
             translation=self._zone_trans,
         )
 
-        # User Input Test
-        for p in trip_rates_paths.keys():
-            vals = cb.segmentation.SegmentsSuper("p").get_segment().int_values
-            if p not in vals:
-                raise KeyError(
-                    f"Trip rates key {p} was passed.\nTrip rates keys must be in {vals}"
-                )
-
         return self.attr_model
 
     def nhb_production_model(
         self,
-        trip_rates_path: Path,
-        mode_time_splits_path: Path,
-        balance_production: bool = True,
+        params: NHBProdParams,
     ) -> NHBProductionModel:
         """
         Initialize and return the Non-Home-Based (NHB) Production Model.
@@ -311,10 +278,8 @@ class TEM:
             An initialized NHBProductionModel object.
         """
         return NHBProductionModel(
-            self._export_paths.hb_attraction,
-            self._export_paths.nhb_production,
-            trip_rates_path,
-            balance_production,
-            mode_time_splits_path,
-            self._return_segmentation,
+            hb_attraction_model=self._export_paths.hb_attraction,
+            model=self._export_paths.nhb_production,
+            params=params,
+            return_segmentation=self._return_segmentation,
         )

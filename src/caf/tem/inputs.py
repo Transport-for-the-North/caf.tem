@@ -358,7 +358,7 @@ class TEMModelPaths:
         """
         # Init
         base_fname = self._base_output_fname
-        fname_parts = [self._trip_origin, self.model_zoning.name]
+        fname_parts = [self.trip_origin, self.model_zoning.name]
 
         pure_demand_paths: dict[int, Path] = dict()
         pure_demand_adj_paths: dict[int, Path] = dict()
@@ -445,7 +445,7 @@ class TEMModelPaths:
         """
         # Init
         base_fname = self._base_report_fname
-        fname_parts = [self._trip_origin, report_name]
+        fname_parts = [self.trip_origin, report_name]
 
         segment_total_paths: dict[int, Path] = dict()
         ca_sector_paths: dict[int, Path] = dict()
@@ -696,6 +696,7 @@ class RunOptions:
     run_nhb_attr: bool
     return_home: bool = False
 
+
 @dataclasses.dataclass(kw_only=True)
 class SharedParams:
     """
@@ -724,6 +725,7 @@ class SharedParams:
     mts_return: FilePath | None = None
     mts_return_adj: FilePath | None = None
 
+
 class SharedParamsProto(Protocol):
     mts: Path
     tr_adj: Path | None = None
@@ -732,10 +734,24 @@ class SharedParamsProto(Protocol):
     mts_return: Path | None = None
     mts_return_adj: Path | None = None
 
-class HBProdProto(SharedParamsProto):
+
+class HBProdProto(Protocol):
+    mts: Path
+    tr_adj: Path | None = None
+    mts_adj: Path | None = None
+    phi_factors: Path | None = None
+    mts_return: Path | None = None
+    mts_return_adj: Path | None = None
     triprates: Path
 
-class AttrProto(SharedParamsProto):
+
+class AttrProto(Protocol):
+    mts: Path
+    tr_adj: Path | None = None
+    mts_adj: Path | None = None
+    phi_factors: Path | None = None
+    mts_return: Path | None = None
+    mts_return_adj: Path | None = None
     triprates: dict[int, Path]
     mts_uni: Path
     balance: cb.BalancingZones | bool = True
@@ -760,10 +776,10 @@ class AttrParams(SharedParams):
     nhb_attr_mts_uni: Path
         Path to nhb attraction uni mode time splits.
     """
+
     triprates: dict[int, FilePath]
     mts_uni: FilePath
     balance: cb.BalancingZones | bool = True
-
 
 
 @dataclasses.dataclass
@@ -855,9 +871,9 @@ class MainConfig(config_base.BaseConfig):
     emp: dict[int, Landuse]
     hh: dict[int, Landuse]
     hb_prod_params: HBProdParams | None = None
-    hb_attr_params: HBAttrParams | None = None
+    hb_attr_params: AttrParams | None = None
     nhb_prod_params: NHBProdParams | None = None
-    nhb_attr_params: NHBAttrParams | None = None
+    nhb_attr_params: AttrParams | None = None
 
     class Config:
         """
