@@ -59,7 +59,6 @@ disable = [
     "use-list-literal",
     "wrong-import-order",  # Handled by isort
     "logging-fstring-interpolation",
-    "duplicate-code"
 ]
 
 [tool.isort]

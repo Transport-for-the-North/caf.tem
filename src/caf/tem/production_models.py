@@ -28,11 +28,11 @@ from caf.base.segmentation import SegmentationWarning
 from caf.tem import utils
 from caf.tem.inputs import (
     AttractionModelPaths,
-    Landuse,
-    ProductionModelPaths,
     HBProdParams,
-    NHBProdParams,
     HBProdProto,
+    Landuse,
+    NHBProdParams,
+    ProductionModelPaths,
 )
 
 # pylint: disable=,too-few-public-methods

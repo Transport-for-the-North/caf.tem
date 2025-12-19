@@ -16,18 +16,21 @@ import logging
 # Built-in
 import math
 import warnings
-from typing import TYPE_CHECKING, Sequence, Generic, TypeVar
+from typing import TYPE_CHECKING, Generic, Sequence, TypeVar
 
 # Third Party
 # Local
 import caf.base as cb
 from caf.base.segmentation import SegmentationError, SegmentationWarning
-from caf.tem.inputs import SharedParams, SharedParamsProto
 
 # Third-party
 from caf.base.segments import SegmentsSuper
 
+# Local Imports
+from caf.tem.inputs import SharedParamsProto
+
 if TYPE_CHECKING:
+    # Local Imports
     from caf.tem.attraction_models import AttractionModel
     from caf.tem.production_models import HBProductionModel
 
@@ -180,9 +183,7 @@ class SharedProdAttrMethods(Generic[PARAMS]):
             Normalized mode-time splits reshaped by tfn_at.
         """
         # Load the raw DVector
-        LOG.info(
-            f"Loading return home mode time splits from {self.params.mts_return}."
-        )
+        LOG.info(f"Loading return home mode time splits from {self.params.mts_return}.")
         if self.params.mts_return is None:
             raise TypeError("MTS return_home must be provided.")
         trips: cb.DVector = cb.DVector.load(self.params.mts_return)
@@ -213,9 +214,7 @@ class SharedProdAttrMethods(Generic[PARAMS]):
         """
         if self.params.phi_factors is None:
             raise TypeError("A path to phi_factors must be provided for return home trips.")
-        phi_factors_file_path = (
-            self.params.phi_factors / f"phi_factors_P_p{p}_reg_phi.dvec"
-        )
+        phi_factors_file_path = self.params.phi_factors / f"phi_factors_P_p{p}_reg_phi.dvec"
         if log:
             LOG.info(f"Loading phi factors from {phi_factors_file_path}")
 
@@ -361,8 +360,8 @@ class SharedProdAttrMethods(Generic[PARAMS]):
         aggregation_segments = list(
             s
             for s in (set(self.tem_segmentation) ^ set(phi_segmentation))
-            if s not
-            in {
+            if s
+            not in {
                 "m",
                 "tp",
             }

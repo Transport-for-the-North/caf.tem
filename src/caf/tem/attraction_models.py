@@ -29,17 +29,19 @@ from caf.base.segmentation import SegmentationWarning
 from caf.tem import utils
 from caf.tem.inputs import (
     AttractionModelPaths,
-    Landuse,
-    ProductionModelPaths,
     AttrParams,
     AttrProto,
+    Landuse,
+    ProductionModelPaths,
 )
 
 LOG = logging.getLogger(__name__)
 
 
 # pylint: disable="too-few-public-methods"
-class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable=too-many-instance-attributes
+class AttractionModel(
+    utils.SharedProdAttrMethods[AttrProto]
+):  # pylint:disable=too-many-instance-attributes
     """
     Estimate and balances trip attractions.
 
@@ -102,6 +104,7 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
     mts_return_home_adj_factor_path : os.PathLike, optional
         Path to the file containing return-home adjustment factors.
     """
+
     def __init__(  # pylint:disable=too-many-arguments,too-many-positional-arguments,too-many-locals
         self,
         params: AttrParams,
@@ -337,9 +340,9 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
                     "Matching return home attractions to from home attractions and "
                     "return home productions via IPF."
                 )
-                tem_return_home_attr_balanced, rmse = (
-                    tem_return_home_attr.aggregate_comp_zones(self.model_zoning).ipf(targets)
-                )
+                tem_return_home_attr_balanced, _ = tem_return_home_attr.aggregate_comp_zones(
+                    self.model_zoning
+                ).ipf(targets)
                 LOG.info(
                     f"Saving return home attractions to {export_paths.tem_segmented_return_home[year]}"
                 )

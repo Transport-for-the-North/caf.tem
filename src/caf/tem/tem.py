@@ -9,7 +9,6 @@ managing model configuration and outputs.
 from __future__ import annotations
 
 # Built-Ins
-import os
 from pathlib import Path
 from typing import Any, Literal
 
@@ -21,12 +20,12 @@ from caf.base.segments import SegmentsSuper
 # Local Imports
 from caf.tem.attraction_models import AttractionModel
 from caf.tem.inputs import (
+    AttrParams,
+    HBProdParams,
     Landuse,
+    NHBProdParams,
     Scenarios,
     TEMExportPaths,
-    HBProdParams,
-    AttrParams,
-    NHBProdParams,
 )
 from caf.tem.production_models import HBProductionModel, NHBProductionModel
 
@@ -72,6 +71,7 @@ class TEM:
 
     def __init__(
         self,
+        *,
         model_years: list[int],
         scenario: Scenarios,
         output_zoning: cb.ZoningSystem,
@@ -87,12 +87,12 @@ class TEM:
         self._agg_zoning = agg_zoning
         self._iteration_name = iteration_name
         self._export_paths = TEMExportPaths(
-            model_years,
-            self._scenario,
-            iteration_name,
-            export_home,
-            output_zoning,
-            agg_zoning,
+            path_years=model_years,
+            scenario=self._scenario,
+            iteration_name=iteration_name,
+            export_home=export_home,
+            model_zoning=output_zoning,
+            agg_zoning=agg_zoning,
         )
         if isinstance(return_segmentation, cb.Segmentation):
             self._return_segmentation = return_segmentation
@@ -170,15 +170,14 @@ class TEM:
             An initialized HBProductionModel object.
         """
         self.check_years(population, "population")
-        self.hb_prod_model = HBProductionModel(
+
+        return HBProductionModel(
             params=params,
             model=self._export_paths.hb_production,
             population=population,
             tem_segmentation=self._return_segmentation,
             translation=self._zone_trans,
         )
-
-        return self.hb_prod_model
 
     def attraction_model(
         self,
@@ -232,7 +231,8 @@ class TEM:
         """
         self.check_years(hh_landuse, "households")
         self.check_years(emp_landuse, "employment")
-        self.attr_model = AttractionModel(
+
+        return AttractionModel(
             production_model=(
                 self._export_paths.hb_production
                 if origin == "hb"
@@ -251,8 +251,6 @@ class TEM:
             agg_zoning=self._agg_zoning,
             translation=self._zone_trans,
         )
-
-        return self.attr_model
 
     def nhb_production_model(
         self,

@@ -13,17 +13,23 @@ from __future__ import annotations
 # Built-Ins
 # Built-Ins TODO tidy this file
 import enum
-from pathlib import Path
 import warnings
 from dataclasses import dataclass
-from typing import Annotated, Literal, NamedTuple, Any, Protocol
+from pathlib import Path
+from typing import Annotated, Any, Literal, NamedTuple, Protocol
 
 # Third Party
 import caf.base as cb
 import pandas as pd
 from caf.base.segments import SegmentsSuper
 from caf.toolkit import config_base
-from pydantic import BeforeValidator, model_validator, FilePath, dataclasses, DirectoryPath
+from pydantic import (
+    BeforeValidator,
+    DirectoryPath,
+    FilePath,
+    dataclasses,
+    model_validator,
+)
 
 
 # # # CLASSES # # #
@@ -134,7 +140,9 @@ class Landuse:
             )
         return self.segmentation
 
-    def _load_from_file(self, source_path: Path, segmentation: cb.Segmentation | None) -> cb.DVector:
+    def _load_from_file(
+        self, source_path: Path, segmentation: cb.Segmentation | None
+    ) -> cb.DVector:
         """Load a DVector from a file and aggregate to `segmentation` if provided."""
         lu = cb.DVector.load(source_path)
         lu = lu.aggregate(segmentation)
@@ -173,13 +181,18 @@ class Landuse:
         )
 
     def _apply_out_zoning(
-        self, lu: cb.DVector, model_zoning: cb.ZoningSystem | None, translation: pd.DataFrame | None
+        self,
+        lu: cb.DVector,
+        model_zoning: cb.ZoningSystem | None,
+        translation: pd.DataFrame | None,
     ) -> cb.DVector:
         """Apply `self.out_zoning` to `lu`, supporting lists, strings or zoning objects."""
         if self.out_zoning is None:
             return lu
         if isinstance(self.out_zoning, list):
-            factor_col = f"{lu.zoning_system.translation_column_name(model_zoning)}_{self.type}"
+            factor_col = (
+                f"{lu.zoning_system.translation_column_name(model_zoning)}_{self.type}"
+            )
             return lu.trans_and_comp(self.out_zoning, translation, factor_col)
         out_z = self.out_zoning
         if isinstance(out_z, str):
@@ -744,6 +757,7 @@ class SharedParams:
 
 class SharedParamsProto(Protocol):
     """Protocol of SharedParams only for typing."""
+
     mts: Path
     tr_adj: Path | None = None
     mts_adj: Path | None = None
@@ -754,6 +768,7 @@ class SharedParamsProto(Protocol):
 
 class HBProdProto(Protocol):
     """Protocol of HBProdParams only for typing."""
+
     mts: Path
     tr_adj: Path | None = None
     mts_adj: Path | None = None
@@ -765,6 +780,7 @@ class HBProdProto(Protocol):
 
 class AttrProto(Protocol):
     """Protocol of AttrParams only for typing."""
+
     mts: Path
     tr_adj: Path | None = None
     mts_adj: Path | None = None
@@ -778,6 +794,16 @@ class AttrProto(Protocol):
 
 @dataclasses.dataclass
 class HBProdParams(SharedParams):
+    """_summary_
+
+    _extended_summary_
+
+    Parameters
+    ----------
+    SharedParams : _type_
+        _description_
+    """
+
     triprates: FilePath
 
 
