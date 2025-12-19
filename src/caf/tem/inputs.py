@@ -121,81 +121,95 @@ class Landuse:
         | None
     ) = None
 
-    def read_landuse(
-        self,
-        translation: pd.DataFrame | None = None,
-        init_zoning: cb.ZoningSystem | None = None,
-        model_zoning: cb.ZoningSystem | None = None,
-    ):
+    def _normalize_segmentation(self) -> cb.Segmentation | None:
+        """Ensure `self.segmentation` is a `cb.Segmentation` when provided as a list.
+
+        Returns the current segmentation (possibly None) for local use.
         """
-        Read and process land use data from the specified source.
-
-        Applies optional translation and aligns it with the model's zoning system if provided.
-
-        Parameters
-        ----------
-        translation : pd.DataFrame or None, optional
-            Translation table for mapping zones.
-        init_zoning : cb.ZoningSystem or None, optional
-            Initial zoning system for the data.
-        model_zoning : cb.ZoningSystem or None, optional
-            Model zoning system for alignment.
-
-        Returns
-        -------
-        cb.DVector
-            The processed land use data as a DVector.
-        """
-        if isinstance(self.land_use, cb.DVector):
-            return self.land_use
-        source_path = Path(self.land_use)
         if isinstance(self.segmentation, list):
             self.segmentation = cb.Segmentation(
                 cb.SegmentationInput(
                     enum_segments=self.segmentation, naming_order=self.segmentation
                 )
             )
-        if source_path.is_file():
-            lu = cb.DVector.load(source_path)
-            lu = lu.aggregate(self.segmentation)
-        else:
-            dvecs = []
-            segmentation = self.segmentation
-            if isinstance(self.geographies, list):
-                for geo in self.geographies:
-                    with warnings.catch_warnings():
-                        warnings.filterwarnings("ignore", category=UserWarning)
-                        if self.prefix is not None:
-                            dvec = cb.DVector.load(source_path / self.prefix.format(geo))
-                        else:
-                            raise ValueError("Prefix must be provided if landuse is a folder.")
-                        if segmentation is None:
-                            segmentation = dvec.segmentation
-                        dvecs.append(dvec.aggregate(segmentation))
-            else:
-                raise TypeError(
-                    "If landuse is given as a folder, a list of geographies must be provided, "
-                    "and a prefix for file names."
-                )
-            lu_data = pd.concat([dvec.data for dvec in dvecs], axis=1)
-            # mypy
-            if segmentation is None:
-                raise ValueError("segmentation is required")
-            lu = cb.DVector(
-                segmentation=segmentation,
-                zoning_system=init_zoning,
-                import_data=lu_data,
+        return self.segmentation
+
+    def _load_from_file(self, source_path: Path, segmentation: cb.Segmentation | None) -> cb.DVector:
+        """Load a DVector from a file and aggregate to `segmentation` if provided."""
+        lu = cb.DVector.load(source_path)
+        lu = lu.aggregate(segmentation)
+        return lu
+
+    def _load_from_folder(
+        self,
+        source_path: Path,
+        segmentation: cb.Segmentation | None,
+        init_zoning: cb.ZoningSystem | None,
+    ) -> cb.DVector:
+        """Load multiple DVector files from a folder for each geography and combine them."""
+        if not isinstance(self.geographies, list):
+            raise TypeError(
+                "If landuse is given as a folder, a list of geographies must be provided, "
+                "and a prefix for file names."
             )
-        if self.out_zoning is not None:
-            if isinstance(self.out_zoning, list):
-                factor_col = (
-                    f"{lu.zoning_system.translation_column_name(model_zoning)}_{self.type}"
-                )
-                lu = lu.trans_and_comp(self.out_zoning, translation, factor_col)
-            else:
-                if isinstance(self.out_zoning, str):
-                    self.out_zoning = cb.ZoningSystem.get_zoning(self.out_zoning)
-                lu = lu.translate_zoning(self.out_zoning, trans_vector=translation)
+        dvecs: list[cb.DVector] = []
+        for geo in self.geographies:
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", category=UserWarning)
+                if self.prefix is None:
+                    raise ValueError("Prefix must be provided if landuse is a folder.")
+                dvec = cb.DVector.load(source_path / self.prefix.format(geo))
+                if segmentation is None:
+                    segmentation = dvec.segmentation
+                dvecs.append(dvec.aggregate(segmentation))
+        lu_data = pd.concat([dvec.data for dvec in dvecs], axis=1)
+        # mypy
+        if segmentation is None:
+            raise ValueError("segmentation is required")
+        return cb.DVector(
+            segmentation=segmentation,
+            zoning_system=init_zoning,
+            import_data=lu_data,
+        )
+
+    def _apply_out_zoning(
+        self, lu: cb.DVector, model_zoning: cb.ZoningSystem | None, translation: pd.DataFrame | None
+    ) -> cb.DVector:
+        """Apply `self.out_zoning` to `lu`, supporting lists, strings or zoning objects."""
+        if self.out_zoning is None:
+            return lu
+        if isinstance(self.out_zoning, list):
+            factor_col = f"{lu.zoning_system.translation_column_name(model_zoning)}_{self.type}"
+            return lu.trans_and_comp(self.out_zoning, translation, factor_col)
+        out_z = self.out_zoning
+        if isinstance(out_z, str):
+            out_z = cb.ZoningSystem.get_zoning(out_z)
+            self.out_zoning = out_z
+        return lu.translate_zoning(out_z, trans_vector=translation)
+
+    def read_landuse(
+        self,
+        translation: pd.DataFrame | None = None,
+        init_zoning: cb.ZoningSystem | None = None,
+        model_zoning: cb.ZoningSystem | None = None,
+    ):
+        """Read and process land use data from the specified source.
+
+        Applies optional translation and aligns it with the model's zoning system if provided.
+        """
+        if isinstance(self.land_use, cb.DVector):
+            return self.land_use
+
+        source_path = Path(self.land_use)
+        segmentation = self._normalize_segmentation()
+
+        if source_path.is_file():
+            lu = self._load_from_file(source_path, segmentation)
+        else:
+            lu = self._load_from_folder(source_path, segmentation, init_zoning)
+
+        lu = self._apply_out_zoning(lu, model_zoning, translation)
+
         self.land_use = lu
         return lu
 
@@ -303,6 +317,7 @@ class TEMModelPaths:
 
     def __init__(
         self,
+        *,
         path_years: list[int],
         export_home: Path,
         report_home: Path,
@@ -352,7 +367,7 @@ class TEMModelPaths:
                 "'hb', or 'nhb' to reflect the type of model being run."
             )
 
-    def _create_export_paths(self) -> None:
+    def create_export_paths(self) -> None:
         """
         Create and assign export paths for all model outputs.
         """
@@ -409,7 +424,7 @@ class TEMModelPaths:
             tem_segmented_from_home=tem_segmented_from_home_paths,
         )
 
-    def _create_report_paths(self) -> None:
+    def create_report_paths(self) -> None:
         """
         Create and assign report paths for all model outputs.
         """
@@ -504,11 +519,11 @@ class ProductionModelPaths(TEMModelPaths):
             Passed to TEMModelPaths.
         """
         # Set up superclass
-        super().__init__(_trip_origin=_trip_origin, *args, **kwargs)
+        super().__init__(trip_origin=_trip_origin, *args, **kwargs)
 
         # Generate the paths
-        self._create_export_paths()
-        self._create_report_paths()
+        self.create_export_paths()
+        self.create_report_paths()
 
 
 class AttractionModelPaths(TEMModelPaths):
@@ -538,8 +553,8 @@ class AttractionModelPaths(TEMModelPaths):
         super().__init__(*args, **kwargs)
 
         # Generate the paths
-        self._create_export_paths()
-        self._create_report_paths()
+        self.create_export_paths()
+        self.create_report_paths()
 
 
 class TEMExportPaths:
@@ -578,6 +593,7 @@ class TEMExportPaths:
 
     def __init__(
         self,
+        *,
         path_years: list[int],
         scenario: Scenarios,
         iteration_name: str,
@@ -727,6 +743,7 @@ class SharedParams:
 
 
 class SharedParamsProto(Protocol):
+    """Protocol of SharedParams only for typing."""
     mts: Path
     tr_adj: Path | None = None
     mts_adj: Path | None = None
@@ -736,6 +753,7 @@ class SharedParamsProto(Protocol):
 
 
 class HBProdProto(Protocol):
+    """Protocol of HBProdParams only for typing."""
     mts: Path
     tr_adj: Path | None = None
     mts_adj: Path | None = None
@@ -746,6 +764,7 @@ class HBProdProto(Protocol):
 
 
 class AttrProto(Protocol):
+    """Protocol of AttrParams only for typing."""
     mts: Path
     tr_adj: Path | None = None
     mts_adj: Path | None = None
@@ -903,21 +922,17 @@ class MainConfig(config_base.BaseConfig):
             If required files are missing for return-home trip generation.
         """
         if self.return_home:
-            if self.hb_prod_phi_factors is None:
+            required = [
+                "hb_prod_phi_factors",
+                "hb_prod_mts_return",
+                "hb_attr_phi_factors",
+                "hb_attr_mts_return",
+            ]
+            missing = [name for name in required if getattr(self, name, None) is None]
+            if missing:
                 raise ValueError(
-                    "hb_prod_phi_factors must be provided for return home trips to be generated."
-                )
-            if self.hb_prod_mts_return is None:
-                raise ValueError(
-                    "hb_prod_mts_return must be provided for return home trips to be generated."
-                )
-            if self.hb_attr_phi_factors is None:
-                raise ValueError(
-                    "hb_attr_phi_factors must be provided for return home trips to be generated."
-                )
-            if self.hb_attr_mts_return is None:
-                raise ValueError(
-                    "hb_attr_mts_return must be provided for return home trips to be generated."
+                    f"Missing required return-home files: {', '.join(missing)}. "
+                    "These must be provided for return home trips to be generated."
                 )
         return self
 
@@ -931,29 +946,24 @@ class MainConfig(config_base.BaseConfig):
         ValueError
             If years are inconsistent.
         """
-        if set(self.pop.keys()) != set(self.model_years):
-            raise ValueError("Population years must match model_years.")
-        if set(self.emp.keys()) != set(self.model_years):
-            raise ValueError("Employment years must match model_years.")
-        if set(self.hh.keys()) != set(self.model_years):
-            raise ValueError("Household years must match model_years.")
+        for attr, label in (("pop", "Population"), ("emp", "Employment"), ("hh", "Household")):
+            if set(getattr(self, attr).keys()) != set(self.model_years):
+                raise ValueError(f"{label} years must match model_years.")
         return self
 
     @model_validator(mode="after")
     def _inputs_supplied(self):
         options = self.run_options
-        if options.run_hb_prod:
-            if self.hb_prod_params is None:
-                raise ValueError("To run hb_prod, hb_prod params must be provided.")
-        if options.run_hb_attr:
-            if self.hb_attr_params is None:
-                raise ValueError("To run hb_attr, hb_attr params must be provided.")
-        if options.run_nhb_prod:
-            if self.nhb_prod_params is None:
-                raise ValueError("To run nhb_prod, nhb_prod params must be provided.")
-        if options.run_nhb_attr:
-            if self.nhb_attr_params is None:
-                raise ValueError("To run nhb_attr, nhb_attr params must be provided.")
+        checks = [
+            ("run_hb_prod", "hb_prod_params", "hb_prod"),
+            ("run_hb_attr", "hb_attr_params", "hb_attr"),
+            ("run_nhb_prod", "nhb_prod_params", "nhb_prod"),
+            ("run_nhb_attr", "nhb_attr_params", "nhb_attr"),
+        ]
+        for run_attr, param_attr, name in checks:
+            if getattr(options, run_attr):
+                if getattr(self, param_attr) is None:
+                    raise ValueError(f"To run {name}, {param_attr} must be provided.")
         return self
 
 
