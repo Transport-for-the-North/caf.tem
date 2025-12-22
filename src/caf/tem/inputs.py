@@ -36,7 +36,7 @@ from pydantic import (
 def _create_segmentation(seg_list: list[str] | cb.Segmentation):
     """
     Create a :class:`cb.Segmentation` object.
-    
+
     Creates a :class:`cb.Segmentation` object from a list of segment names
      or returns the input if already a Segmentation.
 

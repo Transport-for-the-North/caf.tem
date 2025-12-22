@@ -159,7 +159,9 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
                 mts_geo_constraint=mts_geo_constraint,
                 return_tripends=return_tripends,
             )
-            time_taken = ctk.timing.time_taken(year_start_time, ctk.timing.current_milli_time())
+            time_taken = ctk.timing.time_taken(
+                year_start_time, ctk.timing.current_milli_time()
+            )
             LOG.info("HB Productions in year %s took: %s\n", year, time_taken)
 
         # End timing
@@ -213,7 +215,9 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
 
         # 3) Optional return-home
         if return_tripends:
-            self._create_and_save_return_home_production(year=year, tem_production=tem_production)
+            self._create_and_save_return_home_production(
+                year=year, tem_production=tem_production
+            )
 
     def _create_and_save_pure_production(
         self,
@@ -226,8 +230,12 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
         export_reports: bool,
     ) -> cb.DVector:
         """Create pure production, optionally save and report, and return TEM-segmented DVector."""
-        pure_production = self._create_pure_production(population=population, trip_rates=trip_rates)
-        pure_production_adj = self._adjust_production(production=pure_production, adj_factors=trip_rate_adj_factors)
+        pure_production = self._create_pure_production(
+            population=population, trip_rates=trip_rates
+        )
+        pure_production_adj = self._adjust_production(
+            production=pure_production, adj_factors=trip_rate_adj_factors
+        )
 
         if export_pure_production:
             LOG.info(
@@ -238,7 +246,9 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
             pure_production_adj.save(self.model.export_paths.pure_demand_adj[year])
 
         if export_reports:
-            LOG.info("Writing pure hb production reports to %s", self.model.report_paths.pure_demand)
+            LOG.info(
+                "Writing pure hb production reports to %s", self.model.report_paths.pure_demand
+            )
             utils.write_reports(
                 pure_production.aggregate_comp_zones(self.model_zoning),
                 self.model.report_paths.pure_demand,
@@ -269,16 +279,24 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
     ) -> cb.DVector:
         """Apply MTS, optionally save and report, aggregate to TEM segmentation and return it."""
         mts_production = self._create_mts_production(pure_production=tem_seged, mts=mts)
-        mts_production_adj = self._adjust_mts_production(mts_production=mts_production, adj_factors=mts_adj_factors, geo_constraint=mts_geo_constraint)
-
+        mts_production_adj = self._adjust_mts_production(
+            mts_production=mts_production,
+            adj_factors=mts_adj_factors,
+            geo_constraint=mts_geo_constraint,
+        )
 
         if export_mts_production:
-            LOG.info("Saving hb mts prodcution trip ends to %s", self.model.export_paths.mts_demand[year])
+            LOG.info(
+                "Saving hb mts prodcution trip ends to %s",
+                self.model.export_paths.mts_demand[year],
+            )
             mts_production.save(self.model.export_paths.mts_demand[year])
             mts_production_adj.save(self.model.export_paths.mts_demand_adj[year])
 
         if export_reports:
-            LOG.info("Writing mts hb production reports to %s", self.model.report_paths.mts_demand)
+            LOG.info(
+                "Writing mts hb production reports to %s", self.model.report_paths.mts_demand
+            )
             utils.write_reports(
                 mts_production.aggregate_comp_zones(self.model_zoning),
                 self.model.report_paths.mts_demand,
@@ -294,11 +312,17 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
         tem_production = mts_production.aggregate(self.tem_segmentation)
 
         if export_tem_segmentation:
-            LOG.info("Saving tem segmented hb production trip ends to %s", self.model.export_paths.tem_segmented_from_home[year])
+            LOG.info(
+                "Saving tem segmented hb production trip ends to %s",
+                self.model.export_paths.tem_segmented_from_home[year],
+            )
             tem_production.save(self.model.export_paths.tem_segmented_from_home[year])
 
         if export_reports:
-            LOG.info("Writing tem segmented reports to %s", self.model.report_paths.tem_segmented_from_home)
+            LOG.info(
+                "Writing tem segmented reports to %s",
+                self.model.report_paths.tem_segmented_from_home,
+            )
             utils.write_reports(
                 tem_production.aggregate_comp_zones(self.model_zoning),
                 self.model.report_paths.tem_segmented_from_home,
@@ -307,11 +331,20 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
 
         return tem_production
 
-    def _create_and_save_return_home_production(self, *, year: int, tem_production: cb.DVector) -> None:
+    def _create_and_save_return_home_production(
+        self, *, year: int, tem_production: cb.DVector
+    ) -> None:
         """Create return-home production outputs and save them."""
-        tem_return_home_prod = self.create_tem_return_home(tem=tem_production, geo_constraint=self.model_zoning)
-        tem_return_home_prod_ = tem_return_home_prod.rename_segment({"p_return": "p", "tp_return": "tp"})
-        LOG.info("Saving hb production return home trip ends to %s", self.model.export_paths.tem_segmented_return_home[year])
+        tem_return_home_prod = self.create_tem_return_home(
+            tem=tem_production, geo_constraint=self.model_zoning
+        )
+        tem_return_home_prod_ = tem_return_home_prod.rename_segment(
+            {"p_return": "p", "tp_return": "tp"}
+        )
+        LOG.info(
+            "Saving hb production return home trip ends to %s",
+            self.model.export_paths.tem_segmented_return_home[year],
+        )
         tem_return_home_prod_.save(self.model.export_paths.tem_segmented_return_home[year])
 
     # # # FUNCTIONS # # #
@@ -532,7 +565,9 @@ class NHBProductionModel:
             hbattr = self._read_hb_attraction(year=year)
 
             # ## PURE PRODUCTION ## #
-            pure_production = self._create_pure_production(hbattr=hbattr, trip_rates=trip_rates)
+            pure_production = self._create_pure_production(
+                hbattr=hbattr, trip_rates=trip_rates
+            )
 
             if export_pure_demand:
                 LOG.info(
@@ -550,7 +585,9 @@ class NHBProductionModel:
                 )
 
             # ## MODE TIME SPLIT ## #
-            mts_production = self._create_mts_production(pure_production=pure_production, mts=mts)
+            mts_production = self._create_mts_production(
+                pure_production=pure_production, mts=mts
+            )
 
             # ## TEM SEGMENTATION ## #
             # For nhb prod post mts is already tem segmentation

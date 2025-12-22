@@ -88,8 +88,6 @@ def _run_from_params(params: MainConfig) -> None:
             )
 
 
-
-
 def main(arg: MainConfig | str | Path | None = None) -> None:
     """Entry point for the console script and programmatic usage.
 
