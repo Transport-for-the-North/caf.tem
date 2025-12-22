@@ -36,6 +36,7 @@ from pydantic import (
 def _create_segmentation(seg_list: list[str] | cb.Segmentation):
     """
     Create a :class:`cb.Segmentation` object.
+    
     Creates a :class:`cb.Segmentation` object from a list of segment names
      or returns the input if already a Segmentation.
 
@@ -127,19 +128,6 @@ class Landuse:
         | None
     ) = None
 
-    def _normalize_segmentation(self) -> cb.Segmentation | None:
-        """Ensure `self.segmentation` is a `cb.Segmentation` when provided as a list.
-
-        Returns the current segmentation (possibly None) for local use.
-        """
-        if isinstance(self.segmentation, list):
-            self.segmentation = cb.Segmentation(
-                cb.SegmentationInput(
-                    enum_segments=self.segmentation, naming_order=self.segmentation
-                )
-            )
-        return self.segmentation
-
     def _load_from_file(
         self, source_path: Path, segmentation: cb.Segmentation | None
     ) -> cb.DVector:
@@ -190,6 +178,10 @@ class Landuse:
         if self.out_zoning is None:
             return lu
         if isinstance(self.out_zoning, list):
+            if not isinstance(lu.zoning_system, cb.ZoningSystem):
+                raise TypeError("Read in landuse must be singly zoned to be translated.")
+            if model_zoning is None:
+                raise ValueError("model_zoning must be provided for comp_zoned output.")
             factor_col = (
                 f"{lu.zoning_system.translation_column_name(model_zoning)}_{self.type}"
             )
@@ -214,12 +206,11 @@ class Landuse:
             return self.land_use
 
         source_path = Path(self.land_use)
-        segmentation = self._normalize_segmentation()
 
         if source_path.is_file():
-            lu = self._load_from_file(source_path, segmentation)
+            lu = self._load_from_file(source_path, self.segmentation)
         else:
-            lu = self._load_from_folder(source_path, segmentation, init_zoning)
+            lu = self._load_from_folder(source_path, self.segmentation, init_zoning)
 
         lu = self._apply_out_zoning(lu, model_zoning, translation)
 
@@ -381,9 +372,7 @@ class TEMModelPaths:
             )
 
     def create_export_paths(self) -> None:
-        """
-        Create and assign export paths for all model outputs.
-        """
+        """Create and assign export paths for all model outputs."""
         # Init
         base_fname = self._base_output_fname
         fname_parts = [self.trip_origin, self.model_zoning.name]
@@ -438,9 +427,7 @@ class TEMModelPaths:
         )
 
     def create_report_paths(self) -> None:
-        """
-        Create and assign report paths for all model outputs.
-        """
+        """Create and assign report paths for all model outputs."""
         self.report_paths = ExportPathsReports(
             home=self.report_home,
             pure_demand=self._generate_report_paths(self._pure_demand),
@@ -707,6 +694,10 @@ class TEMExportPaths:
 @dataclasses.dataclass
 class RunOptions:
     """
+    Options for running trip end model.
+
+    Parameters
+    ----------
     run_hb_prod : bool
         Whether to run the HB production model.
     run_hb_attr : bool
@@ -729,6 +720,10 @@ class RunOptions:
 @dataclasses.dataclass(kw_only=True)
 class SharedParams:
     """
+    Parameters shared between different models.
+
+    Parameters
+    ----------
     triprates: Path
         Path to hb production trip rates.
     tr_adj: Path | None = None
@@ -794,14 +789,13 @@ class AttrProto(Protocol):
 
 @dataclasses.dataclass
 class HBProdParams(SharedParams):
-    """_summary_
-
-    _extended_summary_
+    """
+    Paramaters for home based production model.
 
     Parameters
     ----------
-    SharedParams : _type_
-        _description_
+    triprates: FilePath
+        Path to home based prodction trip rates.
     """
 
     triprates: FilePath
@@ -810,16 +804,16 @@ class HBProdParams(SharedParams):
 @dataclasses.dataclass
 class AttrParams(SharedParams):
     """
-    nhb_attr_triprates: dict[int, Path]
+    Paramaters for attraction model.
+
+    Parameters
+    ----------
+    triprates: dict[int, Path]
         Dict of purposes to paths to nhb attraction trip rates.
-    nhb_attr_tr_adj: Path | None = None
-        Path to nhb attraction trip rate adjustment factors, if applicable.
-    nhb_attr_mts: Path
-        Path to nhb attraction mode time splits.
-    nhb_attr_mts_adj: Path | None = None
-        Path to nhb attraction mode time split adjustment factors, if applicable.
-    nhb_attr_mts_uni: Path
+    mts_uni: Path
         Path to nhb attraction uni mode time splits.
+    balance: cb.BalancingZones | bool = True
+        Whether to balance attractions to productions.
     """
 
     triprates: dict[int, FilePath]
@@ -830,17 +824,18 @@ class AttrParams(SharedParams):
 @dataclasses.dataclass
 class NHBProdParams:
     """
+    Paramaters for non-home base production model.
+
+    Parameters
+    ----------
     triprates: Path
         Path to nhb production trip rates.
     mts: Path
         Path to nhb production mode time splits
-    balance: bool = True
-        See balance_hb.
     """
 
     triprates: FilePath
     mts: FilePath
-    balance: bool = True
 
 
 class MainConfig(config_base.BaseConfig):
