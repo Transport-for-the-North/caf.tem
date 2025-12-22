@@ -105,33 +105,10 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
         """
         Run the HB Production model for each year.
 
-        Steps:
-            - Reads population and trip rates.
-            - Multiplies population by trip rates to create pure production.
-            - Applies adjustment factors.
-            - Exports pure production and reports if requested.
-            - Applies mode-time splits (MTS) and adjustments.
-            - Exports MTS production and reports if requested.
-            - Aggregates to TEM segmentation and exports if requested.
-            - Optionally processes return-home trip ends.
-
-        Parameters
-        ----------
-        export_pure_production : bool
-            Export pure production to disk.
-        export_mts_production : bool
-            Export MTS production to disk.
-        export_tem_segmentation : bool
-            Export TEM-segmented production to disk.
-        export_reports : bool
-            Output reports during processing.
-        mts_geo_constraint : cb.ZoningSystem, optional
-            Zoning system for constraining MTS adjustment.
-        return_tripends : bool
-            Whether to process return-home productions.
+        This refactor extracts the per-year work into `_run_year` so that `run`
+        focuses on configuration and orchestration (reduced local variables).
         """
 
-        # ## START ## #
         start_time = ctk.timing.current_milli_time()
         LOG.info("Starting HB Production Model")
 
@@ -144,9 +121,6 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
         ):
             # End timing
             LOG.info("All exports set to False. Run not executed.")
-            end_time = ctk.timing.current_milli_time()
-            time_taken = ctk.timing.time_taken(start_time, end_time)
-            LOG.info("HB Production Model took:%s", time_taken)
             LOG.info("HB Production Model Finished")
             return None
 
@@ -160,9 +134,8 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
         LOG.info(f"Loading mts from {self.params.mts}")
         mts = cb.DVector.load(self.params.mts)
         # Read in the adjustment factors, if passed
-        if self.params.tr_adj is None:
-            trip_rate_adj_factors = None
-        else:
+        trip_rate_adj_factors: cb.DVector | None = None
+        if self.params.tr_adj is not None:
             LOG.info("Loading the trip rates adjustment factors")
             trip_rate_adj_factors = cb.DVector.load(self.params.tr_adj)
         mts_adj_factors: cb.DVector | None = None
@@ -173,117 +146,178 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
         # Generate the productions for each year
         for year in self.years:
             year_start_time = ctk.timing.current_milli_time()
-
-            # ## READ INPUTS ## #
-            # Read in the population land use for the given year
-            population = self.population[year].read_landuse(
-                translation=self.zone_trans, model_zoning=self.model_zoning
+            self._run_year(
+                year=year,
+                trip_rates=trip_rates,
+                mts=mts,
+                trip_rate_adj_factors=trip_rate_adj_factors,
+                mts_adj_factors=mts_adj_factors,
+                export_pure_production=export_pure_production,
+                export_mts_production=export_mts_production,
+                export_tem_segmentation=export_tem_segmentation,
+                export_reports=export_reports,
+                mts_geo_constraint=mts_geo_constraint,
+                return_tripends=return_tripends,
             )
-
-            # ## PURE PRODUCTION ## #
-            pure_production = self._create_pure_production(population, trip_rates)
-            pure_production_adj = self._adjust_production(
-                pure_production, trip_rate_adj_factors
-            )
-            if export_pure_production:
-                LOG.info(
-                    f"Saving pure hb production trip ends to {self.model.export_paths.pure_demand[year]}."
-                )
-                pure_production.save(self.model.export_paths.pure_demand[year])
-                pure_production_adj.save(self.model.export_paths.pure_demand_adj[year])
-            if export_reports:
-                LOG.info(
-                    f"Writing pure hb production reports to {self.model.report_paths.pure_demand}"
-                )
-                utils.write_reports(
-                    pure_production.aggregate_comp_zones(self.model_zoning),
-                    self.model.report_paths.pure_demand,
-                    year,
-                )
-                utils.write_reports(
-                    pure_production_adj.aggregate_comp_zones(self.model_zoning),
-                    self.model.report_paths.pure_demand_adj,
-                    year,
-                )
-
-            # ## MODE TIME SPLIT ## #
-            tem_seged = pure_production_adj.aggregate(
-                list(self.tem_segmentation.overlap(pure_production.segmentation))
-            )
-            del pure_production, pure_production_adj
-            mts_production = self._create_mts_production(tem_seged, mts)
-            # Only carry on adj from here
-            mts_production_adj = self._adjust_mts_production(
-                mts_production, mts_adj_factors, geo_constraint=mts_geo_constraint
-            )
-            if export_mts_production:
-                LOG.info(
-                    f"Saving hb mts prodcution trip ends to {self.model.export_paths.mts_demand[year]}"
-                )
-                mts_production.save(self.model.export_paths.mts_demand[year])
-                mts_production_adj.save(self.model.export_paths.mts_demand_adj[year])
-            if export_reports:
-                LOG.info(
-                    f"Writing mts hb production reports to {self.model.report_paths.mts_demand}"
-                )
-                utils.write_reports(
-                    mts_production.aggregate_comp_zones(self.model_zoning),
-                    self.model.report_paths.mts_demand,
-                    year,
-                )
-                utils.write_reports(
-                    mts_production_adj.aggregate_comp_zones(self.model_zoning),
-                    self.model.report_paths.mts_demand_adj,
-                    year,
-                )
-
-            # ## TEM SEGMENTATION ## #
-            LOG.info("Aggregating to TEM Output Segmentation")
-            tem_production = mts_production.aggregate(self.tem_segmentation)
-            if export_tem_segmentation:
-                LOG.info(
-                    f"Saving tem segmented hb production trip ends to {self.model.export_paths.tem_segmented_from_home[year]}"
-                )
-                tem_production.save(self.model.export_paths.tem_segmented_from_home[year])
-            if export_reports:
-                LOG.info(
-                    f"Writing tem segmented reports to {self.model.report_paths.tem_segmented_from_home}"
-                )
-                utils.write_reports(
-                    tem_production.aggregate_comp_zones(self.model_zoning),
-                    self.model.report_paths.tem_segmented_from_home,
-                    year,
-                )
-            if return_tripends:
-                tem_return_home_prod = self.create_tem_return_home(
-                    tem_production, self.model_zoning
-                )
-                tem_return_home_prod_ = tem_return_home_prod.rename_segment(
-                    {"p_return": "p", "tp_return": "tp"}
-                )
-                LOG.info(
-                    f"Saving hb production return home trip ends to {self.model.export_paths.tem_segmented_return_home[year]}"
-                )
-                tem_return_home_prod_.save(
-                    self.model.export_paths.tem_segmented_return_home[year]
-                )
-
-            year_end_time = ctk.timing.current_milli_time()
-            time_taken = ctk.timing.time_taken(year_start_time, year_end_time)
+            time_taken = ctk.timing.time_taken(year_start_time, ctk.timing.current_milli_time())
             LOG.info("HB Productions in year %s took: %s\n", year, time_taken)
 
         # End timing
-        end_time = ctk.timing.current_milli_time()
-        time_taken = ctk.timing.time_taken(start_time, end_time)
+        time_taken = ctk.timing.time_taken(start_time, ctk.timing.current_milli_time())
         LOG.info("HB Production Model took:%s", time_taken)
         LOG.info("HB Production Model Finished")
 
         return None
 
+    def _run_year(
+        self,
+        *,
+        year: int,
+        trip_rates: cb.DVector,
+        mts: cb.DVector,
+        trip_rate_adj_factors: cb.DVector | None,
+        mts_adj_factors: cb.DVector | None,
+        export_pure_production: bool,
+        export_mts_production: bool,
+        export_tem_segmentation: bool,
+        export_reports: bool,
+        mts_geo_constraint: cb.ZoningSystem | None,
+        return_tripends: bool,
+    ) -> None:
+        """Process a single year of HB productions (keyword-only parameters)."""
+        population = self.population[year].read_landuse(
+            translation=self.zone_trans, model_zoning=self.model_zoning
+        )
+
+        # 1) Pure production -> returns TEM-segmented input
+        tem_seged = self._create_and_save_pure_production(
+            year=year,
+            population=population,
+            trip_rates=trip_rates,
+            trip_rate_adj_factors=trip_rate_adj_factors,
+            export_pure_production=export_pure_production,
+            export_reports=export_reports,
+        )
+
+        # 2) MTS + TEM production -> returns TEM production
+        tem_production = self._create_and_save_mts_and_tem_production(
+            year=year,
+            tem_seged=tem_seged,
+            mts=mts,
+            mts_adj_factors=mts_adj_factors,
+            export_mts_production=export_mts_production,
+            export_reports=export_reports,
+            export_tem_segmentation=export_tem_segmentation,
+            mts_geo_constraint=mts_geo_constraint,
+        )
+
+        # 3) Optional return-home
+        if return_tripends:
+            self._create_and_save_return_home_production(year=year, tem_production=tem_production)
+
+    def _create_and_save_pure_production(
+        self,
+        *,
+        year: int,
+        population: cb.DVector,
+        trip_rates: cb.DVector,
+        trip_rate_adj_factors: cb.DVector | None,
+        export_pure_production: bool,
+        export_reports: bool,
+    ) -> cb.DVector:
+        """Create pure production, optionally save and report, and return TEM-segmented DVector."""
+        pure_production = self._create_pure_production(population=population, trip_rates=trip_rates)
+        pure_production_adj = self._adjust_production(production=pure_production, adj_factors=trip_rate_adj_factors)
+
+        if export_pure_production:
+            LOG.info(
+                "Saving pure hb production trip ends to %s.",
+                self.model.export_paths.pure_demand[year],
+            )
+            pure_production.save(self.model.export_paths.pure_demand[year])
+            pure_production_adj.save(self.model.export_paths.pure_demand_adj[year])
+
+        if export_reports:
+            LOG.info("Writing pure hb production reports to %s", self.model.report_paths.pure_demand)
+            utils.write_reports(
+                pure_production.aggregate_comp_zones(self.model_zoning),
+                self.model.report_paths.pure_demand,
+                year,
+            )
+            utils.write_reports(
+                pure_production_adj.aggregate_comp_zones(self.model_zoning),
+                self.model.report_paths.pure_demand_adj,
+                year,
+            )
+
+        tem_seged = pure_production_adj.aggregate(
+            list(self.tem_segmentation.overlap(pure_production.segmentation))
+        )
+        return tem_seged
+
+    def _create_and_save_mts_and_tem_production(
+        self,
+        *,
+        year: int,
+        tem_seged: cb.DVector,
+        mts: cb.DVector,
+        mts_adj_factors: cb.DVector | None,
+        export_mts_production: bool,
+        export_reports: bool,
+        export_tem_segmentation: bool,
+        mts_geo_constraint: cb.ZoningSystem | None,
+    ) -> cb.DVector:
+        """Apply MTS, optionally save and report, aggregate to TEM segmentation and return it."""
+        mts_production = self._create_mts_production(pure_production=tem_seged, mts=mts)
+        mts_production_adj = self._adjust_mts_production(mts_production=mts_production, adj_factors=mts_adj_factors, geo_constraint=mts_geo_constraint)
+
+
+        if export_mts_production:
+            LOG.info("Saving hb mts prodcution trip ends to %s", self.model.export_paths.mts_demand[year])
+            mts_production.save(self.model.export_paths.mts_demand[year])
+            mts_production_adj.save(self.model.export_paths.mts_demand_adj[year])
+
+        if export_reports:
+            LOG.info("Writing mts hb production reports to %s", self.model.report_paths.mts_demand)
+            utils.write_reports(
+                mts_production.aggregate_comp_zones(self.model_zoning),
+                self.model.report_paths.mts_demand,
+                year,
+            )
+            utils.write_reports(
+                mts_production_adj.aggregate_comp_zones(self.model_zoning),
+                self.model.report_paths.mts_demand_adj,
+                year,
+            )
+
+        LOG.info("Aggregating to TEM Output Segmentation")
+        tem_production = mts_production.aggregate(self.tem_segmentation)
+
+        if export_tem_segmentation:
+            LOG.info("Saving tem segmented hb production trip ends to %s", self.model.export_paths.tem_segmented_from_home[year])
+            tem_production.save(self.model.export_paths.tem_segmented_from_home[year])
+
+        if export_reports:
+            LOG.info("Writing tem segmented reports to %s", self.model.report_paths.tem_segmented_from_home)
+            utils.write_reports(
+                tem_production.aggregate_comp_zones(self.model_zoning),
+                self.model.report_paths.tem_segmented_from_home,
+                year,
+            )
+
+        return tem_production
+
+    def _create_and_save_return_home_production(self, *, year: int, tem_production: cb.DVector) -> None:
+        """Create return-home production outputs and save them."""
+        tem_return_home_prod = self.create_tem_return_home(tem=tem_production, geo_constraint=self.model_zoning)
+        tem_return_home_prod_ = tem_return_home_prod.rename_segment({"p_return": "p", "tp_return": "tp"})
+        LOG.info("Saving hb production return home trip ends to %s", self.model.export_paths.tem_segmented_return_home[year])
+        tem_return_home_prod_.save(self.model.export_paths.tem_segmented_return_home[year])
+
     # # # FUNCTIONS # # #
 
     def _create_pure_production(
-        self, population: cb.DVector, trip_rates: cb.DVector
+        self, *, population: cb.DVector, trip_rates: cb.DVector
     ) -> cb.DVector:
         """
         Create pure production by multiplying population by trip rates.
@@ -307,7 +341,7 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
 
         return pure_production
 
-    def _adjust_production(self, production, adj_factors):
+    def _adjust_production(self, *, production, adj_factors):
         """
         Adjust pure production using adjustment factors.
 
@@ -332,7 +366,7 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
         return production_adj
 
     def _create_mts_production(
-        self, pure_production: cb.DVector, mts: cb.DVector
+        self, *, pure_production: cb.DVector, mts: cb.DVector
     ) -> cb.DVector:
         """
         Apply mode-time split to pure production.
@@ -358,6 +392,7 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
 
     def _adjust_mts_production(
         self,
+        *,
         mts_production: cb.DVector,
         adj_factors: cb.DVector | None,
         geo_constraint: cb.ZoningSystem | None = None,
@@ -494,10 +529,10 @@ class NHBProductionModel:
         # Generate the nhb productions for each year
         for year in self.years:
             # ## READ HB ATTRACTION ## #
-            hbattr = self._read_hb_attraction(year)
+            hbattr = self._read_hb_attraction(year=year)
 
             # ## PURE PRODUCTION ## #
-            pure_production = self._create_pure_production(hbattr, trip_rates)
+            pure_production = self._create_pure_production(hbattr=hbattr, trip_rates=trip_rates)
 
             if export_pure_demand:
                 LOG.info(
@@ -515,7 +550,7 @@ class NHBProductionModel:
                 )
 
             # ## MODE TIME SPLIT ## #
-            mts_production = self._create_mts_production(pure_production, mts)
+            mts_production = self._create_mts_production(pure_production=pure_production, mts=mts)
 
             # ## TEM SEGMENTATION ## #
             # For nhb prod post mts is already tem segmentation
@@ -526,7 +561,7 @@ class NHBProductionModel:
                 )
                 mts_production.save(self.model.export_paths.tem_segmented_from_home[year])
 
-    def _read_hb_attraction(self, year: int) -> cb.DVector:
+    def _read_hb_attraction(self, *, year: int) -> cb.DVector:
         """
         Read and process the TEM-segmented HB Attraction file for a given year.
 
@@ -560,7 +595,7 @@ class NHBProductionModel:
         return hbattr
 
     def _create_pure_production(
-        self, hbattr: cb.DVector, trip_rates: cb.DVector
+        self, *, hbattr: cb.DVector, trip_rates: cb.DVector
     ) -> cb.DVector:
         """
         Create pure NHB production by multiplying HB attractions by NHB trip rates.
@@ -598,7 +633,7 @@ class NHBProductionModel:
         return pure_prod
 
     def _create_mts_production(
-        self, pure_production: cb.DVector, mts: cb.DVector
+        self, *, pure_production: cb.DVector, mts: cb.DVector
     ) -> cb.DVector:
         """
         Apply mode-time split to pure NHB production.

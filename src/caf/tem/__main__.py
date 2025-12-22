@@ -125,7 +125,3 @@ def main(arg: MainConfig | str | Path | None = None) -> None:
         parser.error(str(exc))
 
     _run_from_params(params)
-
-
-if __name__ == "__main__":
-    main()
