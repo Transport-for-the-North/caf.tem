@@ -238,6 +238,8 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
         )
 
         if export_pure_production:
+            if self.model.export_paths is None:
+                raise ValueError("No export paths.")
             LOG.info(
                 "Saving pure hb production trip ends to %s.",
                 self.model.export_paths.pure_demand[year],
@@ -246,6 +248,8 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
             pure_production_adj.save(self.model.export_paths.pure_demand_adj[year])
 
         if export_reports:
+            if self.model.report_paths is None:
+                raise ValueError("No report paths.")
             LOG.info(
                 "Writing pure hb production reports to %s", self.model.report_paths.pure_demand
             )
@@ -286,6 +290,8 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
         )
 
         if export_mts_production:
+            if self.model.export_paths is None:
+                raise ValueError("No export paths.")
             LOG.info(
                 "Saving hb mts prodcution trip ends to %s",
                 self.model.export_paths.mts_demand[year],
@@ -294,6 +300,8 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
             mts_production_adj.save(self.model.export_paths.mts_demand_adj[year])
 
         if export_reports:
+            if self.model.report_paths is None:
+                raise ValueError("No report paths.")
             LOG.info(
                 "Writing mts hb production reports to %s", self.model.report_paths.mts_demand
             )
@@ -312,6 +320,8 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
         tem_production = mts_production.aggregate(self.tem_segmentation)
 
         if export_tem_segmentation:
+            if self.model.export_paths is None:
+                raise ValueError("No export paths.")
             LOG.info(
                 "Saving tem segmented hb production trip ends to %s",
                 self.model.export_paths.tem_segmented_from_home[year],
@@ -319,6 +329,8 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
             tem_production.save(self.model.export_paths.tem_segmented_from_home[year])
 
         if export_reports:
+            if self.model.report_paths is None:
+                raise ValueError("No report paths.")
             LOG.info(
                 "Writing tem segmented reports to %s",
                 self.model.report_paths.tem_segmented_from_home,
@@ -341,6 +353,8 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
         tem_return_home_prod_ = tem_return_home_prod.rename_segment(
             {"p_return": "p", "tp_return": "tp"}
         )
+        if self.model.export_paths is None:
+            raise ValueError("No export paths.")
         LOG.info(
             "Saving hb production return home trip ends to %s",
             self.model.export_paths.tem_segmented_return_home[year],

@@ -38,6 +38,8 @@ def _run_from_params(params: MainConfig) -> None:
             trans_file=params.trans_file,
         )
         if params.run_options.run_hb_prod:
+            if params.hb_prod_params is None:
+                raise ValueError("No hb prod params provided.")
             hb_prod = model.hb_production_model(
                 population=params.pop, params=params.hb_prod_params
             )
@@ -51,6 +53,8 @@ def _run_from_params(params: MainConfig) -> None:
                 return_tripends=params.run_options.return_home,
             )
         if params.run_options.run_hb_attr:
+            if params.hb_attr_params is None:
+                raise ValueError("No hb attr params provided.")
             hb_attr = model.attraction_model(
                 emp_landuse=params.emp, hh_landuse=params.hh, params=params.hb_attr_params
             )
@@ -63,6 +67,8 @@ def _run_from_params(params: MainConfig) -> None:
                 return_tripends=params.run_options.return_home,
             )
         if params.run_options.run_nhb_prod:
+            if params.nhb_prod_params is None:
+                raise ValueError("No nhb prod params provided.")
             nhb_prod = model.nhb_production_model(params=params.nhb_prod_params)
             LOG.info("###### nhb production model ######")
             nhb_prod.run(
@@ -72,6 +78,8 @@ def _run_from_params(params: MainConfig) -> None:
             )
 
         if params.run_options.run_nhb_attr:
+            if params.nhb_attr_params is None:
+                raise ValueError("No nhb attr params provided.")
             nhb_attr = model.attraction_model(
                 emp_landuse=params.emp,
                 hh_landuse=params.hh,
@@ -103,7 +111,7 @@ def main(arg: MainConfig | str | Path | None = None) -> None:
 
     # Called programmatically with a path string/Path
     if isinstance(arg, (str, Path)):
-        params = MainConfig.load_yaml(arg)
+        params = MainConfig.load_yaml(Path(arg))
         _run_from_params(params)
         return
 
