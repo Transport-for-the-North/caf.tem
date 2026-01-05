@@ -670,7 +670,7 @@ class TEMExportPaths:
             path_years=path_years,
             export_home=hb_a_export_home,
             report_home=hb_a_report_home,
-            _trip_origin="hb",
+            trip_origin="hb",
             model_zoning=model_zoning,
             agg_zoning=agg_zoning,
         )
@@ -685,7 +685,7 @@ class TEMExportPaths:
             path_years=path_years,
             export_home=nhb_a_export_home,
             report_home=nhb_a_report_home,
-            _trip_origin="nhb",
+            trip_origin="nhb",
             model_zoning=model_zoning,
             agg_zoning=agg_zoning,
         )
@@ -745,7 +745,7 @@ class SharedParams:
     mts: FilePath
     tr_adj: FilePath | None = None
     mts_adj: FilePath | None = None
-    phi_factors: FilePath | None = None
+    phi_factors: DirectoryPath | None = None
     mts_return: FilePath | None = None
     mts_return_adj: FilePath | None = None
 
@@ -801,7 +801,7 @@ class HBProdParams(SharedParams):
     triprates: FilePath
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(config={"arbitrary_types_allowed": True})
 class AttrParams(SharedParams):
     """
     Paramaters for attraction model.
@@ -942,14 +942,18 @@ class MainConfig(config_base.BaseConfig):
         ValueError
             If required files are missing for return-home trip generation.
         """
-        if self.return_home:
+        if self.run_options.return_home:
             required = [
-                "hb_prod_phi_factors",
-                "hb_prod_mts_return",
-                "hb_attr_phi_factors",
-                "hb_attr_mts_return",
+                "mts_return",
+                "phi_factors",
             ]
-            missing = [name for name in required if getattr(self, name, None) is None]
+            missing_prod = [
+                name for name in required if getattr(self.hb_prod_params, name, None) is None
+            ]
+            missing_attr = [
+                name for name in required if getattr(self.hb_attr_params, name, None) is None
+            ]
+            missing = missing_prod + missing_attr
             if missing:
                 raise ValueError(
                     f"Missing required return-home files: {', '.join(missing)}. "

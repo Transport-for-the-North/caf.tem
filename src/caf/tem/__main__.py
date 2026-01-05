@@ -117,9 +117,13 @@ def main(arg: MainConfig | str | Path | None = None) -> None:
     )
     parsed = parser.parse_args(sys.argv[1:])
     try:
-        params = MainConfig.load_yaml(str(parsed.config))
+        params = MainConfig.load_yaml(parsed.config)
     except Exception as exc:  # pragma: no cover - surface configuration errors
         LOG.exception("Failed to load configuration: %s", exc)
         parser.error(str(exc))
 
     _run_from_params(params)
+
+
+if __name__ == "__main__":
+    main()

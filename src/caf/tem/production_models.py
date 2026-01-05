@@ -514,7 +514,6 @@ class NHBProductionModel:
         )
         self.trip_rates_path: Path = params.triprates
         self.mts_path: Path = params.mts
-        self.balance_production: bool = params.balance
         self.years: list[int] = list(self.hb_attraction_paths.keys())
         self.model: ProductionModelPaths = model
         self.return_segmentation: cb.Segmentation = return_segmentation
