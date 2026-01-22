@@ -317,7 +317,7 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
             )
 
         LOG.info("Aggregating to TEM Output Segmentation")
-        tem_production = mts_production.aggregate(self.tem_segmentation)
+        tem_production = mts_production_adj.aggregate(self.tem_segmentation)
 
         if export_tem_segmentation:
             if self.model.export_paths is None:

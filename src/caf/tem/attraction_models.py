@@ -350,12 +350,6 @@ class AttractionModel(
                     export_paths.tem_segmented_return_home[year]
                 )
 
-            return None
-
-        # ## END ## #
-
-    # # # HELPER FUNCTIONS # # #
-
     def _read_trip_rate(self, p: int) -> cb.DVector:
         """
         Read one purpose-specific trip rates DVector from the path given in the constructor.
