@@ -724,8 +724,6 @@ class SharedParams:
 
     Parameters
     ----------
-    triprates: Path
-        Path to hb production trip rates.
     tr_adj: Path | None = None
         Path to hb production trip rate adjustment factors, if applicable.
     mts: Path
@@ -740,6 +738,9 @@ class SharedParams:
         factors, as they are converted to factors based on the segmentation of the phi factors.
     mts_return_adj: Path | None = None
         Path to hb return home mode time split adjustment factors.
+    postme_adj: Path | None
+        Path to postme adjustment factors. These are applied at the end of either the production or
+        attraction model, to from home trip ends before return home (if being applied).
     """
 
     mts: FilePath
@@ -748,6 +749,7 @@ class SharedParams:
     phi_factors: DirectoryPath | None = None
     mts_return: FilePath | None = None
     mts_return_adj: FilePath | None = None
+    postme_adj: FilePath | None = None
 
 
 class SharedParamsProto(Protocol):
@@ -759,6 +761,7 @@ class SharedParamsProto(Protocol):
     phi_factors: Path | None = None
     mts_return: Path | None = None
     mts_return_adj: Path | None = None
+    postme_adj: Path | None = None
 
 
 class HBProdProto(Protocol):
@@ -770,6 +773,7 @@ class HBProdProto(Protocol):
     phi_factors: Path | None = None
     mts_return: Path | None = None
     mts_return_adj: Path | None = None
+    postme_adj: Path | None = None
     triprates: Path
 
 
@@ -782,6 +786,7 @@ class AttrProto(Protocol):
     phi_factors: Path | None = None
     mts_return: Path | None = None
     mts_return_adj: Path | None = None
+    postme_adj: Path | None = None
     triprates: dict[int, Path]
     mts_uni: Path
     balance: cb.BalancingZones | bool = True

@@ -158,6 +158,7 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
                 export_reports=export_reports,
                 mts_geo_constraint=mts_geo_constraint,
                 return_tripends=return_tripends,
+                postme_adj=self.params.postme_adj,
             )
             time_taken = ctk.timing.time_taken(
                 year_start_time, ctk.timing.current_milli_time()
@@ -184,6 +185,7 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
         export_tem_segmentation: bool,
         export_reports: bool,
         mts_geo_constraint: cb.ZoningSystem | None,
+        postme_adj: Path | None,
         return_tripends: bool,
     ) -> None:
         """Process a single year of HB productions (keyword-only parameters)."""
@@ -212,6 +214,10 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
             export_tem_segmentation=export_tem_segmentation,
             mts_geo_constraint=mts_geo_constraint,
         )
+
+        if postme_adj is not None:
+            postme_adj = cb.DVector.load(postme_adj)
+            tem_production = tem_production * postme_adj
 
         # 3) Optional return-home
         if return_tripends:

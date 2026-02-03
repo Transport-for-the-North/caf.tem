@@ -309,6 +309,12 @@ class AttractionModel(
                     report_paths.tem_segmented_from_home,
                     year,
                 )
+            if self.params.postme_adj is not None:
+                LOG.info(
+                    f"Applying post me adjustment factors saved here: {self.params.postme_adj}"
+                )
+                postme_adj = cb.DVector.load(self.params.postme_adj)
+                balanced_dvec = balanced_dvec * postme_adj
             if export_tem_segmentation:
                 LOG.info(
                     f"Saving tem segmented attractions to {export_paths.tem_segmented_from_home[year]}"
