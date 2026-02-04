@@ -18,7 +18,7 @@ return_segmentation:
 - tp
 - hh_type
 - soc
-trans_file: C:\Temp\tem\normits_lsoa21_trans.csv
+trans_file: C:\Temp\tem\normits_lsoa21_2_trans.csv
 export_pure: yes
 export_mts: yes
 export_tem: yes
@@ -39,6 +39,7 @@ pop:
     - normits
     - tfn_at
     - gor
+    - noham_sector
 emp:
   2023:
     type: emp
@@ -53,6 +54,7 @@ emp:
     - tfn_at
     - uni
     - gor
+    - noham_sector
 hh:
   2023:
     type: pop
@@ -75,6 +77,7 @@ hh:
     - tfn_at
     - uni
     - gor
+    - noham_sector
 hb_prod_params:
   triprates: E:\Users\Kephale\Desktop\Alok\AlokJain\Tem Outputs\Inputs\hb_trip_rates_production_trip_rates.dvec
   tr_adj: E:\Users\Kephale\Desktop\Alok\AlokJain\Tem Outputs\Inputs\trip_rate_adjustments_p_hb_fr_adj.dvec
@@ -83,6 +86,7 @@ hb_prod_params:
   phi_factors: E:\Users\Kephale\Desktop\Alok\AlokJain\Tem Outputs\Inputs\phi_factors
   mts_return: E:\Users\Kephale\Desktop\Alok\AlokJain\Tem Outputs\Inputs\mode_time_split_production_hb_to_reg_trips.est.dvec
   mts_return_adj: E:\Users\Kephale\Desktop\Alok\AlokJain\Tem Outputs\Inputs\mode_time_split_adjustments_p_hb_to_adj.dvec
+  postme_adj: D:\post_me\post_me_adj_O.dvec
 hb_attr_params:
   triprates:
     1: E:\Users\Kephale\Desktop\Alok\AlokJain\Tem Outputs\Inputs\trip_rates_attraction_p1_hb_alpha.dvec
@@ -101,6 +105,7 @@ hb_attr_params:
   mts_return: E:\Users\Kephale\Desktop\Alok\AlokJain\Tem Outputs\Inputs\mode_time_split_attraction_hb_to_reg_trips.est.dvec
   mts_return_adj: E:\Users\Kephale\Desktop\Alok\AlokJain\Tem Outputs\Inputs\mode_time_split_adjustments_p_hb_to_adj.dvec
   balance: yes
+  postme_adj: D:\post_me\post_me_adj_D.dvec
 nhb_prod_params:
   triprates: E:\Users\Kephale\Desktop\Alok\AlokJain\Tem Outputs\Inputs\nhb_trip_rates_production_gamma.dvec
   mts: E:\Users\Kephale\Desktop\Alok\AlokJain\Tem Outputs\Inputs\mode_time_split_production_nhb_reg_rho.dvec
