@@ -10,7 +10,7 @@ model_years:
 scenario: Core
 output_zoning: normits
 agg_zoning: tfn_at
-iteration_name: conf_test
+iteration_name: post_me_adj
 export_home: D:\tem
 return_segmentation:
 - p
