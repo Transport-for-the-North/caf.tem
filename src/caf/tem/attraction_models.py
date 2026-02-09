@@ -314,7 +314,9 @@ class AttractionModel(
                     f"Applying post me adjustment factors saved here: {self.params.postme_adj}"
                 )
                 postme_adj = cb.DVector.load(self.params.postme_adj)
-                balanced_dvec = balanced_dvec * postme_adj
+                if 'direction_od' in postme_adj.segmentation:
+                    postme_adj = postme_adj.filter_segment_value('direction_od', 1)
+                balanced_dvec = balanced_dvec.__mul__(postme_adj, how='outer')
             if export_tem_segmentation:
                 LOG.info(
                     f"Saving tem segmented attractions to {export_paths.tem_segmented_from_home[year]}"
@@ -322,7 +324,7 @@ class AttractionModel(
                 balanced_dvec.save(export_paths.tem_segmented_from_home[year])
             if return_tripends:
                 tem_return_home_attr = self.create_tem_return_home(
-                    balanced_dvec, self.model_zoning
+                    balanced_dvec, "A",  self.model_zoning
                 )
                 tem_return_home_attr = tem_return_home_attr.rename_segment(
                     {"p_return": "p", "tp_return": "tp"}

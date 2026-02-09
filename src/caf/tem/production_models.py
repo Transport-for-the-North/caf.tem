@@ -216,8 +216,13 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
         )
 
         if postme_adj is not None:
+            LOG.info(
+                    f"Applying post me adjustment factors saved here: {self.params.postme_adj}"
+                )
             postme_adj = cb.DVector.load(postme_adj)
-            tem_production = tem_production * postme_adj
+            if 'direction_od' in postme_adj.segmentation:
+                postme_adj = postme_adj.filter_segment_value('direction_od', 1)
+            tem_production = tem_production.__mul__(postme_adj, how='outer')
 
         # 3) Optional return-home
         if return_tripends:
@@ -354,7 +359,7 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
     ) -> None:
         """Create return-home production outputs and save them."""
         tem_return_home_prod = self.create_tem_return_home(
-            tem=tem_production, geo_constraint=self.model_zoning
+            tem=tem_production, direction="P",  geo_constraint=self.model_zoning
         )
         tem_return_home_prod_ = tem_return_home_prod.rename_segment(
             {"p_return": "p", "tp_return": "tp"}
