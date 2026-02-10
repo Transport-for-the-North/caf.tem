@@ -223,6 +223,15 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
             if 'direction_od' in postme_adj.segmentation:
                 postme_adj = postme_adj.filter_segment_value('direction_od', 1)
             tem_production = tem_production.__mul__(postme_adj, how='outer')
+            # YZ - export post-me adjusted tem production for debugging
+            if export_tem_segmentation:
+                if self.model.export_paths is None:
+                    raise ValueError("No export paths.")
+                LOG.info(
+                    "Saving post-me adjusted tem segmented hb production trip ends to %s",
+                    self.model.export_paths.tem_segmented_from_home_pm[year],
+                )
+                tem_production.save(self.model.export_paths.tem_segmented_from_home_pm[year])
 
         # 3) Optional return-home
         if return_tripends:
@@ -621,6 +630,7 @@ class NHBProductionModel:
                     f"Saving nhb production trip ends to {self.model.export_paths.tem_segmented_from_home[year]}"
                 )
                 mts_production.save(self.model.export_paths.tem_segmented_from_home[year])
+                mts_production.save(self.model.export_paths.tem_segmented_from_home_pm[year]) # YZ - also save the pre-post-me adjusted tem segmented production for debugging
 
     def _read_hb_attraction(self, *, year: int) -> cb.DVector:
         """

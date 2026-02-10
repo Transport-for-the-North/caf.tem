@@ -255,6 +255,8 @@ class ExportPathsOutputs(NamedTuple):
     tem_segmented: dict[int, Path]
     tem_segmented_return_home: dict[int, Path]
     tem_segmented_from_home: dict[int, Path]
+    # YZ - add dict for post-me adjusted tem segmented from home production paths
+    tem_segmented_from_home_pm: dict[int, Path]
 
 
 class ExportPathsReports(NamedTuple):
@@ -308,6 +310,8 @@ class TEMModelPaths:
     _tem_segmented = "tem_segmented"
     _tem_segmented_return_home = "tem_segmented_to"
     _tem_segmented_from_home = "tem_segmented_fr"
+    # YZ: This is the same as from home but saved separately for debugging
+    _tem_segmented_from_home_pm = "tem_segmented_fr_pm"
 
     # Report names
     _segment_totals_report_name = "segment_totals"
@@ -384,6 +388,8 @@ class TEMModelPaths:
         tem_segmented_paths: dict[int, Path] = dict()
         tem_segmented_return_home_paths: dict[int, Path] = dict()
         tem_segmented_from_home_paths: dict[int, Path] = dict()
+        tem_segmented_from_home_pm_paths: dict[int, Path] = dict()
+
 
         for year in self.path_years:
             # Pure demand path
@@ -414,6 +420,12 @@ class TEMModelPaths:
             fname = base_fname % (*fname_parts, self._tem_segmented_from_home, year)
             tem_segmented_from_home_paths[year] = self.export_home / fname
 
+            # YZ: TEM Segmented path from home post-me adjustment
+            fname = base_fname % (*fname_parts, self._tem_segmented_from_home_pm, year)
+            tem_segmented_from_home_pm_paths[year] = self.export_home / fname
+
+
+
         # Create the export_paths class
         self.export_paths = ExportPathsOutputs(
             home=self.export_home,
@@ -424,6 +436,7 @@ class TEMModelPaths:
             tem_segmented=tem_segmented_paths,
             tem_segmented_return_home=tem_segmented_return_home_paths,
             tem_segmented_from_home=tem_segmented_from_home_paths,
+            tem_segmented_from_home_pm=tem_segmented_from_home_pm_paths,  # YZ: This is the same as from home but saved separately for debugging
         )
 
     def create_report_paths(self) -> None:
