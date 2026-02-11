@@ -264,8 +264,10 @@ class AttractionModel(
 
             # ## SPLIT PRODUCTION SEGMENTATION ## #
             # Load the Adjusted TEM Production from the HB/NHB Production Model Output
-
             tem_production = cb.DVector.load(
+                self.production_model.export_paths.tem_segmented_from_home[year]
+            ) # YZ changed from tem_segmented_from_home to tem_segmented_from_home_pm to ensure the post-me adjusted production is used for balancing
+            tem_production_pm = cb.DVector.load(
                 self.production_model.export_paths.tem_segmented_from_home_pm[year]
             ) # YZ changed from tem_segmented_from_home to tem_segmented_from_home_pm to ensure the post-me adjusted production is used for balancing
             if (
@@ -325,8 +327,8 @@ class AttractionModel(
                     postme_adj = postme_adj.filter_segment_value('direction_od', 1)
                 balanced_dvec = balanced_dvec.__mul__(postme_adj, how='outer')
             # YZ- BALANCE TO PRODUCTIONS ## #
-            balanced_dvec = self._balance_to_production(tem_dvec, tem_production)
-            del tem_dvec, mts_dict_adj, tem_production    
+            balanced_dvec = self._balance_to_production(tem_dvec, tem_production_pm)
+            del tem_dvec, mts_dict_adj, tem_production , tem_production_pm   
                    
             # YZ - export tem segmented attractions after post-me adjustment for debugging
             if export_tem_segmentation:
