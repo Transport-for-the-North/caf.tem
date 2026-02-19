@@ -255,7 +255,6 @@ class ExportPathsOutputs(NamedTuple):
     tem_segmented: dict[int, Path]
     tem_segmented_return_home: dict[int, Path]
     tem_segmented_from_home: dict[int, Path]
-    # YZ - add dict for post-me adjusted tem segmented from home production paths
     tem_segmented_from_home_pm: dict[int, Path]
 
 
@@ -310,7 +309,6 @@ class TEMModelPaths:
     _tem_segmented = "tem_segmented"
     _tem_segmented_return_home = "tem_segmented_to"
     _tem_segmented_from_home = "tem_segmented_fr"
-    # YZ: This is the same as from home but saved separately for debugging
     _tem_segmented_from_home_pm = "tem_segmented_fr_pm"
 
     # Report names
@@ -420,7 +418,7 @@ class TEMModelPaths:
             fname = base_fname % (*fname_parts, self._tem_segmented_from_home, year)
             tem_segmented_from_home_paths[year] = self.export_home / fname
 
-            # YZ: TEM Segmented path from home post-me adjustment
+            # TEM Segmented path from home post-me adjustment
             fname = base_fname % (*fname_parts, self._tem_segmented_from_home_pm, year)
             tem_segmented_from_home_pm_paths[year] = self.export_home / fname
 
@@ -436,7 +434,7 @@ class TEMModelPaths:
             tem_segmented=tem_segmented_paths,
             tem_segmented_return_home=tem_segmented_return_home_paths,
             tem_segmented_from_home=tem_segmented_from_home_paths,
-            tem_segmented_from_home_pm=tem_segmented_from_home_pm_paths,  # YZ: This is the same as from home but saved separately for debugging
+            tem_segmented_from_home_pm=tem_segmented_from_home_pm_paths,  
         )
 
     def create_report_paths(self) -> None:

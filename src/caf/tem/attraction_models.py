@@ -184,7 +184,7 @@ class AttractionModel(
         # Ensure production balance file exists... (if balance_production is True)
         for year in self.model.path_years:
             if not os.path.exists(
-                self.production_model.export_paths.tem_segmented_from_home_pm[year] # YZ changed from  to tem_segmented_from_home_pm to tem_segmented_from_home_pm to ensure the post-me adjusted production is used for balancing
+                self.production_model.export_paths.tem_segmented_from_home_pm[year] 
             ):
                 if not os.path.exists(
                     self.production_model.export_paths.tem_segmented_from_home[year]
@@ -267,15 +267,18 @@ class AttractionModel(
 
             # ## SPLIT PRODUCTION SEGMENTATION ## #
             # Load the Adjusted TEM Production from the HB/NHB Production Model Output
-            tem_production = cb.DVector.load(
-                self.production_model.export_paths.tem_segmented_from_home[year]
-            ) # YZ changed from tem_segmented_from_home to tem_segmented_from_home_pm to ensure the post-me adjusted production is used for balancing
             if os.path.exists(
-                self.production_model.export_paths.tem_segmented_from_home_pm[year] # YZ changed from  to tem_segmented_from_home_pm to tem_segmented_from_home_pm to ensure the post-me adjusted production is used for balancing
+                self.production_model.export_paths.tem_segmented_from_home[year]
+            ):
+                tem_production = cb.DVector.load(
+                    self.production_model.export_paths.tem_segmented_from_home[year]
+                ) 
+            if os.path.exists(
+                self.production_model.export_paths.tem_segmented_from_home_pm[year] 
             ):
                 tem_production_pm = cb.DVector.load(
                     self.production_model.export_paths.tem_segmented_from_home_pm[year]
-                ) # YZ changed from tem_segmented_from_home to tem_segmented_from_home_pm to ensure the post-me adjusted production is used for balancing
+                ) 
             if (
                 mts_dict_adj.keys()
                 != tem_production.segmentation.get_segment("p").values.keys()
@@ -305,7 +308,7 @@ class AttractionModel(
 
             # ## BALANCE TO PRODUCTIONS ## #
             balanced_dvec = self._balance_to_production(tem_dvec, tem_production)
-            # del tem_dvec, mts_dict_adj, tem_production
+
 
             # ## TEM SEGMENTATION EXPORT ## #
             if export_reports:
@@ -317,7 +320,7 @@ class AttractionModel(
                     report_paths.tem_segmented_from_home,
                     year,
                 )
-            # YZ - export tem segmented attractions before post-me adjustment for debugging
+            
             if export_tem_segmentation:
                 LOG.info(
                     f"Saving tem segmented attractions to {export_paths.tem_segmented_from_home[year]}"
@@ -332,12 +335,12 @@ class AttractionModel(
                 if 'direction_od' in postme_adj.segmentation:
                     postme_adj = postme_adj.filter_segment_value('direction_od', 1)
                 balanced_dvec = balanced_dvec.__mul__(postme_adj, how='outer')
-                # YZ- BALANCE TO PRODUCTIONS ## #
-                balanced_dvec = self._balance_to_production(tem_dvec, tem_production_pm)
+                # BALANCE TO PRODUCTIONS ## #
+                balanced_dvec = self._balance_to_production_pm(balanced_dvec, tem_production_pm)
                 del tem_production_pm
-            del tem_dvec, mts_dict_adj, tem_production , tem_production_pm   
+            del tem_dvec, mts_dict_adj, tem_production 
                    
-            # YZ - export tem segmented attractions after post-me adjustment for debugging
+
             if export_tem_segmentation:
                 LOG.info(
                     f"Saving tem segmented attractions after postme adjustment to {export_paths.tem_segmented_from_home_pm[year]}"
@@ -838,6 +841,40 @@ class AttractionModel(
         if self.balance_production is True:
             tem_dvec.fill(0, 1e-16)
             gb_factors = tem_production.remove_zoning() / tem_dvec.remove_zoning()
+            balanced_dvec = tem_dvec * gb_factors
+        # If zoning is specified for balancing
+        elif isinstance(self.balance_production, (cb.BalancingZones, cb.ZoningSystem)):
+            balanced_dvec = tem_dvec.balance_by_segments(
+                tem_production, self.balance_production
+            )
+        # If balancing_zones is False
+        else:
+            balanced_dvec = tem_dvec
+
+        return balanced_dvec
+
+    def _balance_to_production_pm(
+        self, tem_dvec: cb.DVector, tem_production: cb.DVector
+    ) -> cb.DVector:
+        """
+        Balance attraction to production based on arguments.
+
+        Parameters
+        ----------
+        tem_dvec : cb.DVector
+            TEM-segmented attraction vector.
+        tem_production : cb.DVector
+            TEM-segmented production vector.
+
+        Returns
+        -------
+        cb.DVector
+            Balanced attraction vector.
+        """
+        # If balancing_zones is True
+        if self.balance_production is True:
+            tem_dvec.fill(0, 1e-16)
+            gb_factors = tem_production.remove_zoning().aggregate(['m','tp','p']) / tem_dvec.remove_zoning().aggregate(['m','tp','p'])
             balanced_dvec = tem_dvec * gb_factors
         # If zoning is specified for balancing
         elif isinstance(self.balance_production, (cb.BalancingZones, cb.ZoningSystem)):
