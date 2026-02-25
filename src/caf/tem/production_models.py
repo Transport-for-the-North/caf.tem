@@ -158,7 +158,8 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
                 export_reports=export_reports,
                 mts_geo_constraint=mts_geo_constraint,
                 return_tripends=return_tripends,
-                postme_adj=self.params.postme_adj,
+                postme_adj_fr=self.params.postme_adj_fr,
+                postme_adj_to=self.params.postme_adj_to,
             )
             time_taken = ctk.timing.time_taken(
                 year_start_time, ctk.timing.current_milli_time()
@@ -185,7 +186,8 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
         export_tem_segmentation: bool,
         export_reports: bool,
         mts_geo_constraint: cb.ZoningSystem | None,
-        postme_adj: Path | None,
+        postme_adj_fr: Path | None,
+        postme_adj_to: Path | None,
         return_tripends: bool,
     ) -> None:
         """Process a single year of HB productions (keyword-only parameters)."""
@@ -215,14 +217,21 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
             mts_geo_constraint=mts_geo_constraint,
         )
 
-        if postme_adj is not None:
+        # 3) Optional return-home
+        if return_tripends:
+            tem_prod_to = self._create_and_save_return_home_production(
+                year=year, tem_production=tem_production
+            )
+
+        # 4) Optional post-me adjustments for return-home and to-home productions
+        if postme_adj_fr is not None:
             LOG.info(
-                    f"Applying post me adjustment factors saved here: {self.params.postme_adj}"
+                    f"Applying post me adjustment factors saved here: {self.params.postme_adj_fr}"
                 )
-            postme_adj = cb.DVector.load(postme_adj)
-            if 'direction_od' in postme_adj.segmentation:
-                postme_adj = postme_adj.filter_segment_value('direction_od', 1)
-            tem_production = tem_production.__mul__(postme_adj, how='outer')
+            postme_adj_fr = cb.DVector.load(postme_adj_fr)
+            if 'direction_od' in postme_adj_fr.segmentation:
+                postme_adj_fr = postme_adj_fr.filter_segment_value('direction_od', 1)
+            tem_production = tem_production.__mul__(postme_adj_fr, how='outer')
 
             if export_tem_segmentation:
                 if self.model.export_paths is None:
@@ -233,11 +242,23 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
                 )
                 tem_production.save(self.model.export_paths.tem_segmented_from_home_pm[year])
 
-        # 3) Optional return-home
-        if return_tripends:
-            self._create_and_save_return_home_production(
-                year=year, tem_production=tem_production
-            )
+        if postme_adj_to is not None:
+            LOG.info(
+                    f"Applying post me adjustment factors saved here: {self.params.postme_adj_to}"
+                )
+            postme_adj_to = cb.DVector.load(postme_adj_to)
+            if 'direction_od' in postme_adj_to.segmentation:
+                postme_adj_to = postme_adj_to.filter_segment_value('direction_od', 2)
+            tem_prod_to = tem_prod_to.__mul__(postme_adj_to, how='outer')
+
+            if export_tem_segmentation:
+                if self.model.export_paths is None:
+                    raise ValueError("No export paths.")
+                LOG.info(
+                    "Saving post-me adjusted tem segmented hb production trip ends to %s",
+                    self.model.export_paths.tem_segmented_return_home_pm[year],
+                )
+                tem_prod_to.save(self.model.export_paths.tem_segmented_return_home_pm[year])
 
     def _create_and_save_pure_production(
         self,
@@ -365,7 +386,7 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
 
     def _create_and_save_return_home_production(
         self, *, year: int, tem_production: cb.DVector
-    ) -> None:
+    ) -> cb.DVector:
         """Create return-home production outputs and save them."""
         tem_return_home_prod = self.create_tem_return_home(
             tem=tem_production, direction="P",  geo_constraint=self.model_zoning
@@ -380,6 +401,8 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
             self.model.export_paths.tem_segmented_return_home[year],
         )
         tem_return_home_prod_.save(self.model.export_paths.tem_segmented_return_home[year])
+
+        return tem_return_home_prod_
 
     # # # FUNCTIONS # # #
 
@@ -553,6 +576,7 @@ class NHBProductionModel:
         self.return_segmentation: cb.Segmentation = return_segmentation
         self.model_zoning: cb.ZoningSystem = self.model.model_zoning
         self.agg_zoning: cb.ZoningSystem = self.model.agg_zoning
+        self.postme_adj_fr: Path = params.postme_adj_fr
 
     def run(
         self,
@@ -630,7 +654,26 @@ class NHBProductionModel:
                     f"Saving nhb production trip ends to {self.model.export_paths.tem_segmented_from_home[year]}"
                 )
                 mts_production.save(self.model.export_paths.tem_segmented_from_home[year])
-                mts_production.save(self.model.export_paths.tem_segmented_from_home_pm[year]) # also save the post-me adjusted tem segmented production for nhb
+
+            # Optional post-me adjustments for return-home and to-home productions
+            if self.postme_adj_fr is not None:
+                LOG.info(
+                        f"Applying post me adjustment factors saved here: {self.postme_adj_fr}"
+                    )
+                postme_adj_fr = cb.DVector.load(self.postme_adj_fr)
+                if 'direction_od' in postme_adj_fr.segmentation:
+                    postme_adj_fr = postme_adj_fr.filter_segment_value('direction_od', 0)
+                tem_production = mts_production.__mul__(postme_adj_fr, how='outer')
+
+                if export_tem_segmentation:
+                    if self.model.export_paths is None:
+                        raise ValueError("No export paths.")
+                    LOG.info(
+                        "Saving post-me adjusted tem segmented nhb production trip ends to %s",
+                        self.model.export_paths.tem_segmented_from_home_pm[year],
+                    )
+                    tem_production.save(self.model.export_paths.tem_segmented_from_home_pm[year])
+
 
     def _read_hb_attraction(self, *, year: int) -> cb.DVector:
         """

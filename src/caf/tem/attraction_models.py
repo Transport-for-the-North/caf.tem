@@ -36,7 +36,7 @@ from caf.tem.inputs import (
 )
 
 LOG = logging.getLogger(__name__)
-
+NOHAM_SECTOR = cb.ZoningSystem.get_zoning('noham_sector')
 
 # pylint: disable="too-few-public-methods"
 class AttractionModel(
@@ -327,25 +327,7 @@ class AttractionModel(
                 )
                 balanced_dvec.save(export_paths.tem_segmented_from_home[year])
 
-            if self.params.postme_adj is not None:
-                LOG.info(
-                    f"Applying post me adjustment factors saved here: {self.params.postme_adj}"
-                )
-                postme_adj = cb.DVector.load(self.params.postme_adj)
-                if 'direction_od' in postme_adj.segmentation:
-                    postme_adj = postme_adj.filter_segment_value('direction_od', 1)
-                balanced_dvec = balanced_dvec.__mul__(postme_adj, how='outer')
-                # BALANCE TO PRODUCTIONS ## #
-                balanced_dvec = self._balance_to_production_pm(balanced_dvec, tem_production_pm)
-                del tem_production_pm
-            del tem_dvec, mts_dict_adj, tem_production 
-                   
 
-            if export_tem_segmentation:
-                LOG.info(
-                    f"Saving tem segmented attractions after postme adjustment to {export_paths.tem_segmented_from_home_pm[year]}"
-                )
-                balanced_dvec.save(export_paths.tem_segmented_from_home_pm[year])
             if return_tripends:
                 tem_return_home_attr = self.create_tem_return_home(
                     balanced_dvec, "A",  self.model_zoning
@@ -375,12 +357,84 @@ class AttractionModel(
                 tem_return_home_attr_balanced, _ = tem_return_home_attr.aggregate_comp_zones(
                     self.model_zoning
                 ).ipf(targets)
+
+                # Hard coded NOHAM_SECTOR and might be removed once the ipf process gets improved to better handle multiple zoning systems
+                tem_return_home_attr_balanced = tem_return_home_attr_balanced.composite_zoning(NOHAM_SECTOR) #, trans_vector=self.zone_trans
                 LOG.info(
                     f"Saving return home attractions to {export_paths.tem_segmented_return_home[year]}"
                 )
                 tem_return_home_attr_balanced.save(
                     export_paths.tem_segmented_return_home[year]
                 )
+
+
+            if self.params.postme_adj_fr is not None:
+                LOG.info(
+                    f"Applying post me adjustment factors saved here: {self.params.postme_adj_fr}"
+                )
+                postme_adj_fr = cb.DVector.load(self.params.postme_adj_fr)
+                if 'direction_od' in postme_adj_fr.segmentation:
+                    if self.model.trip_origin == "hb":
+                        postme_adj_fr = postme_adj_fr.filter_segment_value('direction_od', 1)
+                    else:
+                        postme_adj_fr = postme_adj_fr.filter_segment_value('direction_od', 0)
+
+                balanced_dvec = balanced_dvec.__mul__(postme_adj_fr, how='outer')
+                # BALANCE TO PRODUCTIONS ## #
+                balanced_dvec = self._balance_to_production_pm(balanced_dvec, tem_production_pm)
+                del tem_production_pm
+                if export_tem_segmentation:
+                    LOG.info(
+                        f"Saving tem segmented attractions after postme adjustment to {export_paths.tem_segmented_from_home_pm[year]}"
+                    )
+                    balanced_dvec.save(export_paths.tem_segmented_from_home_pm[year])
+            del tem_dvec, mts_dict_adj, tem_production 
+
+
+
+            if self.params.postme_adj_to is not None:
+                LOG.info(
+                    f"Applying post me adjustment factors saved here: {self.params.postme_adj_to}"
+                )
+                postme_adj_to = cb.DVector.load(self.params.postme_adj_to)
+                if 'direction_od' in postme_adj_to.segmentation:
+                    if self.model.trip_origin == "hb":
+                        postme_adj_to = postme_adj_to.filter_segment_value('direction_od', 2)
+                    else:
+                        postme_adj_to = postme_adj_to.filter_segment_value('direction_od', 0)
+
+                tem_return_home_attr_balanced = tem_return_home_attr_balanced.__mul__(postme_adj_to, how='outer')
+
+                tem_return_home_prod_pm = cb.DVector.load(
+                    self.production_model.export_paths.tem_segmented_return_home_pm[year]
+                )
+                agg_seg = [
+                    i
+                    for i in balanced_dvec.segmentation.naming_order
+                    if i not in ["p", "m", "tp"]
+                ]
+                attr_targ = balanced_dvec.aggregate(agg_seg).aggregate_comp_zones(
+                    self.model_zoning
+                )
+                targets = [
+                    cb.data_structures.IpfTarget(data=attr_targ),
+                    cb.data_structures.IpfTarget(data=tem_return_home_prod_pm.remove_zoning()),
+                ]
+                LOG.info(
+                    "Matching return home attractions pm to from home attractions pm and "
+                    "return home productions pm via IPF."
+                )
+                tem_return_home_attr_balanced_ipf, _ = tem_return_home_attr_balanced.aggregate_comp_zones(
+                    self.model_zoning
+                ).ipf(targets)
+                # Hard coded NOHAM_SECTOR and might be removed once the ipf process gets improved to better handle multiple zoning systems
+                tem_return_home_attr_balanced_ipf = tem_return_home_attr_balanced_ipf.composite_zoning(NOHAM_SECTOR) #, trans_vector=self.zone_trans
+                if export_tem_segmentation:
+                    LOG.info(
+                        f"Saving tem segmented attractions after postme adjustment to {export_paths.tem_segmented_return_home_pm[year]}"
+                    )
+                    tem_return_home_attr_balanced_ipf.save(export_paths.tem_segmented_return_home_pm[year])
+
 
     def _read_trip_rate(self, p: int) -> cb.DVector:
         """

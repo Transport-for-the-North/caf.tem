@@ -86,7 +86,8 @@ hb_prod_params:
   phi_factors: E:\Users\Kephale\Desktop\Alok\AlokJain\Tem Outputs\Inputs\phi_factors
   mts_return: E:\Users\Kephale\Desktop\Alok\AlokJain\Tem Outputs\Inputs\mode_time_split_production_hb_to_reg_trips.est.dvec
   mts_return_adj: E:\Users\Kephale\Desktop\Alok\AlokJain\Tem Outputs\Inputs\mode_time_split_adjustments_p_hb_to_adj.dvec
-  postme_adj: D:\post_me\post_me_adj_O.dvec
+  postme_adj_fr: D:\post_me\post_me_adj_fr_O.dvec
+  postme_adj_to: D:\post_me\post_me_adj_to_O.dvec
 hb_attr_params:
   triprates:
     1: E:\Users\Kephale\Desktop\Alok\AlokJain\Tem Outputs\Inputs\trip_rates_attraction_p1_hb_alpha.dvec
@@ -105,10 +106,12 @@ hb_attr_params:
   mts_return: E:\Users\Kephale\Desktop\Alok\AlokJain\Tem Outputs\Inputs\mode_time_split_attraction_hb_to_reg_trips.est.dvec
   mts_return_adj: E:\Users\Kephale\Desktop\Alok\AlokJain\Tem Outputs\Inputs\mode_time_split_adjustments_p_hb_to_adj.dvec
   balance: yes
-  postme_adj: D:\post_me\post_me_adj_D.dvec
+  postme_adj_fr: D:\post_me\post_me_adj_fr_D.dvec
+  postme_adj_to: D:\post_me\post_me_adj_to_D.dvec
 nhb_prod_params:
   triprates: E:\Users\Kephale\Desktop\Alok\AlokJain\Tem Outputs\Inputs\nhb_trip_rates_production_gamma.dvec
   mts: E:\Users\Kephale\Desktop\Alok\AlokJain\Tem Outputs\Inputs\mode_time_split_production_nhb_reg_rho.dvec
+  postme_adj_fr: D:\post_me\post_me_adj_nhb_O.dvec
 nhb_attr_params:
   triprates:
     11: E:\Users\Kephale\Desktop\Alok\AlokJain\Tem Outputs\Inputs\trip_rates_attraction_p1_nhb_alpha.dvec
@@ -124,3 +127,4 @@ nhb_attr_params:
   mts_adj: E:\Users\Kephale\Desktop\Alok\AlokJain\Tem Outputs\Inputs\trip_rate_adjustments_a_nhb_adj.dvec
   mts_uni: E:\Users\Kephale\Desktop\Alok\AlokJain\Tem Outputs\Inputs\mode_time_split_attraction_nhb_uni_reg_rho.dvec
   balance: yes
+  postme_adj_fr: D:\post_me\post_me_adj_nhb_D.dvec

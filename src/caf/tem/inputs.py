@@ -256,6 +256,7 @@ class ExportPathsOutputs(NamedTuple):
     tem_segmented_return_home: dict[int, Path]
     tem_segmented_from_home: dict[int, Path]
     tem_segmented_from_home_pm: dict[int, Path]
+    tem_segmented_return_home_pm: dict[int, Path]
 
 
 class ExportPathsReports(NamedTuple):
@@ -310,6 +311,7 @@ class TEMModelPaths:
     _tem_segmented_return_home = "tem_segmented_to"
     _tem_segmented_from_home = "tem_segmented_fr"
     _tem_segmented_from_home_pm = "tem_segmented_fr_pm"
+    _tem_segmented_return_home_pm = "tem_segmented_to_pm"
 
     # Report names
     _segment_totals_report_name = "segment_totals"
@@ -387,6 +389,7 @@ class TEMModelPaths:
         tem_segmented_return_home_paths: dict[int, Path] = dict()
         tem_segmented_from_home_paths: dict[int, Path] = dict()
         tem_segmented_from_home_pm_paths: dict[int, Path] = dict()
+        tem_segmented_return_home_pm_paths: dict[int, Path] = dict()
 
 
         for year in self.path_years:
@@ -422,6 +425,10 @@ class TEMModelPaths:
             fname = base_fname % (*fname_parts, self._tem_segmented_from_home_pm, year)
             tem_segmented_from_home_pm_paths[year] = self.export_home / fname
 
+            # TEM Segmented path return home post-me adjustment
+            fname = base_fname % (*fname_parts, self._tem_segmented_return_home_pm, year)
+            tem_segmented_return_home_pm_paths[year] = self.export_home / fname
+
 
 
         # Create the export_paths class
@@ -434,7 +441,8 @@ class TEMModelPaths:
             tem_segmented=tem_segmented_paths,
             tem_segmented_return_home=tem_segmented_return_home_paths,
             tem_segmented_from_home=tem_segmented_from_home_paths,
-            tem_segmented_from_home_pm=tem_segmented_from_home_pm_paths,  
+            tem_segmented_from_home_pm=tem_segmented_from_home_pm_paths,
+            tem_segmented_return_home_pm=tem_segmented_return_home_pm_paths,  
         )
 
     def create_report_paths(self) -> None:
@@ -760,8 +768,8 @@ class SharedParams:
     phi_factors: DirectoryPath | None = None
     mts_return: FilePath | None = None
     mts_return_adj: FilePath | None = None
-    postme_adj: FilePath | None = None
-
+    postme_adj_fr: FilePath | None = None
+    postme_adj_to: FilePath | None = None
 
 class SharedParamsProto(Protocol):
     """Protocol of SharedParams only for typing."""
@@ -772,7 +780,8 @@ class SharedParamsProto(Protocol):
     phi_factors: Path | None = None
     mts_return: Path | None = None
     mts_return_adj: Path | None = None
-    postme_adj: Path | None = None
+    postme_adj_fr: Path | None = None
+    postme_adj_to: Path | None = None
 
 
 class HBProdProto(Protocol):
@@ -784,7 +793,8 @@ class HBProdProto(Protocol):
     phi_factors: Path | None = None
     mts_return: Path | None = None
     mts_return_adj: Path | None = None
-    postme_adj: Path | None = None
+    postme_adj_fr: Path | None = None
+    postme_adj_to: Path | None = None
     triprates: Path
 
 
@@ -797,7 +807,8 @@ class AttrProto(Protocol):
     phi_factors: Path | None = None
     mts_return: Path | None = None
     mts_return_adj: Path | None = None
-    postme_adj: Path | None = None
+    postme_adj_fr: Path | None = None
+    postme_adj_to: Path | None = None
     triprates: dict[int, Path]
     mts_uni: Path
     balance: cb.BalancingZones | bool = True
@@ -852,6 +863,7 @@ class NHBProdParams:
 
     triprates: FilePath
     mts: FilePath
+    postme_adj_fr: FilePath   
 
 
 class MainConfig(config_base.BaseConfig):
