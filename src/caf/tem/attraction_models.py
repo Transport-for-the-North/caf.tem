@@ -36,12 +36,10 @@ from caf.tem.inputs import (
 )
 
 LOG = logging.getLogger(__name__)
-NOHAM_SECTOR = cb.ZoningSystem.get_zoning('noham_sector')
+
 
 # pylint: disable="too-few-public-methods"
-class AttractionModel(
-    utils.SharedProdAttrMethods[AttrProto]
-):  # pylint:disable=too-many-instance-attributes
+class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable=too-many-instance-attributes
     """
     Estimate and balances trip attractions.
 
@@ -184,7 +182,7 @@ class AttractionModel(
         # Ensure production balance file exists... (if balance_production is True)
         for year in self.model.path_years:
             if not os.path.exists(
-                self.production_model.export_paths.tem_segmented_from_home_pm[year] 
+                self.production_model.export_paths.tem_segmented_from_home_pm[year]
             ):
                 if not os.path.exists(
                     self.production_model.export_paths.tem_segmented_from_home[year]
@@ -227,7 +225,9 @@ class AttractionModel(
             # Read in the landuses dvec files specific to the year.
             landuses: dict[str, cb.DVector] = {
                 "emp": self.emp_landuse[year]
-                .read_landuse(translation=self.zone_trans, model_zoning=self.model_zoning)
+                .read_landuse(
+                    translation=self.zone_trans, model_zoning=self.model_zoning
+                )
                 .add_segments(["total"]),
                 "hh": self.hh_landuse[year]
                 .read_landuse(
@@ -240,9 +240,13 @@ class AttractionModel(
 
             # ## PURE ATTRACTION ## #
             # Create a dictionary of attractions by purpose
-            attr_dict: dict[int, cb.DVector] = self._create_attr_dict(landuses, trip_rates)
+            attr_dict: dict[int, cb.DVector] = self._create_attr_dict(
+                landuses, trip_rates
+            )
             # Adjust trip rate
-            attr_dict_adj = self._adjust_attraction_dict(attr_dict, adj_factors_dict["tr"])
+            attr_dict_adj = self._adjust_attraction_dict(
+                attr_dict, adj_factors_dict["tr"]
+            )
             # No longer need landuses for the given year
             del landuses
             # Export Pure Attractions
@@ -272,13 +276,13 @@ class AttractionModel(
             ):
                 tem_production = cb.DVector.load(
                     self.production_model.export_paths.tem_segmented_from_home[year]
-                ) 
+                )
             if os.path.exists(
-                self.production_model.export_paths.tem_segmented_from_home_pm[year] 
+                self.production_model.export_paths.tem_segmented_from_home_pm[year]
             ):
                 tem_production_pm = cb.DVector.load(
                     self.production_model.export_paths.tem_segmented_from_home_pm[year]
-                ) 
+                )
             if (
                 mts_dict_adj.keys()
                 != tem_production.segmentation.get_segment("p").values.keys()
@@ -309,7 +313,6 @@ class AttractionModel(
             # ## BALANCE TO PRODUCTIONS ## #
             balanced_dvec = self._balance_to_production(tem_dvec, tem_production)
 
-
             # ## TEM SEGMENTATION EXPORT ## #
             if export_reports:
                 LOG.info(
@@ -320,17 +323,16 @@ class AttractionModel(
                     report_paths.tem_segmented_from_home,
                     year,
                 )
-            
+
             if export_tem_segmentation:
                 LOG.info(
                     f"Saving tem segmented attractions to {export_paths.tem_segmented_from_home[year]}"
                 )
                 balanced_dvec.save(export_paths.tem_segmented_from_home[year])
 
-
             if return_tripends:
                 tem_return_home_attr = self.create_tem_return_home(
-                    balanced_dvec, "A",  self.model_zoning
+                    balanced_dvec, "A", self.model_zoning
                 )
                 tem_return_home_attr = tem_return_home_attr.rename_segment(
                     {"p_return": "p", "tp_return": "tp"}
@@ -348,18 +350,16 @@ class AttractionModel(
                 )
                 targets = [
                     cb.data_structures.IpfTarget(data=attr_targ),
-                    cb.data_structures.IpfTarget(data=tem_return_home_prod.remove_zoning()),
+                    cb.data_structures.IpfTarget(
+                        data=tem_return_home_prod.remove_zoning()
+                    ),
                 ]
                 LOG.info(
                     "Matching return home attractions to from home attractions and "
                     "return home productions via IPF."
                 )
-                tem_return_home_attr_balanced, _ = tem_return_home_attr.aggregate_comp_zones(
-                    self.model_zoning
-                ).ipf(targets)
+                tem_return_home_attr_balanced, _ = tem_return_home_attr.ipf(targets)
 
-                # Hard coded NOHAM_SECTOR and might be removed once the ipf process gets improved to better handle multiple zoning systems
-                tem_return_home_attr_balanced = tem_return_home_attr_balanced.composite_zoning(NOHAM_SECTOR) #, trans_vector=self.zone_trans
                 LOG.info(
                     f"Saving return home attractions to {export_paths.tem_segmented_return_home[year]}"
                 )
@@ -367,74 +367,75 @@ class AttractionModel(
                     export_paths.tem_segmented_return_home[year]
                 )
 
-
             if self.params.postme_adj_fr is not None:
                 LOG.info(
                     f"Applying post me adjustment factors saved here: {self.params.postme_adj_fr}"
                 )
                 postme_adj_fr = cb.DVector.load(self.params.postme_adj_fr)
-                if 'direction_od' in postme_adj_fr.segmentation:
+                if "direction_od" in postme_adj_fr.segmentation:
                     if self.model.trip_origin == "hb":
-                        postme_adj_fr = postme_adj_fr.filter_segment_value('direction_od', 1)
+                        postme_adj_fr = postme_adj_fr.filter_segment_value(
+                            "direction_od", 1
+                        )
                     else:
-                        postme_adj_fr = postme_adj_fr.filter_segment_value('direction_od', 0)
+                        postme_adj_fr = postme_adj_fr.filter_segment_value(
+                            "direction_od", 0
+                        )
 
-                balanced_dvec = balanced_dvec.__mul__(postme_adj_fr, how='outer')
+                balanced_dvec = balanced_dvec.__mul__(postme_adj_fr, how="outer")
                 # BALANCE TO PRODUCTIONS ## #
-                balanced_dvec = self._balance_to_production_pm(balanced_dvec, tem_production_pm)
+                balanced_dvec = self._balance_to_production_pm(
+                    balanced_dvec, tem_production_pm
+                )
                 del tem_production_pm
                 if export_tem_segmentation:
                     LOG.info(
                         f"Saving tem segmented attractions after postme adjustment to {export_paths.tem_segmented_from_home_pm[year]}"
                     )
                     balanced_dvec.save(export_paths.tem_segmented_from_home_pm[year])
-            del tem_dvec, mts_dict_adj, tem_production 
-
-
+            del tem_dvec, mts_dict_adj, tem_production
 
             if self.params.postme_adj_to is not None:
                 LOG.info(
                     f"Applying post me adjustment factors saved here: {self.params.postme_adj_to}"
                 )
                 postme_adj_to = cb.DVector.load(self.params.postme_adj_to)
-                if 'direction_od' in postme_adj_to.segmentation:
+                if "direction_od" in postme_adj_to.segmentation:
                     if self.model.trip_origin == "hb":
-                        postme_adj_to = postme_adj_to.filter_segment_value('direction_od', 2)
+                        postme_adj_to = postme_adj_to.filter_segment_value(
+                            "direction_od", 2
+                        )
                     else:
-                        postme_adj_to = postme_adj_to.filter_segment_value('direction_od', 0)
+                        postme_adj_to = postme_adj_to.filter_segment_value(
+                            "direction_od", 0
+                        )
 
-                tem_return_home_attr_balanced = tem_return_home_attr_balanced.__mul__(postme_adj_to, how='outer')
+                tem_return_home_attr_pm = tem_return_home_attr_balanced.__mul__(
+                    postme_adj_to, how="outer"
+                )
 
                 tem_return_home_prod_pm = cb.DVector.load(
-                    self.production_model.export_paths.tem_segmented_return_home_pm[year]
+                    self.production_model.export_paths.tem_segmented_return_home_pm[
+                        year
+                    ]
                 )
-                agg_seg = [
-                    i
-                    for i in balanced_dvec.segmentation.naming_order
-                    if i not in ["p", "m", "tp"]
-                ]
-                attr_targ = balanced_dvec.aggregate(agg_seg).aggregate_comp_zones(
-                    self.model_zoning
-                )
-                targets = [
-                    cb.data_structures.IpfTarget(data=attr_targ),
-                    cb.data_structures.IpfTarget(data=tem_return_home_prod_pm.remove_zoning()),
-                ]
+
                 LOG.info(
                     "Matching return home attractions pm to from home attractions pm and "
                     "return home productions pm via IPF."
                 )
-                tem_return_home_attr_balanced_ipf, _ = tem_return_home_attr_balanced.aggregate_comp_zones(
-                    self.model_zoning
-                ).ipf(targets)
-                # Hard coded NOHAM_SECTOR and might be removed once the ipf process gets improved to better handle multiple zoning systems
-                tem_return_home_attr_balanced_ipf = tem_return_home_attr_balanced_ipf.composite_zoning(NOHAM_SECTOR) #, trans_vector=self.zone_trans
+
+                tem_return_home_attr_balanced = self._balance_to_production_pm(
+                    tem_return_home_attr_pm, tem_return_home_prod_pm
+                )
+
                 if export_tem_segmentation:
                     LOG.info(
                         f"Saving tem segmented attractions after postme adjustment to {export_paths.tem_segmented_return_home_pm[year]}"
                     )
-                    tem_return_home_attr_balanced_ipf.save(export_paths.tem_segmented_return_home_pm[year])
-
+                    tem_return_home_attr_balanced.save(
+                        export_paths.tem_segmented_return_home_pm[year]
+                    )
 
     def _read_trip_rate(self, p: int) -> cb.DVector:
         """
@@ -483,7 +484,9 @@ class AttractionModel(
             # Ensure zoning system of mts matches the TEM Model zoning system
             mts.fill(0, 1)
             mts.fillna(1)
-            mts = mts.add_segments([cb.segmentation.SegmentsSuper("total").get_segment()])
+            mts = mts.add_segments(
+                [cb.segmentation.SegmentsSuper("total").get_segment()]
+            )
             adj_factors_dict["mts"] = mts
 
         return adj_factors_dict
@@ -522,7 +525,9 @@ class AttractionModel(
         if geo_constraint is not None:
             if isinstance(mts_production.zoning_system, Sequence):
                 if geo_constraint not in mts_production.zoning_system:
-                    raise ValueError("Geo constraint must be contained in the zoning system")
+                    raise ValueError(
+                        "Geo constraint must be contained in the zoning system"
+                    )
             else:
                 raise TypeError("Must be multi zoned.")
             numerator = numerator.aggregate_comp_zones(geo_constraint)
@@ -604,7 +609,9 @@ class AttractionModel(
         attr_dict_adj: dict[int, cb.DVector] = {}
         if adj_factors is not None:
             for p in attr_dict.keys():
-                attr_dict_adj[p] = attr_dict[p] * adj_factors.filter_segment_value("p", [p])
+                attr_dict_adj[p] = attr_dict[p] * adj_factors.filter_segment_value(
+                    "p", [p]
+                )
         else:
             attr_dict_adj = attr_dict
 
@@ -637,7 +644,9 @@ class AttractionModel(
             if isinstance(output_pure, cb.DVector):
                 output_pure = output_pure.concat(attr_dict[p].aggregate(["p"]))
             else:
-                output_pure = attr_dict[p].aggregate(["p"])  # Initialises the output object
+                output_pure = attr_dict[p].aggregate(
+                    ["p"]
+                )  # Initialises the output object
         # Write Pure Attractions
         out_path = self.model.export_paths.pure_demand[year]
         if adj:
@@ -928,7 +937,9 @@ class AttractionModel(
         # If balancing_zones is True
         if self.balance_production is True:
             tem_dvec.fill(0, 1e-16)
-            gb_factors = tem_production.remove_zoning().aggregate(['m','tp','p']) / tem_dvec.remove_zoning().aggregate(['m','tp','p'])
+            gb_factors = tem_production.remove_zoning().aggregate(
+                ["m", "tp", "p"]
+            ) / tem_dvec.remove_zoning().aggregate(["m", "tp", "p"])
             balanced_dvec = tem_dvec * gb_factors
         # If zoning is specified for balancing
         elif isinstance(self.balance_production, (cb.BalancingZones, cb.ZoningSystem)):
