@@ -56,7 +56,9 @@ def _run_from_params(params: MainConfig) -> None:
             if params.hb_attr_params is None:
                 raise ValueError("No hb attr params provided.")
             hb_attr = model.attraction_model(
-                emp_landuse=params.emp, hh_landuse=params.hh, params=params.hb_attr_params
+                emp_landuse=params.emp,
+                hh_landuse=params.hh,
+                params=params.hb_attr_params,
             )
             LOG.info("###### hb attraction model ######")
             hb_attr.run(

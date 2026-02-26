@@ -31,8 +31,7 @@ from caf.tem.inputs import SharedParamsProto
 
 if TYPE_CHECKING:
     # Local Imports
-    from caf.tem.attraction_models import AttractionModel
-    from caf.tem.production_models import HBProductionModel
+    pass
 
 
 # # # CONSTANTS # # #
@@ -213,8 +212,12 @@ class SharedProdAttrMethods(Generic[PARAMS]):
             If the phi factor file does not exist.
         """
         if self.params.phi_factors is None:
-            raise TypeError("A path to phi_factors must be provided for return home trips.")
-        phi_factors_file_path = self.params.phi_factors / f"phi_factors_{direction}_p{p}_reg_phi.dvec"
+            raise TypeError(
+                "A path to phi_factors must be provided for return home trips."
+            )
+        phi_factors_file_path = (
+            self.params.phi_factors / f"phi_factors_{direction}_p{p}_reg_phi.dvec"
+        )
         if log:
             LOG.info(f"Loading phi factors from {phi_factors_file_path}")
 
@@ -265,9 +268,13 @@ class SharedProdAttrMethods(Generic[PARAMS]):
         if geo_constraint is not None:
             if isinstance(mts.zoning_system, Sequence):
                 if geo_constraint not in mts.zoning_system:
-                    raise ValueError("Geo constraint must be contained in the zoning system")
+                    raise ValueError(
+                        "Geo constraint must be contained in the zoning system"
+                    )
             else:
-                raise TypeError("For a geo_constraint to work, there must be multi-zoning.")
+                raise TypeError(
+                    "For a geo_constraint to work, there must be multi-zoning."
+                )
             numerator = numerator.aggregate_comp_zones(geo_constraint)
             denominator = denominator.aggregate_comp_zones(geo_constraint)
         adj = adj * (numerator / denominator)
@@ -275,7 +282,9 @@ class SharedProdAttrMethods(Generic[PARAMS]):
 
         return mts_adj
 
-    def return_home_trip_ends(self, tem_fr: cb.DVector, agg_segments: list[str], direction: str):
+    def return_home_trip_ends(
+        self, tem_fr: cb.DVector, agg_segments: list[str], direction: str
+    ):
         """
         Compute return-home trip ends.
 
@@ -338,7 +347,9 @@ class SharedProdAttrMethods(Generic[PARAMS]):
 
         return adj_factors
 
-    def create_tem_return_home(self, tem: cb.DVector, direction: str, geo_constraint: cb.ZoningSystem | None):
+    def create_tem_return_home(
+        self, tem: cb.DVector, direction: str, geo_constraint: cb.ZoningSystem | None
+    ):
         """
         Create TEM-segmented return-home vector.
 
@@ -355,7 +366,9 @@ class SharedProdAttrMethods(Generic[PARAMS]):
         LOG.info("Processing return home trips")
 
         # Reading one Phi factor Dvec to get its segmentation
-        phi_segmentation = self._read_phi_factor_dvec(1, direction=direction, log=False).segmentation.naming_order
+        phi_segmentation = self._read_phi_factor_dvec(
+            1, direction=direction, log=False
+        ).segmentation.naming_order
 
         aggregation_segments = list(
             s
@@ -367,7 +380,9 @@ class SharedProdAttrMethods(Generic[PARAMS]):
             }
         )
 
-        tem_return_home_tripends = self.return_home_trip_ends(tem, aggregation_segments, direction=direction)
+        tem_return_home_tripends = self.return_home_trip_ends(
+            tem, aggregation_segments, direction=direction
+        )
         mts_segs = [
             i
             for i in ["m", "tp_return"]
@@ -386,7 +401,9 @@ class SharedProdAttrMethods(Generic[PARAMS]):
                 )
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", category=SegmentationWarning)
-                tem_return_home_tripends_mts = tem_return_home_tripends * mts_return_home
+                tem_return_home_tripends_mts = (
+                    tem_return_home_tripends * mts_return_home
+                )
         else:
             tem_return_home_tripends_mts = tem_return_home_tripends
         mts_return_home_adj = self._read_mts_return_home_adjustment()

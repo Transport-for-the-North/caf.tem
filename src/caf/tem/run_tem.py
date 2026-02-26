@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """Run TEM model with configuration file."""
+
 from pathlib import Path
 from caf.tem.__main__ import main
 

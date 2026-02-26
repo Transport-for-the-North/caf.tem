@@ -117,14 +117,16 @@ class Landuse:
     land_use: Path | cb.DVector
     trans_tag: str | None = None
     prefix: str | None = None
-    segmentation: Annotated[cb.Segmentation, BeforeValidator(_create_segmentation)] | None = (
-        None
-    )
+    segmentation: (
+        Annotated[cb.Segmentation, BeforeValidator(_create_segmentation)] | None
+    ) = None
     geographies: str | list[str] | None = None
     out_zoning: (
         cb.ZoningSystem
         | str
-        | Annotated[list[cb.ZoningSystem | str], BeforeValidator(func=_create_zoningsystem)]
+        | Annotated[
+            list[cb.ZoningSystem | str], BeforeValidator(func=_create_zoningsystem)
+        ]
         | None
     ) = None
 
@@ -179,7 +181,9 @@ class Landuse:
             return lu
         if isinstance(self.out_zoning, list):
             if not isinstance(lu.zoning_system, cb.ZoningSystem):
-                raise TypeError("Read in landuse must be singly zoned to be translated.")
+                raise TypeError(
+                    "Read in landuse must be singly zoned to be translated."
+                )
             if model_zoning is None:
                 raise ValueError("model_zoning must be provided for comp_zoned output.")
             factor_col = (
@@ -391,7 +395,6 @@ class TEMModelPaths:
         tem_segmented_from_home_pm_paths: dict[int, Path] = dict()
         tem_segmented_return_home_pm_paths: dict[int, Path] = dict()
 
-
         for year in self.path_years:
             # Pure demand path
             fname = base_fname % (*fname_parts, self._pure_demand, year)
@@ -426,10 +429,12 @@ class TEMModelPaths:
             tem_segmented_from_home_pm_paths[year] = self.export_home / fname
 
             # TEM Segmented path return home post-me adjustment
-            fname = base_fname % (*fname_parts, self._tem_segmented_return_home_pm, year)
+            fname = base_fname % (
+                *fname_parts,
+                self._tem_segmented_return_home_pm,
+                year,
+            )
             tem_segmented_return_home_pm_paths[year] = self.export_home / fname
-
-
 
         # Create the export_paths class
         self.export_paths = ExportPathsOutputs(
@@ -442,7 +447,7 @@ class TEMModelPaths:
             tem_segmented_return_home=tem_segmented_return_home_paths,
             tem_segmented_from_home=tem_segmented_from_home_paths,
             tem_segmented_from_home_pm=tem_segmented_from_home_pm_paths,
-            tem_segmented_return_home_pm=tem_segmented_return_home_pm_paths,  
+            tem_segmented_return_home_pm=tem_segmented_return_home_pm_paths,
         )
 
     def create_report_paths(self) -> None:
@@ -457,7 +462,9 @@ class TEMModelPaths:
             tem_segmented_return_home=self._generate_report_paths(
                 self._tem_segmented_return_home
             ),
-            tem_segmented_from_home=self._generate_report_paths(self._tem_segmented_from_home),
+            tem_segmented_from_home=self._generate_report_paths(
+                self._tem_segmented_from_home
+            ),
         )
 
     def _generate_report_paths(
@@ -771,6 +778,7 @@ class SharedParams:
     postme_adj_fr: FilePath | None = None
     postme_adj_to: FilePath | None = None
 
+
 class SharedParamsProto(Protocol):
     """Protocol of SharedParams only for typing."""
 
@@ -863,7 +871,7 @@ class NHBProdParams:
 
     triprates: FilePath
     mts: FilePath
-    postme_adj_fr: FilePath   
+    postme_adj_fr: FilePath
 
 
 class MainConfig(config_base.BaseConfig):
@@ -926,7 +934,9 @@ class MainConfig(config_base.BaseConfig):
     agg_zoning: Annotated[cb.ZoningSystem, BeforeValidator(_create_zoningsystem)]
     iteration_name: str
     export_home: DirectoryPath
-    return_segmentation: Annotated[cb.Segmentation, BeforeValidator(_create_segmentation)]
+    return_segmentation: Annotated[
+        cb.Segmentation, BeforeValidator(_create_segmentation)
+    ]
     trans_file: FilePath
     export_pure: bool = True
     export_mts: bool = True
@@ -956,7 +966,9 @@ class MainConfig(config_base.BaseConfig):
             cb.Segmentation: lambda z: (
                 z.naming_order
                 if hasattr(z, "naming_order")
-                else list(z) if isinstance(z, list) else str
+                else list(z)
+                if isinstance(z, list)
+                else str
             ),
         }
 
@@ -976,10 +988,14 @@ class MainConfig(config_base.BaseConfig):
                 "phi_factors",
             ]
             missing_prod = [
-                name for name in required if getattr(self.hb_prod_params, name, None) is None
+                name
+                for name in required
+                if getattr(self.hb_prod_params, name, None) is None
             ]
             missing_attr = [
-                name for name in required if getattr(self.hb_attr_params, name, None) is None
+                name
+                for name in required
+                if getattr(self.hb_attr_params, name, None) is None
             ]
             missing = missing_prod + missing_attr
             if missing:
@@ -999,7 +1015,11 @@ class MainConfig(config_base.BaseConfig):
         ValueError
             If years are inconsistent.
         """
-        for attr, label in (("pop", "Population"), ("emp", "Employment"), ("hh", "Household")):
+        for attr, label in (
+            ("pop", "Population"),
+            ("emp", "Employment"),
+            ("hh", "Household"),
+        ):
             if set(getattr(self, attr).keys()) != set(self.model_years):
                 raise ValueError(f"{label} years must match model_years.")
         return self
