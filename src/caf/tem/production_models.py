@@ -226,12 +226,12 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
         # 4) Optional post-me adjustments for return-home and to-home productions
         if postme_adj_fr is not None:
             LOG.info(
-                f"Applying post me adjustment factors saved here: {self.params.postme_adj_fr}"
+                f"Applying post me adjustment factors saved here: {postme_adj_fr}"
             )
-            postme_adj_fr = cb.DVector.load(postme_adj_fr)
-            if "direction_od" in postme_adj_fr.segmentation:
-                postme_adj_fr = postme_adj_fr.filter_segment_value("direction_od", 1)
-            tem_production = tem_production.__mul__(postme_adj_fr, how="outer")
+            postme_adj_fr_factor = cb.DVector.load(postme_adj_fr)
+            if "direction_od" in postme_adj_fr_factor.segmentation:
+                postme_adj_fr = postme_adj_fr_factor.filter_segment_value("direction_od", 1)
+            tem_production = tem_production.mul(postme_adj_fr_factor, how="outer")
 
             if export_tem_segmentation:
                 if self.model.export_paths is None:
@@ -246,12 +246,12 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
 
         if postme_adj_to is not None:
             LOG.info(
-                f"Applying post me adjustment factors saved here: {self.params.postme_adj_to}"
+                f"Applying post me adjustment factors saved here: {postme_adj_to}"
             )
-            postme_adj_to = cb.DVector.load(postme_adj_to)
-            if "direction_od" in postme_adj_to.segmentation:
-                postme_adj_to = postme_adj_to.filter_segment_value("direction_od", 2)
-            tem_prod_to = tem_prod_to.__mul__(postme_adj_to, how="outer")
+            postme_adj_to_factor = cb.DVector.load(postme_adj_to)
+            if "direction_od" in postme_adj_to_factor.segmentation:
+                postme_adj_to = postme_adj_to_factor.filter_segment_value("direction_od", 2)
+            tem_prod_to = tem_prod_to.mul(postme_adj_to_factor, how="outer")
 
             if export_tem_segmentation:
                 if self.model.export_paths is None:
@@ -677,7 +677,7 @@ class NHBProductionModel:
                     postme_adj_fr = postme_adj_fr.filter_segment_value(
                         "direction_od", 0
                     )
-                tem_production = mts_production.__mul__(postme_adj_fr, how="outer")
+                tem_production = mts_production.mul(postme_adj_fr, how="outer")
 
                 if export_tem_segmentation:
                     if self.model.export_paths is None:

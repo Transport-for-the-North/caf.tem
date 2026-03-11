@@ -382,7 +382,7 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
                             "direction_od", 0
                         )
 
-                balanced_dvec = balanced_dvec.__mul__(postme_adj_fr, how="outer")
+                balanced_dvec = balanced_dvec.mul(postme_adj_fr, how="outer")
                 # BALANCE TO PRODUCTIONS ## #
                 balanced_dvec = self._balance_to_production_pm(
                     balanced_dvec, tem_production_pm
