@@ -230,8 +230,11 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
             )
             postme_adj_fr_factor = cb.DVector.load(postme_adj_fr)
             if "direction_od" in postme_adj_fr_factor.segmentation:
-                postme_adj_fr = postme_adj_fr_factor.filter_segment_value("direction_od", 1)
-            tem_production = tem_production.mul(postme_adj_fr_factor, how="outer")
+                postme_adj_fr_factor = postme_adj_fr_factor.filter_segment_value("direction_od", 1)
+            tem_production = tem_production.__mul__(postme_adj_fr_factor, how="outer")
+
+            # zonal totals for prod from home for checking and adjustment of prod to home
+            prod_fr_zone_tot = tem_production.data.sum(axis=0)
 
             if export_tem_segmentation:
                 if self.model.export_paths is None:
@@ -243,6 +246,7 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
                 tem_production.save(
                     self.model.export_paths.tem_segmented_from_home_pm[year]
                 )
+            
 
         if postme_adj_to is not None:
             LOG.info(
@@ -250,9 +254,46 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
             )
             postme_adj_to_factor = cb.DVector.load(postme_adj_to)
             if "direction_od" in postme_adj_to_factor.segmentation:
-                postme_adj_to = postme_adj_to_factor.filter_segment_value("direction_od", 2)
-            tem_prod_to = tem_prod_to.mul(postme_adj_to_factor, how="outer")
+                postme_adj_to_factor = postme_adj_to_factor.filter_segment_value("direction_od", 2)
+            tem_prod_to = tem_prod_to.__mul__(postme_adj_to_factor, how="outer")
 
+            # get subset which is related to postme adjustment (e.g. tp 1,2,3 and m3) and calculate zone totals for that
+            pm_dvec = tem_prod_to.filter_segment_value("tp", [1,2,3]).filter_segment_value("m", 3, keep_filtered=True)
+            prod_to_zone_tot_pm = pm_dvec.data.sum(axis=0)
+
+            # get subset which is not related to postme adjustment and calculate zone totals for that, to be used for adjusting the non-pm part of the prod to home
+            m3 = tem_prod_to.filter_segment_value("m",3, keep_filtered=True)
+            non_m3 = tem_prod_to.filter_segment_value("m",[1,2,4,5,6,7], keep_filtered=False)
+            non_m3_zone_tot = non_m3.data.sum(axis=0)
+            m3_tp_kept = m3.filter_segment_value("tp", [4,5,6], keep_filtered=True)
+            m3_tp_kept_zone_tot = m3_tp_kept.data.sum(axis=0)
+            prod_to_zone_tot_non_pm = non_m3_zone_tot + m3_tp_kept_zone_tot
+            
+            # remove post-me related part of prod from prod from home zonal totals to get the target zone totals for the non-post-me part of prod to home, and calculate adjustment factor for that
+            targ_zone_tot_non_pm = prod_fr_zone_tot - prod_to_zone_tot_pm
+            adj_factor_non_pm = targ_zone_tot_non_pm / prod_to_zone_tot_non_pm
+
+            # adjust the non-post-me part of prod to home by multiplying with the adjustment factor
+            mask = (
+                tem_prod_to.data.index.get_level_values("m") == 3
+            ) & (
+                tem_prod_to.data.index.get_level_values("tp").isin([1, 2, 3])
+            )
+            tem_prod_to_adj = tem_prod_to.copy()
+            tem_prod_to_adj.data.loc[~mask] = tem_prod_to_adj.data.loc[~mask].mul(
+                adj_factor_non_pm, axis="columns", level="normits_id"
+            )
+
+            # check that the adjusted prod to home matches prod from home zonal totals
+            print(f"Total after adjustment: {tem_prod_to_adj.total:,.2f} (should match total from DVector: {tem_production.total:,.2f})")
+            pm_dvec_adj = tem_prod_to_adj.filter_segment_value("tp", [1,2,3], keep_filtered=True).filter_segment_value("m", 3, keep_filtered=True)
+            prod_to_zone_tot_pm_adj = pm_dvec_adj.data.sum(axis=0)
+
+            # compare the adjusted pm part to the original pm part to confirm it has not changed
+            per_diff_pm = (prod_to_zone_tot_pm_adj - prod_to_zone_tot_pm) / prod_to_zone_tot_pm * 100
+            print(f"Percentage difference in PM part after adjustment (should be 0%): {per_diff_pm.sum():.6f}%")
+
+            # export the adjusted prod to home
             if export_tem_segmentation:
                 if self.model.export_paths is None:
                     raise ValueError("No export paths.")
@@ -260,7 +301,7 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
                     "Saving post-me adjusted tem segmented hb production trip ends to %s",
                     self.model.export_paths.tem_segmented_return_home_pm[year],
                 )
-                tem_prod_to.save(
+                tem_prod_to_adj.save(
                     self.model.export_paths.tem_segmented_return_home_pm[year]
                 )
 
@@ -672,12 +713,12 @@ class NHBProductionModel:
                 LOG.info(
                     f"Applying post me adjustment factors saved here: {self.postme_adj_fr}"
                 )
-                postme_adj_fr = cb.DVector.load(self.postme_adj_fr)
-                if "direction_od" in postme_adj_fr.segmentation:
-                    postme_adj_fr = postme_adj_fr.filter_segment_value(
+                postme_adj_fr_factor = cb.DVector.load(self.postme_adj_fr)
+                if "direction_od" in postme_adj_fr_factor.segmentation:
+                    postme_adj_fr_factor = postme_adj_fr_factor.filter_segment_value(
                         "direction_od", 0
                     )
-                tem_production = mts_production.mul(postme_adj_fr, how="outer")
+                tem_production = mts_production.__mul__(postme_adj_fr_factor, how="outer")
 
                 if export_tem_segmentation:
                     if self.model.export_paths is None:

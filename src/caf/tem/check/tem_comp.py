@@ -22,65 +22,66 @@ normits_noham_sector["noham_sector_id"] = normits_noham_sector[
 
 
 # load trip ends data
+trip_ends_root = Path(r"C:\Users\YanZhu\caf_tem\Outputs\post_me_adj_9")
 prod_fr = cb.DVector.load(
     Path(
-        r"C:\Users\YanZhu\caf_tem\Outputs\post_me_adj_7\Core\hb_productions\hb_normits_tem_segmented_fr_2023.dvec"
+        trip_ends_root / "Core" / "hb_productions" / "hb_normits_tem_segmented_fr_2023.dvec"
     )
 )
 prod_to = cb.DVector.load(
     Path(
-        r"C:\Users\YanZhu\caf_tem\Outputs\post_me_adj_7\Core\hb_productions\hb_normits_tem_segmented_to_2023.dvec"
+        trip_ends_root / "Core" / "hb_productions" / "hb_normits_tem_segmented_to_2023.dvec"
     )
 )
 attr_fr = cb.DVector.load(
     Path(
-        r"C:\Users\YanZhu\caf_tem\Outputs\post_me_adj_7\Core\hb_attractions\hb_normits_tem_segmented_fr_2023.dvec"
+        trip_ends_root / "Core" / "hb_attractions" / "hb_normits_tem_segmented_fr_2023.dvec"
     )
 )
 attr_to = cb.DVector.load(
     Path(
-        r"C:\Users\YanZhu\caf_tem\Outputs\post_me_adj_7\Core\hb_attractions\hb_normits_tem_segmented_to_2023.dvec"
+        trip_ends_root / "Core" / "hb_attractions" / "hb_normits_tem_segmented_to_2023.dvec"
     )
 )
 nhb_prod = cb.DVector.load(
     Path(
-        r"C:\Users\YanZhu\caf_tem\Outputs\post_me_adj_7\Core\nhb_productions\nhb_normits_tem_segmented_fr_2023.dvec"
+        trip_ends_root / "Core" / "nhb_productions" / "nhb_normits_tem_segmented_fr_2023.dvec"
     )
 )
 nhb_attr = cb.DVector.load(
     Path(
-        r"C:\Users\YanZhu\caf_tem\Outputs\post_me_adj_7\Core\nhb_attractions\nhb_normits_tem_segmented_fr_2023.dvec"
+        trip_ends_root / "Core" / "nhb_attractions" / "nhb_normits_tem_segmented_fr_2023.dvec"
     )
 )
 
 pm_prod_fr = cb.DVector.load(
     Path(
-        r"C:\Users\YanZhu\caf_tem\Outputs\post_me_adj_7\Core\hb_productions\hb_normits_tem_segmented_fr_pm_2023.dvec"
+        trip_ends_root / "Core" / "hb_productions" / "hb_normits_tem_segmented_fr_pm_2023.dvec"
     )
 )
 pm_prod_to = cb.DVector.load(
     Path(
-        r"C:\Users\YanZhu\caf_tem\Outputs\post_me_adj_7\Core\hb_productions\hb_normits_tem_segmented_to_pm_2023.dvec"
+        trip_ends_root / "Core" / "hb_productions" / "hb_normits_tem_segmented_to_pm_2023.dvec"
     )
 )
 pm_attr_fr = cb.DVector.load(
     Path(
-        r"C:\Users\YanZhu\caf_tem\Outputs\post_me_adj_7\Core\hb_attractions\hb_normits_tem_segmented_fr_pm_2023.dvec"
+        trip_ends_root / "Core" / "hb_attractions" / "hb_normits_tem_segmented_fr_pm_2023.dvec"
     )
 )
 pm_attr_to = cb.DVector.load(
     Path(
-        r"C:\Users\YanZhu\caf_tem\Outputs\post_me_adj_7\Core\hb_attractions\hb_normits_tem_segmented_to_pm_2023.dvec"
+        trip_ends_root / "Core" / "hb_attractions" / "hb_normits_tem_segmented_to_pm_2023.dvec"
     )
 )
 pm_nhb_prod = cb.DVector.load(
     Path(
-        r"C:\Users\YanZhu\caf_tem\Outputs\post_me_adj_7\Core\nhb_productions\nhb_normits_tem_segmented_fr_pm_2023.dvec"
+        trip_ends_root / "Core" / "nhb_productions" / "nhb_normits_tem_segmented_fr_pm_2023.dvec"
     )
 )
 pm_nhb_attr = cb.DVector.load(
     Path(
-        r"C:\Users\YanZhu\caf_tem\Outputs\post_me_adj_7\Core\nhb_attractions\nhb_normits_tem_segmented_fr_pm_2023.dvec"
+        trip_ends_root / "Core" / "nhb_attractions" / "nhb_normits_tem_segmented_fr_pm_2023.dvec"
     )
 )
 
@@ -181,7 +182,7 @@ f_pm_prior_nhb_p = f_pm_prior_p.filter_segment_value("direction_od", 0)
 f_pm_prior_nhb_a = f_pm_prior_a.filter_segment_value("direction_od", 0)
 
 
-output = Path(r"C:\Users\YanZhu\caf_tem\Outputs\post_me_adj_7\Core\tem_comp")
+output = Path(trip_ends_root) / "Core" / "tem_comp"
 output.mkdir(exist_ok=True)
 dvec_names = {
     "hb_prod_fr": prod_fr,

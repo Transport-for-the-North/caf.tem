@@ -371,23 +371,28 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
                 LOG.info(
                     f"Applying post me adjustment factors saved here: {self.params.postme_adj_fr}"
                 )
-                postme_adj_fr = cb.DVector.load(self.params.postme_adj_fr)
-                if "direction_od" in postme_adj_fr.segmentation:
+                postme_adj_fr_factor= cb.DVector.load(self.params.postme_adj_fr)
+                if "direction_od" in postme_adj_fr_factor.segmentation:
                     if self.model.trip_origin == "hb":
-                        postme_adj_fr = postme_adj_fr.filter_segment_value(
+                        postme_adj_fr_factor = postme_adj_fr_factor.filter_segment_value(
                             "direction_od", 1
                         )
                     else:
-                        postme_adj_fr = postme_adj_fr.filter_segment_value(
+                        postme_adj_fr_factor = postme_adj_fr_factor.filter_segment_value(
                             "direction_od", 0
                         )
 
-                balanced_dvec = balanced_dvec.mul(postme_adj_fr, how="outer")
+                balanced_dvec = balanced_dvec.__mul__(postme_adj_fr_factor, how="outer")
                 # BALANCE TO PRODUCTIONS ## #
                 balanced_dvec = self._balance_to_production_pm(
                     balanced_dvec, tem_production_pm
                 )
                 del tem_production_pm
+
+                # zonal totals for attn from home for checking and adjustment of prod to home
+                attr_fr_zone_tot = balanced_dvec.data.sum(axis=0)
+
+                # export the adjusted tem segmented attractions from home
                 if export_tem_segmentation:
                     LOG.info(
                         f"Saving tem segmented attractions after postme adjustment to {export_paths.tem_segmented_from_home_pm[year]}"
@@ -399,41 +404,103 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
                 LOG.info(
                     f"Applying post me adjustment factors saved here: {self.params.postme_adj_to}"
                 )
-                postme_adj_to = cb.DVector.load(self.params.postme_adj_to)
-                if "direction_od" in postme_adj_to.segmentation:
+                postme_adj_to_factor = cb.DVector.load(self.params.postme_adj_to)
+                if "direction_od" in postme_adj_to_factor.segmentation:
                     if self.model.trip_origin == "hb":
-                        postme_adj_to = postme_adj_to.filter_segment_value(
+                        postme_adj_to_factor = postme_adj_to_factor.filter_segment_value(
                             "direction_od", 2
                         )
                     else:
-                        postme_adj_to = postme_adj_to.filter_segment_value(
+                        postme_adj_to_factor = postme_adj_to_factor.filter_segment_value(
                             "direction_od", 0
                         )
 
                 tem_return_home_attr_pm = tem_return_home_attr_balanced.__mul__(
-                    postme_adj_to, how="outer"
+                    postme_adj_to_factor, how="outer"
                 )
+
+                # get subset which is related to postme adjustment (e.g. tp 1,2,3 and m3) and calculate zone totals for that
+                pm_dvec = tem_return_home_attr_pm.filter_segment_value("tp", [1,2,3]).filter_segment_value("m", 3, keep_filtered=True)
+                attr_to_zone_tot_pm = pm_dvec.data.sum(axis=0)
+
+                # get subset which is not related to postme adjustment and calculate zone totals for that, to be used for adjusting the non-pm part of the prod to home
+                m3 = tem_return_home_attr_pm.filter_segment_value("m",3, keep_filtered=True)
+                non_m3 = tem_return_home_attr_pm.filter_segment_value("m",[1,2,4,5,6,7], keep_filtered=False)
+                non_m3_zone_tot = non_m3.data.sum(axis=0)
+                m3_tp_kept = m3.filter_segment_value("tp", [4,5,6], keep_filtered=True)
+                m3_tp_kept_zone_tot = m3_tp_kept.data.sum(axis=0)
+                attr_to_zone_tot_non_pm = non_m3_zone_tot + m3_tp_kept_zone_tot
+
+
+                # remove post-me related part of prod from prod from home zonal totals to get the target zone totals for the non-post-me part of prod to home, and calculate adjustment factor for that
+                targ_zone_tot_non_pm = attr_fr_zone_tot - attr_to_zone_tot_pm
+                adj_factor_non_pm = targ_zone_tot_non_pm / attr_to_zone_tot_non_pm
+
+                # adjust the non-post-me part of prod to home by multiplying with the adjustment factor
+                mask = (
+                    tem_return_home_attr_pm.data.index.get_level_values("m") == 3
+                ) & (
+                    tem_return_home_attr_pm.data.index.get_level_values("tp").isin([1, 2, 3])
+                )
+                tem_return_home_attr_pm_adj = tem_return_home_attr_pm.copy()
+                tem_return_home_attr_pm_adj.data.loc[~mask] = tem_return_home_attr_pm_adj.data.loc[~mask].mul(
+                    adj_factor_non_pm, axis="columns", level="normits_id"
+                )
+
+                # check that the adjusted prod to home matches prod from home zonal totals
+                print(f"Total after adjustment: {tem_return_home_attr_pm_adj.total:,.2f} (should match total from DVector: {tem_return_home_attr_pm.total:,.2f})")
+                pm_dvec_adj = tem_return_home_attr_pm_adj.filter_segment_value("tp", [1,2,3], keep_filtered=True).filter_segment_value("m", 3, keep_filtered=True)
+                attr_to_zone_tot_pm_adj = pm_dvec_adj.data.sum(axis=0)
+
+                # compare the adjusted pm part to the original pm part to confirm it has not changed
+                per_diff_pm = (attr_to_zone_tot_pm_adj - attr_to_zone_tot_pm) / attr_to_zone_tot_pm * 100
+                print(f"Percentage difference in PM part after adjustment (should be 0%): {per_diff_pm.sum():.6f}%")
 
                 tem_return_home_prod_pm = cb.DVector.load(
-                    self.production_model.export_paths.tem_segmented_return_home_pm[
-                        year
-                    ]
+                    self.production_model.export_paths.tem_segmented_return_home_pm[year]
                 )
-
+                agg_seg = [
+                    i
+                    for i in balanced_dvec.segmentation.naming_order
+                    if i not in ["p", "m", "tp"]
+                ]
+                attr_targ = balanced_dvec.aggregate(agg_seg).aggregate_comp_zones(
+                    self.model_zoning
+                )
+                targets = [
+                    cb.data_structures.IpfTarget(data=attr_targ),
+                    cb.data_structures.IpfTarget(data=tem_return_home_prod_pm.remove_zoning()),
+                ]
                 LOG.info(
                     "Matching return home attractions pm to from home attractions pm and "
                     "return home productions pm via IPF."
                 )
+                tem_return_home_attr_pm_adj_balanced, _ = tem_return_home_attr_pm_adj.aggregate_comp_zones(
+                    self.model_zoning
+                ).ipf(targets)
 
-                tem_return_home_attr_balanced = self._balance_to_production_pm(
-                    tem_return_home_attr_pm, tem_return_home_prod_pm
-                )
 
+                # # Hard coded NOHAM_SECTOR and might be removed once the ipf process gets improved to better handle multiple zoning systems
+                # tem_return_home_attr_ipf = tem_return_home_attr_ipf.composite_zoning(NOHAM_SECTOR)
+
+                # tem_return_home_prod_pm = cb.DVector.load(
+                #     self.production_model.export_paths.tem_segmented_return_home_pm[
+                #         year
+                #     ]
+                # )
+
+                # LOG.info(
+                #     "Matching return home attractions pm to from home attractions pm and "
+                #     "return home productions pm via IPF."
+                # )
+                # tem_return_home_attr_balanced = self._balance_to_production_pm(
+                #     tem_return_home_attr_pm, tem_return_home_prod_pm
+                # )
                 if export_tem_segmentation:
                     LOG.info(
                         f"Saving tem segmented attractions after postme adjustment to {export_paths.tem_segmented_return_home_pm[year]}"
                     )
-                    tem_return_home_attr_balanced.save(
+                    tem_return_home_attr_pm_adj_balanced.save(
                         export_paths.tem_segmented_return_home_pm[year]
                     )
 
