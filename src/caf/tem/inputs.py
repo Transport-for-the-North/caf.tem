@@ -871,7 +871,7 @@ class NHBProdParams:
 
     triprates: FilePath
     mts: FilePath
-    postme_adj_fr: FilePath
+    postme_adj_fr: FilePath | None = None
 
 
 class MainConfig(config_base.BaseConfig):
