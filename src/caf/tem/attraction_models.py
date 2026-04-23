@@ -382,7 +382,7 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
                             "direction_od", 0
                         )
 
-                balanced_dvec = balanced_dvec.__mul__(postme_adj_fr_factor, how="outer")
+                balanced_dvec = balanced_dvec.mul(postme_adj_fr_factor, how="outer")
                 # BALANCE TO PRODUCTIONS ## #
                 balanced_dvec = self._balance_to_production_pm(
                     balanced_dvec, tem_production_pm
@@ -424,7 +424,7 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
                 tem_return_home_attr_pm_adj = tem_return_home_attr_pm.balance_protect_subset(balanced_dvec, self.model_zoning, filters)
 
                 # check that the adjusted prod to home matches prod from home zonal totals
-                LOG.info(f"Total after adjustment: {tem_return_home_attr_pm_adj.total:,.2f} (should match total from DVector: {tem_return_home_attr_pm.total:,.2f})")
+                LOG.info(f"Total after adjustment: {tem_return_home_attr_pm_adj.total:,.2f} (should match total from DVector: {balanced_dvec.total:,.2f})")
 
                 tem_return_home_prod_pm = cb.DVector.load(
                     self.production_model.export_paths.tem_segmented_return_home_pm[year]

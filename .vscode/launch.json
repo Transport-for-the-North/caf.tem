@@ -1,0 +1,36 @@
+
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "TEM from Config File",
+            "type": "python",
+            "request": "launch",
+            "module": "caf.tem",
+            "args": [
+                "C:/Users/Isaac.Scott/Documents/GitHub/caf.tem/examples/example_config.yml"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "TEM from Config File (Custom Path)",
+            "type": "python",
+            "request": "launch",
+            "module": "caf.tem",
+            "args": [
+                "${input:configFilePath}"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": true
+        }
+    ],
+    "inputs": [
+        {
+            "id": "configFilePath",
+            "type": "promptString",
+            "description": "Enter the path to the config YAML file",
+            "default": "${workspaceFolder}/examples/example_config.yml"
+        }
+    ]
+}

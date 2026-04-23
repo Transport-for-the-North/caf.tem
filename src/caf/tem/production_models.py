@@ -231,7 +231,7 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
             postme_adj_fr_factor = cb.DVector.load(postme_adj_fr)
             if "direction_od" in postme_adj_fr_factor.segmentation:
                 postme_adj_fr_factor = postme_adj_fr_factor.filter_segment_value("direction_od", 1)
-            tem_production = tem_production.__mul__(postme_adj_fr_factor, how="outer")
+            tem_production = tem_production.mul(postme_adj_fr_factor, how="outer")
 
             # zonal totals for prod from home for checking and adjustment of prod to home
             prod_fr_zone_tot = tem_production.data.sum(axis=0)
@@ -255,7 +255,7 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
             postme_adj_to_factor = cb.DVector.load(postme_adj_to)
             if "direction_od" in postme_adj_to_factor.segmentation:
                 postme_adj_to_factor = postme_adj_to_factor.filter_segment_value("direction_od", 2)
-            tem_prod_to = tem_prod_to.__mul__(postme_adj_to_factor, how="outer")
+            tem_prod_to = tem_prod_to.mul(postme_adj_to_factor, how="outer")
 
             # get subset which is related to postme adjustment (e.g. tp 1,2,3 and m3) and calculate zone totals for that
             pm_dvec = tem_prod_to.filter_segment_value("tp", [1,2,3]).filter_segment_value("m", 3, keep_filtered=True)
@@ -718,7 +718,7 @@ class NHBProductionModel:
                     postme_adj_fr_factor = postme_adj_fr_factor.filter_segment_value(
                         "direction_od", 0
                     )
-                tem_production = mts_production.__mul__(postme_adj_fr_factor, how="outer")
+                tem_production = mts_production.mul(postme_adj_fr_factor, how="outer")
 
                 if export_tem_segmentation:
                     if self.model.export_paths is None:
