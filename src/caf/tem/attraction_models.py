@@ -389,9 +389,6 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
                 )
                 del tem_production_pm
 
-                # zonal totals for attn from home for checking and adjustment of prod to home
-                attr_fr_zone_tot = balanced_dvec.data.sum(axis=0)
-
                 # export the adjusted tem segmented attractions from home
                 if export_tem_segmentation:
                     LOG.info(

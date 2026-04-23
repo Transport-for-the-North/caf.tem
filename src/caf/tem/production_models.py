@@ -627,7 +627,7 @@ class NHBProductionModel:
         self.return_segmentation: cb.Segmentation = return_segmentation
         self.model_zoning: cb.ZoningSystem = self.model.model_zoning
         self.agg_zoning: cb.ZoningSystem = self.model.agg_zoning
-        self.postme_adj_fr: Path = params.postme_adj_fr
+        self.postme_adj_fr: Path | None = params.postme_adj_fr
 
     def run(
         self,
