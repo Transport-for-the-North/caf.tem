@@ -1,5 +1,6 @@
 # Required libraries
+caf.toolkit>=0.11
+pandas>=2.3
+pydantic>=2.11
+caf.base>=0.4
 
-# Example
-# numpy>=1.19.0
-# pandas>=1.4.0
