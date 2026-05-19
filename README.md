@@ -107,7 +107,7 @@ All code goes in here. Some files already exist:
 
 ### tests
 All tests go here.
-Tests should be written in pytest and should follow the same tsructure as the src package (minus the src/caf/{package_name}).
+Tests should be written in pytest and should follow the same structure as the src package (minus the src/caf/{package_name}).
 See the [pytest](https://docs.pytest.org/en/7.2.x/) documentation for full detail, or [caf.toolkit](https://github.com/Transport-for-the-North/caf.toolkit) for an example.
 
 

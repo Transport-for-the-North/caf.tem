@@ -119,10 +119,6 @@ def write_reports(dvec: cb.DVector, report_path, year: int) -> None:
         .ie_sector, .lad_report attributes, each indexed by year).
     year : int
         The year for which to write reports.
-
-    Returns
-    -------
-    None
     """
     dvec.write_sector_reports(
         segment_totals_path=report_path.segment_total[year],
@@ -370,15 +366,11 @@ class SharedProdAttrMethods(Generic[PARAMS]):
             1, direction=direction, log=False
         ).segmentation.naming_order
 
-        aggregation_segments = list(
+        aggregation_segments = [
             s
             for s in (set(self.tem_segmentation) ^ set(phi_segmentation))
-            if s
-            not in {
-                "m",
-                "tp",
-            }
-        )
+            if s not in {"m", "tp"}
+        ]
 
         tem_return_home_tripends = self.return_home_trip_ends(
             tem, aggregation_segments, direction=direction

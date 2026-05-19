@@ -35,7 +35,7 @@ from caf.tem.inputs import (
     ProductionModelPaths,
 )
 
-# pylint: disable=,too-few-public-methods
+# pylint: disable=too-few-public-methods
 LOG = logging.getLogger(__name__)
 
 
@@ -285,13 +285,20 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
             )
 
             # check that the adjusted prod to home matches prod from home zonal totals
-            print(f"Total after adjustment: {tem_prod_to_adj.total:,.2f} (should match total from DVector: {tem_production.total:,.2f})")
+            LOG.info(
+                "Total after adjustment: %s (should match total from DVector: %s)",
+                f"{tem_prod_to_adj.total:,.2f}",
+                f"{tem_production.total:,.2f}",
+            )
             pm_dvec_adj = tem_prod_to_adj.filter_segment_value("tp", [1,2,3], keep_filtered=True).filter_segment_value("m", 3, keep_filtered=True)
             prod_to_zone_tot_pm_adj = pm_dvec_adj.data.sum(axis=0)
 
             # compare the adjusted pm part to the original pm part to confirm it has not changed
             per_diff_pm = (prod_to_zone_tot_pm_adj - prod_to_zone_tot_pm) / prod_to_zone_tot_pm * 100
-            print(f"Percentage difference in PM part after adjustment (should be 0%): {per_diff_pm.sum():.6f}%")
+            LOG.info(
+                "Percentage difference in PM part after adjustment (should be 0%%): %.6f%%",
+                per_diff_pm.sum(),
+            )
 
             # export the adjusted prod to home
             if export_tem_segmentation:
@@ -453,7 +460,6 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
 
         return tem_return_home_prod_
 
-    # # # FUNCTIONS # # #
 
     def _create_pure_production(
         self, *, population: cb.DVector, trip_rates: cb.DVector
@@ -594,12 +600,8 @@ class NHBProductionModel:
         Paths to HB attraction model outputs for balancing.
     model : ProductionModelPaths
         Paths for exporting NHB production model data.
-    trip_rates_path : Path
-        Path to NHB production trip rates.
-    balance_production : Any
-        Balancing configuration or object.
-    mts_path : str
-        Path to NHB production time split.
+    params : NHBProdParams
+        Non-home-based production model parameters.
     return_segmentation : Any
         Segmentation object for return trips.
     """
@@ -664,7 +666,7 @@ class NHBProductionModel:
         LOG.info(f"Loading the trip rates data from {self.trip_rates_path}")
         trip_rates = cb.DVector.load(self.trip_rates_path)
 
-        LOG.info("Loading the mode time split data from {self.mts_path}")
+        LOG.info("Loading the mode time split data from %s", self.mts_path)
         mts = cb.DVector.load(self.mts_path)
 
         # Generate the nhb productions for each year

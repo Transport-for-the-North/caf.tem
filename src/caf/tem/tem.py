@@ -149,20 +149,8 @@ class TEM:
         ----------
         population : dict[int, Landuse]
             Dictionary mapping year to Landuse objects for population.
-        trip_rates_path : Path
-            Path to the production trip rates file.
-        mode_time_splits_path : Path
-            Path to the mode-time splits file.
-        phi_factors_path : Path, optional
-            Path to phi factor files for return-home calculations.
-        mts_return_home_path : Path, optional
-            Path to MTS return-home DVector file.
-        mts_return_home_adj_factor_path : Path, optional
-            Path to adjustment factors for MTS return-home.
-        adjustment_path : Path, optional
-            Path to adjustment factors for trip rates.
-        mts_adj_path : Path, optional
-            Path to adjustment factors for MTS.
+        params
+            Home-based production model parameters.
 
         Returns
         -------
@@ -263,12 +251,8 @@ class TEM:
 
         Parameters
         ----------
-        trip_rates_path : Path
-            Path to the NHB production trip rates file.
-        mode_time_splits_path : Path
-            Path to the mode-time splits file.
-        balance_production : bool, optional
-            Whether to balance production totals to match attractions (default: True).
+        params
+            Non-home-based production model parameters.
 
         Returns
         -------

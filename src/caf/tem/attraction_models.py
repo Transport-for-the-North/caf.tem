@@ -129,7 +129,8 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
         self.agg_zoning = agg_zoning
         self.zone_trans = translation
 
-    def run(  # pylint:disable=too-many-positional-arguments,too-many-locals,too-many-branches
+    # TODO(IS): refactor the method to adhere to pylint warnings #??
+    def run(  # pylint:disable=too-many-locals,too-many-branches
         self,
         export_pure_attractions: bool = True,
         export_tem_segmentation: bool = True,
@@ -155,10 +156,6 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
             Aggregate zoning to constrain post-MTS adjustment.
         return_tripends : bool, default False
             Whether to produce return home trip ends.
-
-        Returns
-        -------
-        None
         """
         # ## START ## #
 
@@ -552,7 +549,6 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
 
         return mts_production_adj
 
-    # Returns a year-specific dictionary of pure demand, for each purpose as the key
     def _create_attr_dict(
         self, landuses: dict[str, cb.DVector], trip_rates: dict[int, cb.DVector]
     ) -> dict[int, cb.DVector]:

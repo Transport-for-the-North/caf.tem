@@ -33,7 +33,7 @@ from pydantic import (
 
 
 # # # CLASSES # # #
-def _create_segmentation(seg_list: list[str] | cb.Segmentation):
+def _create_segmentation(seg_list: list[str] | cb.Segmentation) -> cb.Segmentation:
     """
     Create a :class:`cb.Segmentation` object.
 
@@ -135,7 +135,8 @@ class Landuse:
     ) -> cb.DVector:
         """Load a DVector from a file and aggregate to `segmentation` if provided."""
         lu = cb.DVector.load(source_path)
-        lu = lu.aggregate(segmentation)
+        if segmentation is not None:
+            lu = lu.aggregate(segmentation)
         return lu
 
     def _load_from_folder(
