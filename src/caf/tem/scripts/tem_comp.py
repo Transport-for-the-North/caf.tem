@@ -1,8 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+# Built-Ins
 from pathlib import Path
-import pandas as pd
+
+# Third Party
 import caf.base as cb
+import pandas as pd
 
 NOHAM = cb.ZoningSystem.get_zoning("noham_v3.8")
 NORMITS = cb.ZoningSystem.get_zoning("normits")
@@ -25,63 +28,99 @@ normits_noham_sector["noham_sector_id"] = normits_noham_sector[
 trip_ends_root = Path(r"C:\Users\YanZhu\caf_tem\Outputs\post_me_adj_9")
 prod_fr = cb.DVector.load(
     Path(
-        trip_ends_root / "Core" / "hb_productions" / "hb_normits_tem_segmented_fr_2023.dvec"
+        trip_ends_root
+        / "Core"
+        / "hb_productions"
+        / "hb_normits_tem_segmented_fr_2023.dvec"
     )
 )
 prod_to = cb.DVector.load(
     Path(
-        trip_ends_root / "Core" / "hb_productions" / "hb_normits_tem_segmented_to_2023.dvec"
+        trip_ends_root
+        / "Core"
+        / "hb_productions"
+        / "hb_normits_tem_segmented_to_2023.dvec"
     )
 )
 attr_fr = cb.DVector.load(
     Path(
-        trip_ends_root / "Core" / "hb_attractions" / "hb_normits_tem_segmented_fr_2023.dvec"
+        trip_ends_root
+        / "Core"
+        / "hb_attractions"
+        / "hb_normits_tem_segmented_fr_2023.dvec"
     )
 )
 attr_to = cb.DVector.load(
     Path(
-        trip_ends_root / "Core" / "hb_attractions" / "hb_normits_tem_segmented_to_2023.dvec"
+        trip_ends_root
+        / "Core"
+        / "hb_attractions"
+        / "hb_normits_tem_segmented_to_2023.dvec"
     )
 )
 nhb_prod = cb.DVector.load(
     Path(
-        trip_ends_root / "Core" / "nhb_productions" / "nhb_normits_tem_segmented_fr_2023.dvec"
+        trip_ends_root
+        / "Core"
+        / "nhb_productions"
+        / "nhb_normits_tem_segmented_fr_2023.dvec"
     )
 )
 nhb_attr = cb.DVector.load(
     Path(
-        trip_ends_root / "Core" / "nhb_attractions" / "nhb_normits_tem_segmented_fr_2023.dvec"
+        trip_ends_root
+        / "Core"
+        / "nhb_attractions"
+        / "nhb_normits_tem_segmented_fr_2023.dvec"
     )
 )
 
 pm_prod_fr = cb.DVector.load(
     Path(
-        trip_ends_root / "Core" / "hb_productions" / "hb_normits_tem_segmented_fr_pm_2023.dvec"
+        trip_ends_root
+        / "Core"
+        / "hb_productions"
+        / "hb_normits_tem_segmented_fr_pm_2023.dvec"
     )
 )
 pm_prod_to = cb.DVector.load(
     Path(
-        trip_ends_root / "Core" / "hb_productions" / "hb_normits_tem_segmented_to_pm_2023.dvec"
+        trip_ends_root
+        / "Core"
+        / "hb_productions"
+        / "hb_normits_tem_segmented_to_pm_2023.dvec"
     )
 )
 pm_attr_fr = cb.DVector.load(
     Path(
-        trip_ends_root / "Core" / "hb_attractions" / "hb_normits_tem_segmented_fr_pm_2023.dvec"
+        trip_ends_root
+        / "Core"
+        / "hb_attractions"
+        / "hb_normits_tem_segmented_fr_pm_2023.dvec"
     )
 )
 pm_attr_to = cb.DVector.load(
     Path(
-        trip_ends_root / "Core" / "hb_attractions" / "hb_normits_tem_segmented_to_pm_2023.dvec"
+        trip_ends_root
+        / "Core"
+        / "hb_attractions"
+        / "hb_normits_tem_segmented_to_pm_2023.dvec"
     )
 )
 pm_nhb_prod = cb.DVector.load(
     Path(
-        trip_ends_root / "Core" / "nhb_productions" / "nhb_normits_tem_segmented_fr_pm_2023.dvec"
+        trip_ends_root
+        / "Core"
+        / "nhb_productions"
+        / "nhb_normits_tem_segmented_fr_pm_2023.dvec"
     )
 )
 pm_nhb_attr = cb.DVector.load(
     Path(
-        trip_ends_root / "Core" / "nhb_attractions" / "nhb_normits_tem_segmented_fr_pm_2023.dvec"
+        trip_ends_root
+        / "Core"
+        / "nhb_attractions"
+        / "nhb_normits_tem_segmented_fr_pm_2023.dvec"
     )
 )
 

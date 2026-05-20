@@ -1,15 +1,20 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """Run TEM model with configuration file."""
+
+# Built-Ins
 from pathlib import Path
-import pandas as pd
+
 # Third Party
 import caf.base as cb
+import pandas as pd
 
 # Option A: Pass path as string
 output_path = Path(r"C:\Users\YanZhu\caf_tem\Outputs\post_me_adj_9\Core")
 hbp_pure_dmd = output_path / "hb_productions" / "hb_normits_pure_demand_2023.dvec"
-hbp_pure_dmd_aj = output_path / "hb_productions" / "hb_normits_pure_demand_adj_2023.dvec"
+hbp_pure_dmd_aj = (
+    output_path / "hb_productions" / "hb_normits_pure_demand_adj_2023.dvec"
+)
 hbp_mts_dmd = output_path / "hb_productions" / "hb_normits_mts_demand_2023.dvec"
 hbp_mts_dmd_aj = output_path / "hb_productions" / "hb_normits_mts_demand_adj_2023.dvec"
 hbp_fr = output_path / "hb_productions" / "hb_normits_tem_segmented_fr_2023.dvec"
@@ -17,7 +22,9 @@ hbp_fr_pm = output_path / "hb_productions" / "hb_normits_tem_segmented_fr_pm_202
 hbp_to = output_path / "hb_productions" / "hb_normits_tem_segmented_to_2023.dvec"
 hbp_to_pm = output_path / "hb_productions" / "hb_normits_tem_segmented_to_pm_2023.dvec"
 hba_pure_dmd = output_path / "hb_attractions" / "hb_normits_pure_demand_2023.dvec"
-hba_pure_dmd_aj = output_path / "hb_attractions" / "hb_normits_pure_demand_adj_2023.dvec"
+hba_pure_dmd_aj = (
+    output_path / "hb_attractions" / "hb_normits_pure_demand_adj_2023.dvec"
+)
 hba_mts_dmd = output_path / "hb_attractions" / "hb_normits_mts_demand_2023.dvec"
 hba_mts_dmd_aj = output_path / "hb_attractions" / "hb_normits_mts_demand_adj_2023.dvec"
 hba_fr = output_path / "hb_attractions" / "hb_normits_tem_segmented_fr_2023.dvec"
@@ -27,15 +34,22 @@ hba_to_pm = output_path / "hb_attractions" / "hb_normits_tem_segmented_to_pm_202
 
 nhbp_pure_dmd = output_path / "nhb_productions" / "nhb_normits_pure_demand_2023.dvec"
 nhbp_fr = output_path / "nhb_productions" / "nhb_normits_tem_segmented_fr_2023.dvec"
-nhbp_fr_pm = output_path / "nhb_productions" / "nhb_normits_tem_segmented_fr_pm_2023.dvec"
+nhbp_fr_pm = (
+    output_path / "nhb_productions" / "nhb_normits_tem_segmented_fr_pm_2023.dvec"
+)
 
 nhba_pure_dmd = output_path / "nhb_attractions" / "nhb_normits_pure_demand_2023.dvec"
-nhba_pure_dmd_aj = output_path / "nhb_attractions" / "nhb_normits_pure_demand_adj_2023.dvec"
+nhba_pure_dmd_aj = (
+    output_path / "nhb_attractions" / "nhb_normits_pure_demand_adj_2023.dvec"
+)
 nhba_mts_dmd = output_path / "nhb_attractions" / "nhb_normits_mts_demand_2023.dvec"
-nhba_mts_dmd_aj = output_path / "nhb_attractions" / "nhb_normits_mts_demand_adj_2023.dvec"
+nhba_mts_dmd_aj = (
+    output_path / "nhb_attractions" / "nhb_normits_mts_demand_adj_2023.dvec"
+)
 nhba_fr = output_path / "nhb_attractions" / "nhb_normits_tem_segmented_fr_2023.dvec"
-nhba_fr_pm = output_path / "nhb_attractions" / "nhb_normits_tem_segmented_fr_pm_2023.dvec"
-
+nhba_fr_pm = (
+    output_path / "nhb_attractions" / "nhb_normits_tem_segmented_fr_pm_2023.dvec"
+)
 
 
 # Load all DVectors
@@ -107,7 +121,6 @@ hb_p_fr_pm_tot = hb_p_fr_pm.total
 hb_p_to_pm_tot = hb_p_to_pm.total
 
 
-
 hb_a_pure_dmd_tot = hb_a_pure_dmd.total
 hb_a_pure_dmd_aj_tot = hb_a_pure_dmd_aj.total
 hb_a_mts_dmd_tot = hb_a_mts_dmd.total
@@ -177,7 +190,6 @@ print(hb_p_to_pm_df)
 print(f"\nTotal: {hb_p_to_pm.total:,.2f}\n")
 
 
-
 # Print detailed data for nhb
 print("=" * 60)
 print("NON HOME-BASED PURE DEMAND:")
@@ -217,51 +229,69 @@ print("=" * 60)
 
 
 # Combined Summary Table
-combined_summary = pd.DataFrame({
-    'Metric': ['Pure Demand', 'Pure Demand Adjusted', 'MTS Demand', 'MTS Demand Adjusted', 'From',  'To', 'From PostME', 'To PostME'],
-    'Productions': [
-        hb_p_pure_dmd_tot,
-        hb_p_pure_dmd_aj_tot,
-        hb_p_mts_dmd_tot,
-        hb_p_mts_dmd_aj_tot,
-        hb_p_fr_tot,
-        hb_p_to_tot,
-        hb_p_fr_pm_tot,
-        hb_p_to_pm_tot,
-    ],
-    'Attractions': [
-        hb_a_pure_dmd_tot,
-        hb_a_pure_dmd_aj_tot,
-        hb_a_mts_dmd_tot,
-        hb_a_mts_dmd_aj_tot,
-        hb_a_fr_tot,
-        hb_a_to_tot,
-        hb_a_fr_pm_tot,
-        hb_a_to_pm_tot,
+combined_summary = pd.DataFrame(
+    {
+        "Metric": [
+            "Pure Demand",
+            "Pure Demand Adjusted",
+            "MTS Demand",
+            "MTS Demand Adjusted",
+            "From",
+            "To",
+            "From PostME",
+            "To PostME",
+        ],
+        "Productions": [
+            hb_p_pure_dmd_tot,
+            hb_p_pure_dmd_aj_tot,
+            hb_p_mts_dmd_tot,
+            hb_p_mts_dmd_aj_tot,
+            hb_p_fr_tot,
+            hb_p_to_tot,
+            hb_p_fr_pm_tot,
+            hb_p_to_pm_tot,
+        ],
+        "Attractions": [
+            hb_a_pure_dmd_tot,
+            hb_a_pure_dmd_aj_tot,
+            hb_a_mts_dmd_tot,
+            hb_a_mts_dmd_aj_tot,
+            hb_a_fr_tot,
+            hb_a_to_tot,
+            hb_a_fr_pm_tot,
+            hb_a_to_pm_tot,
+        ],
+    }
+)
 
-    ]
-})
-
-nhb_combined_summary = pd.DataFrame({
-    'Metric': ['Pure Demand', 'Pure Demand Adjusted', 'MTS Demand', 'MTS Demand Adjusted', 'From', 'From PostME'],
-    'Productions': [
-        nhb_p_pure_dmd_tot,
-        None,
-        None,
-        None,
-        nhb_p_fr_tot,
-        nhb_p_fr_pm_tot,
-
-    ],
-    'Attractions': [
-        nhb_a_pure_dmd_tot,
-        nhb_a_pure_dmd_aj_tot,
-        nhb_a_mts_dmd_tot,
-        nhb_a_mts_dmd_aj_tot,
-        nhb_a_fr_tot,
-        nhb_a_fr_pm_tot,
-    ]
-})
+nhb_combined_summary = pd.DataFrame(
+    {
+        "Metric": [
+            "Pure Demand",
+            "Pure Demand Adjusted",
+            "MTS Demand",
+            "MTS Demand Adjusted",
+            "From",
+            "From PostME",
+        ],
+        "Productions": [
+            nhb_p_pure_dmd_tot,
+            None,
+            None,
+            None,
+            nhb_p_fr_tot,
+            nhb_p_fr_pm_tot,
+        ],
+        "Attractions": [
+            nhb_a_pure_dmd_tot,
+            nhb_a_pure_dmd_aj_tot,
+            nhb_a_mts_dmd_tot,
+            nhb_a_mts_dmd_aj_tot,
+            nhb_a_fr_tot,
+            nhb_a_fr_pm_tot,
+        ],
+    }
+)
 
 # Display summary tables
 
@@ -313,7 +343,6 @@ print(combined_summary.to_string(index=False))
 # print(f"Percentage difference in PM part after adjustment (should be 0%): {per_diff_pm.sum():.6f}%")
 
 
-
 def get_zone_totals(dvec):
     """Get zone totals from a DVector, handling both single and composite zoning."""
     # Sum across all segments (rows) to get totals for each zone (column)
@@ -346,15 +375,12 @@ attractions_to_pm_zones = get_zone_totals(hb_a_to_pm)
 print("Zone totals calculated successfully.")
 
 
-
-
-
-
-
 # Compare productions fr and to
 print("\n" + "=" * 60)
 print("COMPARING PRODUCTIONS FR AND TO:")
 print("=" * 60)
+
+
 def get_zone_code(idx):
     """Extract the actual zone ID — usually the last (or 4th) element if tuple"""
     if isinstance(idx, tuple):
@@ -362,52 +388,55 @@ def get_zone_code(idx):
         code = idx[-1]
     else:
         code = idx
-    
+
     # Convert to int — fail loudly if impossible
     try:
         return int(code)
     except (ValueError, TypeError) as e:
         print(f"Cannot convert to int: {idx!r} → {code!r}")
         raise e
+
+
 # ────────────────────────────────
 # FR side: map to zone code + aggregate duplicates
 # ────────────────────────────────
 p_fr_clean = pd.Series(
     data=productions_fr_pm_zones.values,
-    index=productions_fr_pm_zones.index.map(get_zone_code)
+    index=productions_fr_pm_zones.index.map(get_zone_code),
 )
 # Important: sum values that map to the same zone code
 p_fr_by_zone = p_fr_clean.groupby(p_fr_clean.index).sum().reset_index()
-p_fr_by_zone.columns = ['normits_id', 'fr_value']          # rename for clarity
+p_fr_by_zone.columns = ["normits_id", "fr_value"]  # rename for clarity
 
 # ────────────────────────────────
 # TO side: usually already flat integers, but make sure
 # ────────────────────────────────
 p_to_clean = pd.Series(
     data=productions_to_pm_zones.values,
-    index=productions_to_pm_zones.index.map(get_zone_code)
+    index=productions_to_pm_zones.index.map(get_zone_code),
 )
 # Important: sum values that map to the same zone code
 p_to_by_zone = p_to_clean.groupby(p_to_clean.index).sum().reset_index()
-p_to_by_zone.columns = ['normits_id', 'to_value']
+p_to_by_zone.columns = ["normits_id", "to_value"]
 
 # ── Merge the two DataFrames on normits_id ─────────────────────────
 prod_comp_df = pd.merge(
     p_fr_by_zone,
     p_to_by_zone,
-    on='normits_id',
-    how='outer'               # keep all zones from both sides
+    on="normits_id",
+    how="outer",  # keep all zones from both sides
 ).fillna(0)
 
 
-
-prod_comp_df['difference'] = prod_comp_df['to_value'] - prod_comp_df['fr_value']
-prod_comp_df['perc_diff'] = 0.0
-mask = prod_comp_df['fr_value'] != 0
-prod_comp_df.loc[mask, 'perc_diff'] = (prod_comp_df.loc[mask, 'difference'] / prod_comp_df.loc[mask, 'fr_value']) * 100
-mask_inf = (prod_comp_df['fr_value'] == 0) & (prod_comp_df['to_value'] != 0)
-prod_comp_df.loc[mask_inf, 'perc_diff'] = float('inf')
-count_prod = (abs(prod_comp_df['perc_diff']) > 0.1).sum()
+prod_comp_df["difference"] = prod_comp_df["to_value"] - prod_comp_df["fr_value"]
+prod_comp_df["perc_diff"] = 0.0
+mask = prod_comp_df["fr_value"] != 0
+prod_comp_df.loc[mask, "perc_diff"] = (
+    prod_comp_df.loc[mask, "difference"] / prod_comp_df.loc[mask, "fr_value"]
+) * 100
+mask_inf = (prod_comp_df["fr_value"] == 0) & (prod_comp_df["to_value"] != 0)
+prod_comp_df.loc[mask_inf, "perc_diff"] = float("inf")
+count_prod = (abs(prod_comp_df["perc_diff"]) > 0.1).sum()
 print(prod_comp_df)
 print(f"\nNumber of zones with percentage difference above 0.1%: {count_prod}")
 
@@ -421,42 +450,43 @@ print("=" * 60)
 # ────────────────────────────────
 a_fr_clean = pd.Series(
     data=attractions_fr_pm_zones.values,
-    index=attractions_fr_pm_zones.index.map(get_zone_code)
+    index=attractions_fr_pm_zones.index.map(get_zone_code),
 )
 
 # Important: sum values that map to the same zone code
 a_fr_by_zone = a_fr_clean.groupby(a_fr_clean.index).sum().reset_index()
-a_fr_by_zone.columns = ['normits_id', 'fr_value']          # rename for clarity
+a_fr_by_zone.columns = ["normits_id", "fr_value"]  # rename for clarity
 
 # ────────────────────────────────
 # TO side: usually already flat integers, but make sure
 # ────────────────────────────────
 a_to_clean = pd.Series(
     data=attractions_to_pm_zones.values,
-    index=attractions_to_pm_zones.index.map(get_zone_code)
+    index=attractions_to_pm_zones.index.map(get_zone_code),
 )
 
 a_to_by_zone = a_to_clean.groupby(a_to_clean.index).sum().reset_index()
-a_to_by_zone.columns = ['normits_id', 'to_value']
-
+a_to_by_zone.columns = ["normits_id", "to_value"]
 
 
 # ── Merge the two DataFrames on normits_id ─────────────────────────
 attr_comp_df = pd.merge(
     a_fr_by_zone,
     a_to_by_zone,
-    on='normits_id',
-    how='outer'               # keep all zones from both sides
+    on="normits_id",
+    how="outer",  # keep all zones from both sides
 ).fillna(0)
 
-attr_comp_df['difference'] = attr_comp_df['to_value'] - attr_comp_df['fr_value']
+attr_comp_df["difference"] = attr_comp_df["to_value"] - attr_comp_df["fr_value"]
 
-attr_comp_df['perc_diff'] = 0.0
-mask = attr_comp_df['fr_value'] != 0
-attr_comp_df.loc[mask, 'perc_diff'] = (attr_comp_df.loc[mask, 'difference'] / attr_comp_df.loc[mask, 'fr_value']) * 100
-mask_inf = (attr_comp_df['fr_value'] == 0) & (attr_comp_df['to_value'] != 0)
-attr_comp_df.loc[mask_inf, 'perc_diff'] = float('inf')
-count_attr = (abs(attr_comp_df['perc_diff']) > 0.1).sum()
+attr_comp_df["perc_diff"] = 0.0
+mask = attr_comp_df["fr_value"] != 0
+attr_comp_df.loc[mask, "perc_diff"] = (
+    attr_comp_df.loc[mask, "difference"] / attr_comp_df.loc[mask, "fr_value"]
+) * 100
+mask_inf = (attr_comp_df["fr_value"] == 0) & (attr_comp_df["to_value"] != 0)
+attr_comp_df.loc[mask_inf, "perc_diff"] = float("inf")
+count_attr = (abs(attr_comp_df["perc_diff"]) > 0.1).sum()
 print(attr_comp_df)
 print(f"\nNumber of zones with percentage difference above 0.1%: {count_attr}")
 
@@ -472,17 +502,29 @@ combined_summary.to_csv(export_path / "summary_combined_2023.csv", index=False)
 nhb_combined_summary.to_csv(export_path / "summary_nhb_combined_2023.csv", index=False)
 
 # Export zone totals to separate CSV files
-productions_pure_dmd_zones.to_csv(export_path / "zone_totals_productions_pure_demand.csv")
-productions_pure_dmd_adj_zones.to_csv(export_path / "zone_totals_productions_pure_demand_adj.csv")
+productions_pure_dmd_zones.to_csv(
+    export_path / "zone_totals_productions_pure_demand.csv"
+)
+productions_pure_dmd_adj_zones.to_csv(
+    export_path / "zone_totals_productions_pure_demand_adj.csv"
+)
 productions_mts_dmd_zones.to_csv(export_path / "zone_totals_productions_mts_demand.csv")
-productions_mts_dmd_adj_zones.to_csv(export_path / "zone_totals_productions_mts_demand_adj.csv")
+productions_mts_dmd_adj_zones.to_csv(
+    export_path / "zone_totals_productions_mts_demand_adj.csv"
+)
 productions_fr_zones.to_csv(export_path / "zone_totals_productions_from.csv")
 productions_to_zones.to_csv(export_path / "zone_totals_productions_to.csv")
 
-attractions_pure_dmd_zones.to_csv(export_path / "zone_totals_attractions_pure_demand.csv")
-attractions_pure_dmd_adj_zones.to_csv(export_path / "zone_totals_attractions_pure_demand_adj.csv")
+attractions_pure_dmd_zones.to_csv(
+    export_path / "zone_totals_attractions_pure_demand.csv"
+)
+attractions_pure_dmd_adj_zones.to_csv(
+    export_path / "zone_totals_attractions_pure_demand_adj.csv"
+)
 attractions_mts_dmd_zones.to_csv(export_path / "zone_totals_attractions_mts_demand.csv")
-attractions_mts_dmd_adj_zones.to_csv(export_path / "zone_totals_attractions_mts_demand_adj.csv")
+attractions_mts_dmd_adj_zones.to_csv(
+    export_path / "zone_totals_attractions_mts_demand_adj.csv"
+)
 attractions_fr_zones.to_csv(export_path / "zone_totals_attractions_from.csv")
 attractions_to_zones.to_csv(export_path / "zone_totals_attractions_to.csv")
 
