@@ -49,28 +49,20 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
 
     Parameters
     ----------
-    model : ProductionModelPaths
-        Paths for exporting HB production model data.
-    population : dict[int, Landuse]
-        Mapping of year to population land use data.
-    trip_rates_path : Path
-        Path to the production trip rates DVector file.
-    trip_rate_adjustment_path : Path
-        Path to adjustment factors for trip rates.
-    mts_path : Path
-        Path to mode-time split (MTS) DVector file.
-    mts_adjustment_path : Path
-        Path to adjustment factors for MTS.
+    params : HBProdParams
+        Home-based production model parameters.
+
     tem_segmentation : cbase.Segmentation
         Segmentation object for TEM output.
+
+    model : ProductionModelPaths
+        Paths for exporting HB production model data.
+
+    population : dict[int, Landuse]
+        Mapping of year to population land use data.
+
     translation : pd.DataFrame
         DataFrame for translating zone identifiers.
-    phi_factors_path : Path, optional
-        Path to phi factor files for return-home calculations.
-    mts_return_home_path : Path, optional
-        Path to MTS return-home DVector file.
-    mts_return_home_adj_factor_path : Path, optional
-        Path to adjustment factors for MTS return-home.
     """
 
     def __init__(
@@ -216,6 +208,8 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
             export_tem_segmentation=export_tem_segmentation,
             mts_geo_constraint=mts_geo_constraint,
         )
+        prod_fr_zone_tot = tem_production.data.sum(axis=0)
+        tem_prod_to: cbase.DVector | None = None
 
         # 3) Optional return-home
         if return_tripends:
@@ -249,6 +243,10 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
             
 
         if postme_adj_to is not None:
+            if not return_tripends or tem_prod_to is None:
+                raise ValueError(
+                    "postme_adj_to requires return_tripends=True and successful return-home generation"
+                )
             LOG.info(
                 f"Applying post me adjustment factors saved here: {postme_adj_to}"
             )
