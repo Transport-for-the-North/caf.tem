@@ -49,39 +49,23 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
 
     Parameters
     ----------
+    params : AttrParams
+        Attraction model parameters, including paths and balancing options.
+
+    tem_segmentation : cbase.Segmentation
+        The final return segmentation.
+
     production_model : ProductionModelPaths
         Paths to files or configurations required for the production-side modeling.
 
     model : AttractionModelPaths
         Paths to input and output resources required by the attraction model.
 
-    trip_rates_paths : dict[int, os.PathLike]
-        A dictionary mapping purposes to trip rate DVector file paths.
-
-    trip_rate_adj_path : os.PathLike
-        Path to the file containing adjustment factors for trip balancing or calibration.
-
-    balance_production : BalancingZones or bool
-        Either a `BalancingZones` object specifying zone-level production constraints,
-        or a boolean indicating whether to apply production balancing.
-
     emp_landuse : dict[int, Landuse]
         Mapping of years to employment-based land use data used for estimating attractions.
 
     hh_landuse : dict[int, Landuse]
         Mapping of years to household-based land use data for modeling return-home or home-based trips.
-
-    mts_path : os.PathLike
-        Path to the mode time split (MTS) file.
-
-    mts_adjustment_path : os.PathLike
-        Path to the MTS adjustment factors file, used to adjust trips.
-
-    tem_segmentation : cbase.Segmentation
-        The final return segmentation.
-
-    mts_uni_path : os.PathLike
-        Path to the file containing university-specific MTS data.
 
     model_zoning : cbase.ZoningSystem
         Zoning system used for core modeling (e.g., small area zones, LSOAs, or custom units).
@@ -92,15 +76,6 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
     translation : pd.DataFrame
         A DataFrame used to map or translate zone/system identifiers across different zoning systems
         (e.g., from model zones to aggregated zones).
-
-    phi_factors_path : os.PathLike, optional
-        Path to the phi factor DVectors used for return home trip generation.
-
-    mts_return_home_path : os.PathLike, optional
-        Path to the MTS return-home trip data file.
-
-    mts_return_home_adj_factor_path : os.PathLike, optional
-        Path to the file containing return-home adjustment factors.
     """
 
     def __init__(  # pylint:disable=too-many-arguments,too-many-positional-arguments,too-many-locals
@@ -163,10 +138,14 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
         # If all exports are False, then the run() function is redundant.
         start_time = ctk.timing.current_milli_time()
         LOG.info("Starting attraction Model")
-        assert self.production_model.export_paths is not None
-        assert self.production_model.report_paths is not None
-        assert self.model.export_paths is not None
-        assert self.model.report_paths is not None
+        if self.production_model.export_paths is None:
+            raise ValueError("production_model.export_paths cannot be None")
+        if self.production_model.report_paths is None:
+            raise ValueError("production_model.report_paths cannot be None")
+        if self.model.export_paths is None:
+            raise ValueError("model.export_paths cannot be None")
+        if self.model.report_paths is None:
+            raise ValueError("model.report_paths cannot be None")
 
         if not (export_pure_attractions or export_tem_segmentation or export_reports):
             LOG.info("All exports set to False. Run not executed.")
@@ -189,8 +168,8 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
                     )
 
         # ## CONSTANTS ## #
-        report_paths = self.model.report_paths
-        export_paths = self.model.export_paths
+        self.model.report_paths
+        self.model.export_paths
 
         # ## READ INPUTS ## #
         # Read in the trip rates DVector files for each purpose. Trip rates are not year dependent.
@@ -218,6 +197,7 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
                 mts_uni = None
 
         # For each year the model is running for...
+        # TODO issue #31 IS/MB
         for year in self.years:
             # Read in the landuses dvec files specific to the year.
             landuses: dict[str, cbase.DVector] = {
@@ -274,12 +254,8 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
                 tem_production = cbase.DVector.load(
                     self.production_model.export_paths.tem_segmented_from_home[year]
                 )
-            if os.path.exists(
-                self.production_model.export_paths.tem_segmented_from_home_pm[year]
-            ):
-                tem_production_pm = cbase.DVector.load(
-                    self.production_model.export_paths.tem_segmented_from_home_pm[year]
-                )
+            else:
+                raise FileNotFoundError(f"{self.production_model.export_paths.tem_segmented_from_home[year]} does not exist.")
             if (
                 mts_dict_adj.keys()
                 != tem_production.segmentation.get_segment("p").values.keys()
@@ -313,19 +289,19 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
             # ## TEM SEGMENTATION EXPORT ## #
             if export_reports:
                 LOG.info(
-                    f"Writing reports for tem segmented attractions to {report_paths.tem_segmented_from_home}"
+                    f"Writing reports for tem segmented attractions to {self.model.report_paths.tem_segmented_from_home}"
                 )
                 utils.write_reports(
                     balanced_dvec.aggregate_comp_zones(self.model_zoning),
-                    report_paths.tem_segmented_from_home,
+                    self.model.report_paths.tem_segmented_from_home,
                     year,
                 )
 
             if export_tem_segmentation:
                 LOG.info(
-                    f"Saving tem segmented attractions to {export_paths.tem_segmented_from_home[year]}"
+                    f"Saving tem segmented attractions to {self.model.export_paths.tem_segmented_from_home[year]}"
                 )
-                balanced_dvec.save(export_paths.tem_segmented_from_home[year])
+                balanced_dvec.save(self.model.export_paths.tem_segmented_from_home[year])
 
             if return_tripends:
                 tem_return_home_attr = self.create_tem_return_home(
@@ -358,13 +334,22 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
                 tem_return_home_attr_balanced, _ = tem_return_home_attr.ipf(targets)
 
                 LOG.info(
-                    f"Saving return home attractions to {export_paths.tem_segmented_return_home[year]}"
+                    f"Saving return home attractions to {self.model.export_paths.tem_segmented_return_home[year]}"
                 )
                 tem_return_home_attr_balanced.save(
-                    export_paths.tem_segmented_return_home[year]
+                    self.model.export_paths.tem_segmented_return_home[year]
                 )
 
             if self.params.postme_adj_fr is not None:
+                if os.path.exists(
+                    self.production_model.export_paths.tem_segmented_from_home_pm[year]
+                ):
+                    tem_production_pm = cbase.DVector.load(
+                        self.production_model.export_paths.tem_segmented_from_home_pm[year]
+                    )
+                else:
+                    raise FileNotFoundError(f"{self.production_model.export_paths.tem_segmented_from_home_pm[year]} does not exist."
+                                            " This file is needed to balance post_me adjusted attractions to.")
                 LOG.info(
                     f"Applying post me adjustment factors saved here: {self.params.postme_adj_fr}"
                 )
@@ -389,9 +374,9 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
                 # export the adjusted tem segmented attractions from home
                 if export_tem_segmentation:
                     LOG.info(
-                        f"Saving tem segmented attractions after postme adjustment to {export_paths.tem_segmented_from_home_pm[year]}"
+                        f"Saving tem segmented attractions after postme adjustment to {self.model.export_paths.tem_segmented_from_home_pm[year]}"
                     )
-                    balanced_dvec.save(export_paths.tem_segmented_from_home_pm[year])
+                    balanced_dvec.save(self.model.export_paths.tem_segmented_from_home_pm[year])
             del tem_dvec, mts_dict_adj, tem_production
 
             if self.params.postme_adj_to is not None:
@@ -419,10 +404,13 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
 
                 # check that the adjusted prod to home matches prod from home zonal totals
                 LOG.info(f"Total after adjustment: {tem_return_home_attr_pm_adj.total:,.2f} (should match total from DVector: {balanced_dvec.total:,.2f})")
-
-                tem_return_home_prod_pm = cbase.DVector.load(
-                    self.production_model.export_paths.tem_segmented_return_home_pm[year]
-                )
+                if os.path.exists(self.production_model.export_paths.tem_segmented_return_home_pm[year]):
+                    tem_return_home_prod_pm = cbase.DVector.load(
+                        self.production_model.export_paths.tem_segmented_return_home_pm[year]
+                    )
+                else:
+                    raise FileNotFoundError(f"{self.production_model.export_paths.tem_segmented_return_home_pm[year]} does not exist."
+                                            " This file is needed to balance post_me adjusted attractions to.")
                 agg_seg = [
                     i
                     for i in balanced_dvec.segmentation.naming_order
@@ -443,10 +431,10 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
                 
                 if export_tem_segmentation:
                     LOG.info(
-                        f"Saving tem segmented attractions after postme adjustment to {export_paths.tem_segmented_return_home_pm[year]}"
+                        f"Saving tem segmented attractions after postme adjustment to {self.model.export_paths.tem_segmented_return_home_pm[year]}"
                     )
                     tem_return_home_attr_pm_adj_balanced.save(
-                        export_paths.tem_segmented_return_home_pm[year]
+                        self.model.export_paths.tem_segmented_return_home_pm[year]
                     )
 
     def _read_trip_rate(self, p: int) -> cbase.DVector:
