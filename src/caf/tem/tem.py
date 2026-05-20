@@ -81,7 +81,7 @@ class TEM:
         return_segmentation: list[str] | cbase.Segmentation,
         trans_file: Path,
     ):
-        self.years = model_years
+        self._years = model_years
         self._scenario = Scenarios(scenario)
         self._output_zoning = output_zoning
         self._agg_zoning = agg_zoning
@@ -121,7 +121,7 @@ class TEM:
         ValueError
             If there are extra or missing years in the input dictionary.
         """
-        years_set = set(self.years)
+        years_set = set(self._years)
         dict_years_set = set(to_check.keys())
         extra = dict_years_set.difference(years_set)
         if len(extra) > 0:
@@ -142,14 +142,15 @@ class TEM:
         """
         Initialize and return the Home-Based (HB) Production Model.
 
-        This method sets up the HBProductionModel with the provided population and trip rate data,
-        mode-time splits, and optional adjustment and return-home files.
+        This method sets up the HBProductionModel using population land use data and a
+        params object that encapsulates trip rates, mode-time splits, and optional
+        adjustment settings.
 
         Parameters
         ----------
         population : dict[int, Landuse]
             Dictionary mapping year to Landuse objects for population.
-        params
+        params : HBProdParams
             Home-based production model parameters.
 
         Returns
@@ -177,33 +178,18 @@ class TEM:
         """
         Initialize and return the Attraction Model (HB or NHB).
 
-        This method sets up the AttractionModel with the provided trip rates, land use data,
-        mode-time splits, and optional adjustment and return-home files.
+        This method sets up the AttractionModel using employment and household land use
+        data plus a params object that encapsulates trip rates, mode-time splits,
+        balancing options, and optional adjustment settings.
 
         Parameters
         ----------
-        trip_rates_paths : dict[int, Path]
-            Dictionary mapping purpose to trip rates file paths.
         emp_landuse : dict[int, Landuse]
             Dictionary mapping year to employment Landuse objects.
         hh_landuse : dict[int, Landuse]
             Dictionary mapping year to household Landuse objects.
-        mode_time_splits_path : Path
-            Path to the mode-time splits file.
-        balance_production : bool, optional
-            Whether to balance attractions to productions (default: True).
-        trip_rate_adjustment_path : Path, optional
-            Path to adjustment factors for trip rates.
-        mode_time_splits_adjustment_path : Path, optional
-            Path to adjustment factors for mode-time splits.
-        mts_uni_path : Path, optional
-            Path to university-specific MTS data.
-        mts_return_home_path : Path, optional
-            Path to MTS return-home DVector file.
-        mts_return_home_adj_factor_path : Path, optional
-            Path to adjustment factors for MTS return-home.
-        phi_factors_path : Path, optional
-            Path to phi factor files for return-home calculations.
+        params : AttrParams
+            Attraction model parameters.
         origin : Literal["hb", "nhb"], optional
             Whether this is a home-based or non-home-based model (default: "hb").
 
