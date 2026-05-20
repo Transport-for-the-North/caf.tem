@@ -11,7 +11,6 @@ production and attraction models.
 from __future__ import annotations
 
 # Built-Ins
-# Built-Ins TODO tidy this file
 import enum
 import warnings
 from dataclasses import dataclass
@@ -62,7 +61,7 @@ def _create_zoningsystem(
     zoning: str | cbase.ZoningSystem | list[str | cbase.ZoningSystem],
 ) -> cbase.ZoningSystem | list[str | cbase.ZoningSystem] | list[Any]:
     """
-    Create a cbase.ZoningSystem object (or list of them) from a string, existing ZoningSystem, or list.
+    Create a :class:`~cbase.ZoningSystem` object (or list of them) from a string, existing ZoningSystem, or list.
 
     Parameters
     ----------
