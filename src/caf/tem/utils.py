@@ -344,7 +344,10 @@ class SharedProdAttrMethods(Generic[PARAMS]):
         return adj_factors
 
     def create_tem_return_home(
-        self, tem: cbase.DVector, direction: str, geo_constraint: cbase.ZoningSystem | None
+        self,
+        tem: cbase.DVector,
+        direction: str,
+        geo_constraint: cbase.ZoningSystem | None,
     ):
         """
         Create TEM-segmented return-home vector.

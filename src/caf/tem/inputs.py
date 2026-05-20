@@ -32,7 +32,9 @@ from pydantic import (
 
 
 # # # CLASSES # # #
-def _create_segmentation(seg_list: list[str] | cbase.Segmentation) -> cbase.Segmentation:
+def _create_segmentation(
+    seg_list: list[str] | cbase.Segmentation,
+) -> cbase.Segmentation:
     """
     Create a :class:`cbase.Segmentation` object.
 

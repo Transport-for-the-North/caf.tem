@@ -255,7 +255,9 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
                     self.production_model.export_paths.tem_segmented_from_home[year]
                 )
             else:
-                raise FileNotFoundError(f"{self.production_model.export_paths.tem_segmented_from_home[year]} does not exist.")
+                raise FileNotFoundError(
+                    f"{self.production_model.export_paths.tem_segmented_from_home[year]} does not exist."
+                )
             if (
                 mts_dict_adj.keys()
                 != tem_production.segmentation.get_segment("p").values.keys()
@@ -301,7 +303,9 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
                 LOG.info(
                     f"Saving tem segmented attractions to {self.model.export_paths.tem_segmented_from_home[year]}"
                 )
-                balanced_dvec.save(self.model.export_paths.tem_segmented_from_home[year])
+                balanced_dvec.save(
+                    self.model.export_paths.tem_segmented_from_home[year]
+                )
 
             if return_tripends:
                 tem_return_home_attr = self.create_tem_return_home(
@@ -345,23 +349,27 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
                     self.production_model.export_paths.tem_segmented_from_home_pm[year]
                 ):
                     tem_production_pm = cbase.DVector.load(
-                        self.production_model.export_paths.tem_segmented_from_home_pm[year]
+                        self.production_model.export_paths.tem_segmented_from_home_pm[
+                            year
+                        ]
                     )
                 else:
-                    raise FileNotFoundError(f"{self.production_model.export_paths.tem_segmented_from_home_pm[year]} does not exist."
-                                            " This file is needed to balance post_me adjusted attractions to.")
+                    raise FileNotFoundError(
+                        f"{self.production_model.export_paths.tem_segmented_from_home_pm[year]} does not exist."
+                        " This file is needed to balance post_me adjusted attractions to."
+                    )
                 LOG.info(
                     f"Applying post me adjustment factors saved here: {self.params.postme_adj_fr}"
                 )
-                postme_adj_fr_factor= cbase.DVector.load(self.params.postme_adj_fr)
+                postme_adj_fr_factor = cbase.DVector.load(self.params.postme_adj_fr)
                 if "direction_od" in postme_adj_fr_factor.segmentation:
                     if self.model.trip_origin == "hb":
-                        postme_adj_fr_factor = postme_adj_fr_factor.filter_segment_value(
-                            "direction_od", 1
+                        postme_adj_fr_factor = (
+                            postme_adj_fr_factor.filter_segment_value("direction_od", 1)
                         )
                     else:
-                        postme_adj_fr_factor = postme_adj_fr_factor.filter_segment_value(
-                            "direction_od", 0
+                        postme_adj_fr_factor = (
+                            postme_adj_fr_factor.filter_segment_value("direction_od", 0)
                         )
 
                 balanced_dvec = balanced_dvec.mul(postme_adj_fr_factor, how="outer")
@@ -376,7 +384,9 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
                     LOG.info(
                         f"Saving tem segmented attractions after postme adjustment to {self.model.export_paths.tem_segmented_from_home_pm[year]}"
                     )
-                    balanced_dvec.save(self.model.export_paths.tem_segmented_from_home_pm[year])
+                    balanced_dvec.save(
+                        self.model.export_paths.tem_segmented_from_home_pm[year]
+                    )
             del tem_dvec, mts_dict_adj, tem_production
 
             if self.params.postme_adj_to is not None:
@@ -386,31 +396,47 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
                 postme_adj_to_factor = cbase.DVector.load(self.params.postme_adj_to)
                 if "direction_od" in postme_adj_to_factor.segmentation:
                     if self.model.trip_origin == "hb":
-                        postme_adj_to_factor = postme_adj_to_factor.filter_segment_value(
-                            "direction_od", 2
+                        postme_adj_to_factor = (
+                            postme_adj_to_factor.filter_segment_value("direction_od", 2)
                         )
                     else:
-                        postme_adj_to_factor = postme_adj_to_factor.filter_segment_value(
-                            "direction_od", 0
+                        postme_adj_to_factor = (
+                            postme_adj_to_factor.filter_segment_value("direction_od", 0)
                         )
 
                 tem_return_home_attr_pm = tem_return_home_attr_balanced.mul(
                     postme_adj_to_factor, how="outer"
                 )
-                filters = {'m': postme_adj_to_factor.segmentation.input.subsets['m'],
-                           'tp': postme_adj_to_factor.segmentation.input.subsets['tp']}
-                
-                tem_return_home_attr_pm_adj = tem_return_home_attr_pm.balance_protect_subset(balanced_dvec, self.model_zoning, filters)
+                filters = {
+                    "m": postme_adj_to_factor.segmentation.input.subsets["m"],
+                    "tp": postme_adj_to_factor.segmentation.input.subsets["tp"],
+                }
+
+                tem_return_home_attr_pm_adj = (
+                    tem_return_home_attr_pm.balance_protect_subset(
+                        balanced_dvec, self.model_zoning, filters
+                    )
+                )
 
                 # check that the adjusted prod to home matches prod from home zonal totals
-                LOG.info(f"Total after adjustment: {tem_return_home_attr_pm_adj.total:,.2f} (should match total from DVector: {balanced_dvec.total:,.2f})")
-                if os.path.exists(self.production_model.export_paths.tem_segmented_return_home_pm[year]):
+                LOG.info(
+                    f"Total after adjustment: {tem_return_home_attr_pm_adj.total:,.2f} (should match total from DVector: {balanced_dvec.total:,.2f})"
+                )
+                if os.path.exists(
+                    self.production_model.export_paths.tem_segmented_return_home_pm[
+                        year
+                    ]
+                ):
                     tem_return_home_prod_pm = cbase.DVector.load(
-                        self.production_model.export_paths.tem_segmented_return_home_pm[year]
+                        self.production_model.export_paths.tem_segmented_return_home_pm[
+                            year
+                        ]
                     )
                 else:
-                    raise FileNotFoundError(f"{self.production_model.export_paths.tem_segmented_return_home_pm[year]} does not exist."
-                                            " This file is needed to balance post_me adjusted attractions to.")
+                    raise FileNotFoundError(
+                        f"{self.production_model.export_paths.tem_segmented_return_home_pm[year]} does not exist."
+                        " This file is needed to balance post_me adjusted attractions to."
+                    )
                 agg_seg = [
                     i
                     for i in balanced_dvec.segmentation.naming_order
@@ -421,14 +447,18 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
                 )
                 targets = [
                     cbase.data_structures.IpfTarget(data=attr_targ),
-                    cbase.data_structures.IpfTarget(data=tem_return_home_prod_pm.remove_zoning()),
+                    cbase.data_structures.IpfTarget(
+                        data=tem_return_home_prod_pm.remove_zoning()
+                    ),
                 ]
                 LOG.info(
                     "Matching return home attractions pm to from home attractions pm and "
                     "return home productions pm via IPF."
                 )
-                tem_return_home_attr_pm_adj_balanced, _ = tem_return_home_attr_pm_adj.ipf(targets)
-                
+                tem_return_home_attr_pm_adj_balanced, _ = (
+                    tem_return_home_attr_pm_adj.ipf(targets)
+                )
+
                 if export_tem_segmentation:
                     LOG.info(
                         f"Saving tem segmented attractions after postme adjustment to {self.model.export_paths.tem_segmented_return_home_pm[year]}"
@@ -905,7 +935,9 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
             gb_factors = tem_production.remove_zoning() / tem_dvec.remove_zoning()
             balanced_dvec = tem_dvec * gb_factors
         # If zoning is specified for balancing
-        elif isinstance(self.balance_production, (cbase.BalancingZones, cbase.ZoningSystem)):
+        elif isinstance(
+            self.balance_production, (cbase.BalancingZones, cbase.ZoningSystem)
+        ):
             balanced_dvec = tem_dvec.balance_by_segments(
                 tem_production, self.balance_production
             )
@@ -941,7 +973,9 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
             ) / tem_dvec.remove_zoning().aggregate(["m", "tp", "p"])
             balanced_dvec = tem_dvec * gb_factors
         # If zoning is specified for balancing
-        elif isinstance(self.balance_production, (cbase.BalancingZones, cbase.ZoningSystem)):
+        elif isinstance(
+            self.balance_production, (cbase.BalancingZones, cbase.ZoningSystem)
+        ):
             balanced_dvec = tem_dvec.balance_by_segments(
                 tem_production, self.balance_production
             )
