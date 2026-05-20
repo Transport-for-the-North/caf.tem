@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Annotated, Any, Literal, NamedTuple, Protocol
 
 # Third Party
-import caf.base as cb
+import caf.base as cbase
 import pandas as pd
 from caf.base.segments import SegmentsSuper
 from caf.toolkit import config_base
@@ -33,61 +33,61 @@ from pydantic import (
 
 
 # # # CLASSES # # #
-def _create_segmentation(seg_list: list[str] | cb.Segmentation) -> cb.Segmentation:
+def _create_segmentation(seg_list: list[str] | cbase.Segmentation) -> cbase.Segmentation:
     """
-    Create a :class:`cb.Segmentation` object.
+    Create a :class:`cbase.Segmentation` object.
 
-    Creates a :class:`cb.Segmentation` object from a list of segment names
+    Creates a :class:`cbase.Segmentation` object from a list of segment names
      or returns the input if already a Segmentation.
 
     Parameters
     ----------
-    seg_list : list[str] or cb.Segmentation
+    seg_list : list[str] or cbase.Segmentation
         List of segment names or an existing Segmentation object.
 
     Returns
     -------
-    cb.Segmentation
+    cbase.Segmentation
         The resulting segmentation object.
     """
-    if isinstance(seg_list, cb.Segmentation):
+    if isinstance(seg_list, cbase.Segmentation):
         return seg_list
-    inp = cb.SegmentationInput(
+    inp = cbase.SegmentationInput(
         enum_segments=[SegmentsSuper(i) for i in seg_list], naming_order=seg_list
     )
-    return cb.Segmentation(inp)
+    return cbase.Segmentation(inp)
 
 
 def _create_zoningsystem(
-    zoning: str | cb.ZoningSystem | list[str | cb.ZoningSystem],
-) -> cb.ZoningSystem | list[str | cb.ZoningSystem] | list[Any]:
+    zoning: str | cbase.ZoningSystem | list[str | cbase.ZoningSystem],
+) -> cbase.ZoningSystem | list[str | cbase.ZoningSystem] | list[Any]:
     """
-    Create a cb.ZoningSystem object (or list of them) from a string, existing ZoningSystem, or list.
+    Create a cbase.ZoningSystem object (or list of them) from a string, existing ZoningSystem, or list.
 
     Parameters
     ----------
-    zoning : str, cb.ZoningSystem, or list[str, cb.ZoningSystem]
+    zoning : str, cbase.ZoningSystem, or list[str, cbase.ZoningSystem]
         Zoning system name(s) or object(s).
 
     Returns
     -------
-    cb.ZoningSystem or list[cb.ZoningSystem]
+    cbase.ZoningSystem or list[cbase.ZoningSystem]
         The resulting zoning system(s).
     """
-    if isinstance(zoning, cb.ZoningSystem):
+    if isinstance(zoning, cbase.ZoningSystem):
         return zoning
     if isinstance(zoning, list):
-        validated_zoning: list[str | cb.ZoningSystem] = []
+        validated_zoning: list[str | cbase.ZoningSystem] = []
         for zone in zoning:
-            if isinstance(zone, cb.ZoningSystem):
+            if isinstance(zone, cbase.ZoningSystem):
                 validated_zoning.append(zone)
             else:
                 try:
-                    validated_zoning.append(cb.ZoningSystem.get_zoning(zone))
+                    validated_zoning.append(cbase.ZoningSystem.get_zoning(zone))
                 except FileNotFoundError:
                     validated_zoning.append(zone)
         return validated_zoning
-    return cb.ZoningSystem.get_zoning(zoning)
+    return cbase.ZoningSystem.get_zoning(zoning)
 
 
 @dataclass
@@ -99,42 +99,42 @@ class Landuse:
     ----------
     type : Literal["pop", "emp", "hh"]
         Specifies the type of land use ("pop", "emp", or "hh").
-    land_use : Path or cb.DVector
+    land_use : Path or cbase.DVector
         Path to land use data or a DVector object.
     trans_tag : str, optional
         Optional tag for transformation processes.
     prefix : str, optional
         Optional prefix for output fields or files.
-    segmentation : cb.Segmentation, optional
+    segmentation : cbase.Segmentation, optional
         Segmentation object for splitting land use data.
     geographies : str or list[str], optional
         Name(s) of the geographical unit(s) for the land use data.
-    out_zoning : cb.ZoningSystem, str, list, or None, optional
+    out_zoning : cbase.ZoningSystem, str, list, or None, optional
         Zoning system(s) for mapping or output.
     """
 
     type: Literal["pop", "emp", "hh"]
-    land_use: Path | cb.DVector
+    land_use: Path | cbase.DVector
     trans_tag: str | None = None
     prefix: str | None = None
     segmentation: (
-        Annotated[cb.Segmentation, BeforeValidator(_create_segmentation)] | None
+        Annotated[cbase.Segmentation, BeforeValidator(_create_segmentation)] | None
     ) = None
     geographies: str | list[str] | None = None
     out_zoning: (
-        cb.ZoningSystem
+        cbase.ZoningSystem
         | str
         | Annotated[
-            list[cb.ZoningSystem | str], BeforeValidator(func=_create_zoningsystem)
+            list[cbase.ZoningSystem | str], BeforeValidator(func=_create_zoningsystem)
         ]
         | None
     ) = None
 
     def _load_from_file(
-        self, source_path: Path, segmentation: cb.Segmentation | None
-    ) -> cb.DVector:
+        self, source_path: Path, segmentation: cbase.Segmentation | None
+    ) -> cbase.DVector:
         """Load a DVector from a file and aggregate to `segmentation` if provided."""
-        lu = cb.DVector.load(source_path)
+        lu = cbase.DVector.load(source_path)
         if segmentation is not None:
             lu = lu.aggregate(segmentation)
         return lu
@@ -142,22 +142,22 @@ class Landuse:
     def _load_from_folder(
         self,
         source_path: Path,
-        segmentation: cb.Segmentation | None,
-        init_zoning: cb.ZoningSystem | None,
-    ) -> cb.DVector:
+        segmentation: cbase.Segmentation | None,
+        init_zoning: cbase.ZoningSystem | None,
+    ) -> cbase.DVector:
         """Load multiple DVector files from a folder for each geography and combine them."""
         if not isinstance(self.geographies, list):
             raise TypeError(
                 "If landuse is given as a folder, a list of geographies must be provided, "
                 "and a prefix for file names."
             )
-        dvecs: list[cb.DVector] = []
+        dvecs: list[cbase.DVector] = []
         for geo in self.geographies:
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore", category=UserWarning)
                 if self.prefix is None:
                     raise ValueError("Prefix must be provided if landuse is a folder.")
-                dvec = cb.DVector.load(source_path / self.prefix.format(geo))
+                dvec = cbase.DVector.load(source_path / self.prefix.format(geo))
                 if segmentation is None:
                     segmentation = dvec.segmentation
                 dvecs.append(dvec.aggregate(segmentation))
@@ -165,7 +165,7 @@ class Landuse:
         # mypy
         if segmentation is None:
             raise ValueError("segmentation is required")
-        return cb.DVector(
+        return cbase.DVector(
             segmentation=segmentation,
             zoning_system=init_zoning,
             import_data=lu_data,
@@ -173,15 +173,15 @@ class Landuse:
 
     def _apply_out_zoning(
         self,
-        lu: cb.DVector,
-        model_zoning: cb.ZoningSystem | None,
+        lu: cbase.DVector,
+        model_zoning: cbase.ZoningSystem | None,
         translation: pd.DataFrame | None,
-    ) -> cb.DVector:
+    ) -> cbase.DVector:
         """Apply `self.out_zoning` to `lu`, supporting lists, strings or zoning objects."""
         if self.out_zoning is None:
             return lu
         if isinstance(self.out_zoning, list):
-            if not isinstance(lu.zoning_system, cb.ZoningSystem):
+            if not isinstance(lu.zoning_system, cbase.ZoningSystem):
                 raise TypeError(
                     "Read in landuse must be singly zoned to be translated."
                 )
@@ -193,21 +193,21 @@ class Landuse:
             return lu.trans_and_comp(self.out_zoning, translation, factor_col)
         out_z = self.out_zoning
         if isinstance(out_z, str):
-            out_z = cb.ZoningSystem.get_zoning(out_z)
+            out_z = cbase.ZoningSystem.get_zoning(out_z)
             self.out_zoning = out_z
         return lu.translate_zoning(out_z, trans_vector=translation)
 
     def read_landuse(
         self,
         translation: pd.DataFrame | None = None,
-        init_zoning: cb.ZoningSystem | None = None,
-        model_zoning: cb.ZoningSystem | None = None,
+        init_zoning: cbase.ZoningSystem | None = None,
+        model_zoning: cbase.ZoningSystem | None = None,
     ):
         """Read and process land use data from the specified source.
 
         Applies optional translation and aligns it with the model's zoning system if provided.
         """
-        if isinstance(self.land_use, cb.DVector):
+        if isinstance(self.land_use, cbase.DVector):
             return self.land_use
 
         source_path = Path(self.land_use)
@@ -334,8 +334,8 @@ class TEMModelPaths:
         path_years: list[int],
         export_home: Path,
         report_home: Path,
-        model_zoning: cb.ZoningSystem,
-        agg_zoning: cb.ZoningSystem,
+        model_zoning: cbase.ZoningSystem,
+        agg_zoning: cbase.ZoningSystem,
         trip_origin: Literal["hb", "nhb"],
     ):
         """
@@ -625,8 +625,8 @@ class TEMExportPaths:
         scenario: Scenarios,
         iteration_name: str,
         export_home: Path,
-        model_zoning: cb.ZoningSystem,
-        agg_zoning: cb.ZoningSystem,
+        model_zoning: cbase.ZoningSystem,
+        agg_zoning: cbase.ZoningSystem,
     ):
         """
         Build export and report paths for all TEM sub-models.
@@ -820,7 +820,7 @@ class AttrProto(Protocol):
     postme_adj_to: Path | None = None
     triprates: dict[int, Path]
     mts_uni: Path
-    balance: cb.BalancingZones | bool = True
+    balance: cbase.BalancingZones | bool = True
 
 
 @dataclasses.dataclass
@@ -848,13 +848,13 @@ class AttrParams(SharedParams):
         Dict of purposes to paths to nhb attraction trip rates.
     mts_uni: Path
         Path to nhb attraction uni mode time splits.
-    balance: cb.BalancingZones | bool = True
+    balance: cbase.BalancingZones | bool = True
         Whether to balance attractions to productions.
     """
 
     triprates: dict[int, FilePath]
     mts_uni: FilePath
-    balance: cb.BalancingZones | bool = True
+    balance: cbase.BalancingZones | bool = True
 
 
 @dataclasses.dataclass
@@ -888,15 +888,15 @@ class MainConfig(config_base.BaseConfig):
         List of years for the model run.
     scenario : str
         Scenario name.
-    output_zoning : cb.ZoningSystem
+    output_zoning : cbase.ZoningSystem
         Output zoning system.
-    agg_zoning : cb.ZoningSystem
+    agg_zoning : cbase.ZoningSystem
         Aggregation zoning system.
     iteration_name : str
         Model iteration name.
     export_home : Path
         Root export directory.
-    return_segmentation : cb.Segmentation
+    return_segmentation : cbase.Segmentation
         Segmentation trip-ends are returned at.
     trans_file : Path
         Path to translation file.
@@ -908,7 +908,7 @@ class MainConfig(config_base.BaseConfig):
         Whether to export TEM-segmented demand.
     export_reports : bool
         Whether to export reports.
-    mts_geo_constraint : cb.ZoningSystem or None
+    mts_geo_constraint : cbase.ZoningSystem or None
         Optional MTS geographic constraint.
     pop : dict[int, Landuse]
         Population land use data by year.
@@ -931,12 +931,12 @@ class MainConfig(config_base.BaseConfig):
     ### global ###
     model_years: list[int]
     scenario: Scenarios
-    output_zoning: Annotated[cb.ZoningSystem, BeforeValidator(_create_zoningsystem)]
-    agg_zoning: Annotated[cb.ZoningSystem, BeforeValidator(_create_zoningsystem)]
+    output_zoning: Annotated[cbase.ZoningSystem, BeforeValidator(_create_zoningsystem)]
+    agg_zoning: Annotated[cbase.ZoningSystem, BeforeValidator(_create_zoningsystem)]
     iteration_name: str
     export_home: DirectoryPath
     return_segmentation: Annotated[
-        cb.Segmentation, BeforeValidator(_create_segmentation)
+        cbase.Segmentation, BeforeValidator(_create_segmentation)
     ]
     trans_file: FilePath
     export_pure: bool = True
@@ -944,7 +944,7 @@ class MainConfig(config_base.BaseConfig):
     export_tem: bool = True
     export_reports: bool = True
     mts_geo_constraint: (
-        Annotated[cb.ZoningSystem, BeforeValidator(_create_zoningsystem)] | None
+        Annotated[cbase.ZoningSystem, BeforeValidator(_create_zoningsystem)] | None
     ) = None
     pop: dict[int, Landuse]
     emp: dict[int, Landuse]
@@ -963,8 +963,8 @@ class MainConfig(config_base.BaseConfig):
 
         arbitrary_types_allowed = True
         json_encoders = {
-            cb.ZoningSystem: lambda z: z.name,
-            cb.Segmentation: lambda z: (
+            cbase.ZoningSystem: lambda z: z.name,
+            cbase.Segmentation: lambda z: (
                 z.naming_order
                 if hasattr(z, "naming_order")
                 else list(z)

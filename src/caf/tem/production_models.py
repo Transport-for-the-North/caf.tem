@@ -19,7 +19,7 @@ from typing import Sequence
 
 # Third Party
 # Third party imports
-import caf.base as cb
+import caf.base as cbase
 import caf.toolkit as ctk
 import pandas as pd
 from caf.base.segmentation import SegmentationWarning
@@ -61,7 +61,7 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
         Path to mode-time split (MTS) DVector file.
     mts_adjustment_path : Path
         Path to adjustment factors for MTS.
-    tem_segmentation : cb.Segmentation
+    tem_segmentation : cbase.Segmentation
         Segmentation object for TEM output.
     translation : pd.DataFrame
         DataFrame for translating zone identifiers.
@@ -77,7 +77,7 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
         self,
         *,
         params: HBProdParams,
-        tem_segmentation: cb.Segmentation,
+        tem_segmentation: cbase.Segmentation,
         model: ProductionModelPaths,
         population: dict[int, Landuse],
         translation: pd.DataFrame,
@@ -99,7 +99,7 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
         export_mts_production: bool = True,
         export_tem_segmentation: bool = True,
         export_reports: bool = True,
-        mts_geo_constraint: cb.ZoningSystem | None = None,
+        mts_geo_constraint: cbase.ZoningSystem | None = None,
         return_tripends: bool = False,
     ) -> None:
         """
@@ -130,18 +130,18 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
         if self.model.export_paths is None or self.model.report_paths is None:
             raise ValueError("model export and report paths are required")
         LOG.info(f"Loading trip rates from {self.params.triprates}")
-        trip_rates = cb.DVector.load(self.params.triprates)
+        trip_rates = cbase.DVector.load(self.params.triprates)
         LOG.info(f"Loading mts from {self.params.mts}")
-        mts = cb.DVector.load(self.params.mts)
+        mts = cbase.DVector.load(self.params.mts)
         # Read in the adjustment factors, if passed
-        trip_rate_adj_factors: cb.DVector | None = None
+        trip_rate_adj_factors: cbase.DVector | None = None
         if self.params.tr_adj is not None:
             LOG.info("Loading the trip rates adjustment factors")
-            trip_rate_adj_factors = cb.DVector.load(self.params.tr_adj)
-        mts_adj_factors: cb.DVector | None = None
+            trip_rate_adj_factors = cbase.DVector.load(self.params.tr_adj)
+        mts_adj_factors: cbase.DVector | None = None
         if self.params.mts_adj is not None:
             LOG.info(f"Loading the MTS adjustment factors from {self.params.mts_adj}")
-            mts_adj_factors = cb.DVector.load(self.params.mts_adj)
+            mts_adj_factors = cbase.DVector.load(self.params.mts_adj)
 
         # Generate the productions for each year
         for year in self.years:
@@ -177,15 +177,15 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
         self,
         *,
         year: int,
-        trip_rates: cb.DVector,
-        mts: cb.DVector,
-        trip_rate_adj_factors: cb.DVector | None,
-        mts_adj_factors: cb.DVector | None,
+        trip_rates: cbase.DVector,
+        mts: cbase.DVector,
+        trip_rate_adj_factors: cbase.DVector | None,
+        mts_adj_factors: cbase.DVector | None,
         export_pure_production: bool,
         export_mts_production: bool,
         export_tem_segmentation: bool,
         export_reports: bool,
-        mts_geo_constraint: cb.ZoningSystem | None,
+        mts_geo_constraint: cbase.ZoningSystem | None,
         postme_adj_fr: Path | None,
         postme_adj_to: Path | None,
         return_tripends: bool,
@@ -228,7 +228,7 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
             LOG.info(
                 f"Applying post me adjustment factors saved here: {postme_adj_fr}"
             )
-            postme_adj_fr_factor = cb.DVector.load(postme_adj_fr)
+            postme_adj_fr_factor = cbase.DVector.load(postme_adj_fr)
             if "direction_od" in postme_adj_fr_factor.segmentation:
                 postme_adj_fr_factor = postme_adj_fr_factor.filter_segment_value("direction_od", 1)
             tem_production = tem_production.mul(postme_adj_fr_factor, how="outer")
@@ -252,7 +252,7 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
             LOG.info(
                 f"Applying post me adjustment factors saved here: {postme_adj_to}"
             )
-            postme_adj_to_factor = cb.DVector.load(postme_adj_to)
+            postme_adj_to_factor = cbase.DVector.load(postme_adj_to)
             if "direction_od" in postme_adj_to_factor.segmentation:
                 postme_adj_to_factor = postme_adj_to_factor.filter_segment_value("direction_od", 2)
             tem_prod_to = tem_prod_to.mul(postme_adj_to_factor, how="outer")
@@ -316,12 +316,12 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
         self,
         *,
         year: int,
-        population: cb.DVector,
-        trip_rates: cb.DVector,
-        trip_rate_adj_factors: cb.DVector | None,
+        population: cbase.DVector,
+        trip_rates: cbase.DVector,
+        trip_rate_adj_factors: cbase.DVector | None,
         export_pure_production: bool,
         export_reports: bool,
-    ) -> cb.DVector:
+    ) -> cbase.DVector:
         """Create pure production, optionally save and report, and return TEM-segmented DVector."""
         pure_production = self._create_pure_production(
             population=population, trip_rates=trip_rates
@@ -367,14 +367,14 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
         self,
         *,
         year: int,
-        tem_seged: cb.DVector,
-        mts: cb.DVector,
-        mts_adj_factors: cb.DVector | None,
+        tem_seged: cbase.DVector,
+        mts: cbase.DVector,
+        mts_adj_factors: cbase.DVector | None,
         export_mts_production: bool,
         export_reports: bool,
         export_tem_segmentation: bool,
-        mts_geo_constraint: cb.ZoningSystem | None,
-    ) -> cb.DVector:
+        mts_geo_constraint: cbase.ZoningSystem | None,
+    ) -> cbase.DVector:
         """Apply MTS, optionally save and report, aggregate to TEM segmentation and return it."""
         mts_production = self._create_mts_production(pure_production=tem_seged, mts=mts)
         mts_production_adj = self._adjust_mts_production(
@@ -439,8 +439,8 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
         return tem_production
 
     def _create_and_save_return_home_production(
-        self, *, year: int, tem_production: cb.DVector
-    ) -> cb.DVector:
+        self, *, year: int, tem_production: cbase.DVector
+    ) -> cbase.DVector:
         """Create return-home production outputs and save them."""
         tem_return_home_prod = self.create_tem_return_home(
             tem=tem_production, direction="P", geo_constraint=self.model_zoning
@@ -462,21 +462,21 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
 
 
     def _create_pure_production(
-        self, *, population: cb.DVector, trip_rates: cb.DVector
-    ) -> cb.DVector:
+        self, *, population: cbase.DVector, trip_rates: cbase.DVector
+    ) -> cbase.DVector:
         """
         Create pure production by multiplying population by trip rates.
 
         Parameters
         ----------
-        population : cb.DVector
+        population : cbase.DVector
             Population land use vector.
-        trip_rates : cb.DVector
+        trip_rates : cbase.DVector
             Trip rates vector.
 
         Returns
         -------
-        cb.DVector
+        cbase.DVector
             Pure production vector.
         """
         LOG.info("Calculating pure hb production")
@@ -492,14 +492,14 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
 
         Parameters
         ----------
-        production : cb.DVector
+        production : cbase.DVector
             Pure production vector.
-        adj_factors : cb.DVector or None
+        adj_factors : cbase.DVector or None
             Adjustment factors.
 
         Returns
         -------
-        cb.DVector
+        cbase.DVector
             Adjusted production vector.
         """
         if adj_factors is None:
@@ -511,21 +511,21 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
         return production_adj
 
     def _create_mts_production(
-        self, *, pure_production: cb.DVector, mts: cb.DVector
-    ) -> cb.DVector:
+        self, *, pure_production: cbase.DVector, mts: cbase.DVector
+    ) -> cbase.DVector:
         """
         Apply mode-time split to pure production.
 
         Parameters
         ----------
-        pure_production : cb.DVector
+        pure_production : cbase.DVector
             Pure production vector.
-        mts : cb.DVector
+        mts : cbase.DVector
             Mode-time split vector.
 
         Returns
         -------
-        cb.DVector
+        cbase.DVector
             MTS production vector.
         """
         LOG.info("Applying mode time splits")
@@ -538,25 +538,25 @@ class HBProductionModel(utils.SharedProdAttrMethods[HBProdProto]):
     def _adjust_mts_production(
         self,
         *,
-        mts_production: cb.DVector,
-        adj_factors: cb.DVector | None,
-        geo_constraint: cb.ZoningSystem | None = None,
-    ) -> cb.DVector:
+        mts_production: cbase.DVector,
+        adj_factors: cbase.DVector | None,
+        geo_constraint: cbase.ZoningSystem | None = None,
+    ) -> cbase.DVector:
         """
         Adjust MTS production using adjustment factors and optional geographic constraint.
 
         Parameters
         ----------
-        mts_production : cb.DVector
+        mts_production : cbase.DVector
             MTS production vector.
-        adj_factors : cb.DVector or None
+        adj_factors : cbase.DVector or None
             Adjustment factors.
-        geo_constraint : cb.ZoningSystem, optional
+        geo_constraint : cbase.ZoningSystem, optional
             Zoning system for constraining adjustment.
 
         Returns
         -------
-        cb.DVector
+        cbase.DVector
             Adjusted MTS production vector.
         """
         if adj_factors is None:
@@ -612,7 +612,7 @@ class NHBProductionModel:
         hb_attraction_model: AttractionModelPaths,
         model: ProductionModelPaths,
         params: NHBProdParams,
-        return_segmentation: cb.Segmentation,
+        return_segmentation: cbase.Segmentation,
     ) -> None:
         ## Assign
 
@@ -626,9 +626,9 @@ class NHBProductionModel:
         self.mts_path: Path = params.mts
         self.years: list[int] = list(self.hb_attraction_paths.keys())
         self.model: ProductionModelPaths = model
-        self.return_segmentation: cb.Segmentation = return_segmentation
-        self.model_zoning: cb.ZoningSystem = self.model.model_zoning
-        self.agg_zoning: cb.ZoningSystem = self.model.agg_zoning
+        self.return_segmentation: cbase.Segmentation = return_segmentation
+        self.model_zoning: cbase.ZoningSystem = self.model.model_zoning
+        self.agg_zoning: cbase.ZoningSystem = self.model.agg_zoning
         self.postme_adj_fr: Path | None = params.postme_adj_fr
 
     def run(
@@ -664,10 +664,10 @@ class NHBProductionModel:
             raise ValueError("model export and report paths are required")
         # ## READ INPUTS ## #
         LOG.info(f"Loading the trip rates data from {self.trip_rates_path}")
-        trip_rates = cb.DVector.load(self.trip_rates_path)
+        trip_rates = cbase.DVector.load(self.trip_rates_path)
 
         LOG.info("Loading the mode time split data from %s", self.mts_path)
-        mts = cb.DVector.load(self.mts_path)
+        mts = cbase.DVector.load(self.mts_path)
 
         # Generate the nhb productions for each year
         for year in self.years:
@@ -715,7 +715,7 @@ class NHBProductionModel:
                 LOG.info(
                     f"Applying post me adjustment factors saved here: {self.postme_adj_fr}"
                 )
-                postme_adj_fr_factor = cb.DVector.load(self.postme_adj_fr)
+                postme_adj_fr_factor = cbase.DVector.load(self.postme_adj_fr)
                 if "direction_od" in postme_adj_fr_factor.segmentation:
                     postme_adj_fr_factor = postme_adj_fr_factor.filter_segment_value(
                         "direction_od", 0
@@ -733,7 +733,7 @@ class NHBProductionModel:
                         self.model.export_paths.tem_segmented_from_home_pm[year]
                     )
 
-    def _read_hb_attraction(self, *, year: int) -> cb.DVector:
+    def _read_hb_attraction(self, *, year: int) -> cbase.DVector:
         """
         Read and process the TEM-segmented HB Attraction file for a given year.
 
@@ -746,14 +746,14 @@ class NHBProductionModel:
 
         Returns
         -------
-        cb.DVector
+        cbase.DVector
             Processed HB attraction vector.
         """
         assert self.hb_attraction_model.export_paths is not None
         LOG.info(
             f"Loading hb_attraction trip ends from {self.hb_attraction_model.export_paths.tem_segmented_from_home[year]}"
         )
-        hbattr = cb.DVector.load(
+        hbattr = cbase.DVector.load(
             self.hb_attraction_model.export_paths.tem_segmented_from_home[year]
         )
         if hbattr.segmentation != self.return_segmentation:
@@ -767,25 +767,25 @@ class NHBProductionModel:
         return hbattr
 
     def _create_pure_production(
-        self, *, hbattr: cb.DVector, trip_rates: cb.DVector
-    ) -> cb.DVector:
+        self, *, hbattr: cbase.DVector, trip_rates: cbase.DVector
+    ) -> cbase.DVector:
         """
         Create pure NHB production by multiplying HB attractions by NHB trip rates.
 
         Parameters
         ----------
-        hbattr : cb.DVector
+        hbattr : cbase.DVector
             HB attraction vector.
-        trip_rates : cb.DVector
+        trip_rates : cbase.DVector
             NHB trip rates vector.
 
         Returns
         -------
-        cb.DVector
+        cbase.DVector
             Pure NHB production vector.
         """
         LOG.info("Multiplying hb attractions by trip rates to produce nhb productions.")
-        pure_prod: cb.DVector | None = None
+        pure_prod: cbase.DVector | None = None
         for p in hbattr.segmentation.get_segment("p_hb").int_values:
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", category=SegmentationWarning)
@@ -805,21 +805,21 @@ class NHBProductionModel:
         return pure_prod
 
     def _create_mts_production(
-        self, *, pure_production: cb.DVector, mts: cb.DVector
-    ) -> cb.DVector:
+        self, *, pure_production: cbase.DVector, mts: cbase.DVector
+    ) -> cbase.DVector:
         """
         Apply mode-time split to pure NHB production.
 
         Parameters
         ----------
-        pure_production : cb.DVector
+        pure_production : cbase.DVector
             Pure NHB production vector.
-        mts : cb.DVector
+        mts : cbase.DVector
             Mode-time split vector.
 
         Returns
         -------
-        cb.DVector
+        cbase.DVector
             MTS NHB production vector.
         """
         LOG.info("Applying mode time splits to pure nhb productions.")

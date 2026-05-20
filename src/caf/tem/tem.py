@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 # Third Party
-import caf.base as cb
+import caf.base as cbase
 import pandas as pd
 from caf.base.segments import SegmentsSuper
 
@@ -45,7 +45,7 @@ class TEM:
         The years to run the TEM for.
     scenario : Scenarios
         The scenario for the model run (e.g., Core, High, Low, Regional, Technology).
-    output_zoning : cb.ZoningSystem
+    output_zoning : cbase.ZoningSystem
         The zoning system for model outputs.
     agg_zoning : str
         The aggregation zoning system for trip rate etc. application.
@@ -53,7 +53,7 @@ class TEM:
         A name for this TEM output run.
     export_paths : TEMExportPaths
         Object managing export and report paths for all sub-models.
-    return_segmentation : cb.Segmentation
+    return_segmentation : cbase.Segmentation
         Segmentation to use for return trips and outputs.
     zone_trans : pd.DataFrame
         DataFrame mapping between different zoning systems.
@@ -74,11 +74,11 @@ class TEM:
         *,
         model_years: list[int],
         scenario: Scenarios,
-        output_zoning: cb.ZoningSystem,
-        agg_zoning: cb.ZoningSystem,
+        output_zoning: cbase.ZoningSystem,
+        agg_zoning: cbase.ZoningSystem,
         iteration_name: str,
         export_home: Path,
-        return_segmentation: list[str] | cb.Segmentation,
+        return_segmentation: list[str] | cbase.Segmentation,
         trans_file: Path,
     ):
         self.years = model_years
@@ -94,11 +94,11 @@ class TEM:
             model_zoning=output_zoning,
             agg_zoning=agg_zoning,
         )
-        if isinstance(return_segmentation, cb.Segmentation):
+        if isinstance(return_segmentation, cbase.Segmentation):
             self._return_segmentation = return_segmentation
         else:
-            self._return_segmentation = cb.Segmentation(
-                cb.SegmentationInput(
+            self._return_segmentation = cbase.Segmentation(
+                cbase.SegmentationInput(
                     enum_segments=[SegmentsSuper(i) for i in return_segmentation],
                     naming_order=return_segmentation,
                 )

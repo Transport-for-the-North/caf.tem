@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, Generic, Sequence, TypeVar
 
 # Third Party
 # Local
-import caf.base as cb
+import caf.base as cbase
 from caf.base.segmentation import SegmentationError, SegmentationWarning
 
 # Third-party
@@ -36,13 +36,13 @@ if TYPE_CHECKING:
 
 # # # CONSTANTS # # #
 _TT_ENUM = ["adult_nssec", "gender_3", "ns_sec", "soc", "aws", "hh_type"]
-TT = cb.SegmentationInput(
+TT = cbase.SegmentationInput(
     enum_segments=[SegmentsSuper(i) for i in _TT_ENUM],
     naming_order=_TT_ENUM,
 )
 
 _LAD_SEG = ["p", "m", "tp"]
-LAD_REPORT_SEG: cb.SegmentationInput = cb.SegmentationInput(
+LAD_REPORT_SEG: cbase.SegmentationInput = cbase.SegmentationInput(
     enum_segments=[SegmentsSuper(i) for i in _LAD_SEG],
     naming_order=_LAD_SEG,
     subsets={"tp": [1, 2, 3, 4, 5, 6]},
@@ -56,7 +56,7 @@ LOG = logging.getLogger(__name__)
 
 
 # # # FUNCTIONS # # #
-def lu_to_tt(dvec: cb.DVector) -> cb.DVector:
+def lu_to_tt(dvec: cbase.DVector) -> cbase.DVector:
     """
     Convert a land-use segmented DVector to a travel-type segmented DVector.
 
@@ -66,12 +66,12 @@ def lu_to_tt(dvec: cb.DVector) -> cb.DVector:
 
     Parameters
     ----------
-    dvec : cb.DVector
+    dvec : cbase.DVector
         The input DVector containing land-use-based segmentation.
 
     Returns
     -------
-    cb.DVector
+    cbase.DVector
         A new DVector segmented and aggregated for travel-type modelling.
 
     """
@@ -103,7 +103,7 @@ def lu_to_tt(dvec: cb.DVector) -> cb.DVector:
     return out_dvec
 
 
-def write_reports(dvec: cb.DVector, report_path, year: int) -> None:
+def write_reports(dvec: cbase.DVector, report_path, year: int) -> None:
     """
     Write sector and LAD reports for a DVector.
 
@@ -112,7 +112,7 @@ def write_reports(dvec: cb.DVector, report_path, year: int) -> None:
 
     Parameters
     ----------
-    dvec : cb.DVector
+    dvec : cbase.DVector
         The DVector to report on.
     report_path : object
         Object containing paths for various report types (must have .segment_total, .ca_sector,
@@ -125,7 +125,7 @@ def write_reports(dvec: cb.DVector, report_path, year: int) -> None:
         ca_sector_path=report_path.ca_sector[year],
         ie_sector_path=report_path.ie_sector[year],
         lad_report_path=report_path.lad_report[year],
-        lad_report_seg=cb.Segmentation(LAD_REPORT_SEG),
+        lad_report_seg=cbase.Segmentation(LAD_REPORT_SEG),
     )
 
 
@@ -159,11 +159,11 @@ def filter_segments(custom_seg_list, df) -> list:
 class SharedProdAttrMethods(Generic[PARAMS]):
     """Class for methods shared between production and attraction models."""
 
-    def __init__(self, params: PARAMS, tem_segmentation: cb.Segmentation):
+    def __init__(self, params: PARAMS, tem_segmentation: cbase.Segmentation):
         self.params: PARAMS = params
         self.tem_segmentation = tem_segmentation
 
-    def _read_mts_return_home(self, mts_segs: list[str]) -> cb.DVector:
+    def _read_mts_return_home(self, mts_segs: list[str]) -> cbase.DVector:
         """
         Read the mode-time split DVector for return-home trips and normalize it.
 
@@ -174,14 +174,14 @@ class SharedProdAttrMethods(Generic[PARAMS]):
 
         Returns
         -------
-        cb.DVector
+        cbase.DVector
             Normalized mode-time splits reshaped by tfn_at.
         """
         # Load the raw DVector
         LOG.info(f"Loading return home mode time splits from {self.params.mts_return}.")
         if self.params.mts_return is None:
             raise TypeError("MTS return_home must be provided.")
-        trips: cb.DVector = cb.DVector.load(self.params.mts_return)
+        trips: cbase.DVector = cbase.DVector.load(self.params.mts_return)
         full_seg = trips.segmentation.naming_order
         agg_segs = [i for i in full_seg if i not in mts_segs]
 
@@ -199,7 +199,7 @@ class SharedProdAttrMethods(Generic[PARAMS]):
 
         Returns
         -------
-        cb.DVector
+        cbase.DVector
             Loaded phi factor DVector.
 
         Raises
@@ -222,30 +222,30 @@ class SharedProdAttrMethods(Generic[PARAMS]):
                 f"[ERROR] Phi factor file not found: {phi_factors_file_path}"
             )
 
-        phi_factor = cb.DVector.load(phi_factors_file_path)
+        phi_factor = cbase.DVector.load(phi_factors_file_path)
         return phi_factor
 
     def _adjust_mts_return_home(
         self,
-        mts: cb.DVector,
-        adj_factors: cb.DVector | None = None,
-        geo_constraint: cb.ZoningSystem | None = None,
-    ) -> cb.DVector:
+        mts: cbase.DVector,
+        adj_factors: cbase.DVector | None = None,
+        geo_constraint: cbase.ZoningSystem | None = None,
+    ) -> cbase.DVector:
         """
         Adjust MTS for return-home trips using adjustment factors.
 
         Parameters
         ----------
-        mts : cb.DVector
+        mts : cbase.DVector
             MTS vector for return-home trips.
-        adj_factors : cb.DVector or None
+        adj_factors : cbase.DVector or None
             Adjustment factors.
-        geo_constraint : cb.ZoningSystem, optional
+        geo_constraint : cbase.ZoningSystem, optional
             Zoning system for constraining adjustment.
 
         Returns
         -------
-        cb.DVector
+        cbase.DVector
             Adjusted MTS vector for return-home trips.
         """
         if adj_factors is None:
@@ -279,7 +279,7 @@ class SharedProdAttrMethods(Generic[PARAMS]):
         return mts_adj
 
     def return_home_trip_ends(
-        self, tem_fr: cb.DVector, agg_segments: list[str], direction: str
+        self, tem_fr: cbase.DVector, agg_segments: list[str], direction: str
     ):
         """
         Compute return-home trip ends.
@@ -289,7 +289,7 @@ class SharedProdAttrMethods(Generic[PARAMS]):
 
         Parameters
         ----------
-        tem_fr : cb.DVector
+        tem_fr : cbase.DVector
             The attraction DVector containing 'p' as a segment.
 
         agg_segments : list[str]
@@ -297,7 +297,7 @@ class SharedProdAttrMethods(Generic[PARAMS]):
 
         Returns
         -------
-        cb.DVector
+        cbase.DVector
             Aggregated return-home trip ends across all purpose segments.
         """
         trip_ends = None
@@ -333,30 +333,30 @@ class SharedProdAttrMethods(Generic[PARAMS]):
 
         Returns
         -------
-        cb.DVector or None
+        cbase.DVector or None
             Adjustment factors or None if not provided.
         """
         if self.params.mts_return_adj is None:
             return None
 
-        adj_factors = cb.DVector.load(self.params.mts_return_adj)
+        adj_factors = cbase.DVector.load(self.params.mts_return_adj)
 
         return adj_factors
 
     def create_tem_return_home(
-        self, tem: cb.DVector, direction: str, geo_constraint: cb.ZoningSystem | None
+        self, tem: cbase.DVector, direction: str, geo_constraint: cbase.ZoningSystem | None
     ):
         """
         Create TEM-segmented return-home vector.
 
         Parameters
         ----------
-        tem : cb.DVector
+        tem : cbase.DVector
             TEM-segmented vector.
 
         Returns
         -------
-        cb.DVector
+        cbase.DVector
             Adjusted return-home vector.
         """
         LOG.info("Processing return home trips")

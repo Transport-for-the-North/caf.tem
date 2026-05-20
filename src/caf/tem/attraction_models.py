@@ -18,7 +18,7 @@ import warnings
 from typing import Sequence
 
 # Third Party
-import caf.base as cb
+import caf.base as cbase
 import caf.toolkit as ctk
 
 # Third party imports
@@ -77,16 +77,16 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
     mts_adjustment_path : os.PathLike
         Path to the MTS adjustment factors file, used to adjust trips.
 
-    tem_segmentation : cb.Segmentation
+    tem_segmentation : cbase.Segmentation
         The final return segmentation.
 
     mts_uni_path : os.PathLike
         Path to the file containing university-specific MTS data.
 
-    model_zoning : cb.ZoningSystem
+    model_zoning : cbase.ZoningSystem
         Zoning system used for core modeling (e.g., small area zones, LSOAs, or custom units).
 
-    agg_zoning : cb.ZoningSystem
+    agg_zoning : cbase.ZoningSystem
         Higher-level zoning system used for aggregating outputs (e.g., LA districts or GORs).
 
     translation : pd.DataFrame
@@ -106,13 +106,13 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
     def __init__(  # pylint:disable=too-many-arguments,too-many-positional-arguments,too-many-locals
         self,
         params: AttrParams,
-        tem_segmentation: cb.Segmentation,
+        tem_segmentation: cbase.Segmentation,
         production_model: ProductionModelPaths,
         model: AttractionModelPaths,
         emp_landuse: dict[int, Landuse],
         hh_landuse: dict[int, Landuse],
-        model_zoning: cb.ZoningSystem,
-        agg_zoning: cb.ZoningSystem,
+        model_zoning: cbase.ZoningSystem,
+        agg_zoning: cbase.ZoningSystem,
         translation: pd.DataFrame,
     ):
         super().__init__(params, tem_segmentation)
@@ -135,7 +135,7 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
         export_pure_attractions: bool = True,
         export_tem_segmentation: bool = True,
         export_reports: bool = True,
-        mts_geo_constraint: cb.ZoningSystem | None = None,
+        mts_geo_constraint: cbase.ZoningSystem | None = None,
         return_tripends: bool = False,
     ) -> None:
         """
@@ -152,7 +152,7 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
             Whether to export the TEM segmented demand to disk.
         export_reports : bool, default True
             Whether to output reports while running.
-        mts_geo_constraint : cb.ZoningSystem or None, default None
+        mts_geo_constraint : cbase.ZoningSystem or None, default None
             Aggregate zoning to constrain post-MTS adjustment.
         return_tripends : bool, default False
             Whether to produce return home trip ends.
@@ -194,19 +194,19 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
 
         # ## READ INPUTS ## #
         # Read in the trip rates DVector files for each purpose. Trip rates are not year dependent.
-        trip_rates: dict[int, cb.DVector] = {
+        trip_rates: dict[int, cbase.DVector] = {
             p: self._read_trip_rate(p) for p in self.params.triprates
         }
         # Read in the MTS dvec file. MTS is not year dependent.
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=SegmentationWarning)
-            mts: cb.DVector = cb.DVector.load(self.params.mts)
+            mts: cbase.DVector = cbase.DVector.load(self.params.mts)
             # Read in the adjustment factors, if passed
             adj_factors_dict = self._read_adj_factors()
             if self.params.mts_uni is not None:
-                mts_uni = cb.DVector.load(self.mts_uni_path)
+                mts_uni = cbase.DVector.load(self.mts_uni_path)
 
-                mts_uni = cb.DVector.concat_to_comp_zoning(
+                mts_uni = cbase.DVector.concat_to_comp_zoning(
                     {
                         0: mts.filter_segment_value("p", 3, keep_filtered=True),
                         1: mts_uni,
@@ -220,7 +220,7 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
         # For each year the model is running for...
         for year in self.years:
             # Read in the landuses dvec files specific to the year.
-            landuses: dict[str, cb.DVector] = {
+            landuses: dict[str, cbase.DVector] = {
                 "emp": self.emp_landuse[year]
                 .read_landuse(
                     translation=self.zone_trans, model_zoning=self.model_zoning
@@ -229,7 +229,7 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
                 "hh": self.hh_landuse[year]
                 .read_landuse(
                     translation=self.zone_trans,
-                    init_zoning=cb.ZoningSystem.get_zoning("lsoa_2021"),
+                    init_zoning=cbase.ZoningSystem.get_zoning("lsoa_2021"),
                     model_zoning=self.model_zoning,
                 )
                 .add_segments(["total"]),
@@ -237,7 +237,7 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
 
             # ## PURE ATTRACTION ## #
             # Create a dictionary of attractions by purpose
-            attr_dict: dict[int, cb.DVector] = self._create_attr_dict(
+            attr_dict: dict[int, cbase.DVector] = self._create_attr_dict(
                 landuses, trip_rates
             )
             # Adjust trip rate
@@ -271,13 +271,13 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
             if os.path.exists(
                 self.production_model.export_paths.tem_segmented_from_home[year]
             ):
-                tem_production = cb.DVector.load(
+                tem_production = cbase.DVector.load(
                     self.production_model.export_paths.tem_segmented_from_home[year]
                 )
             if os.path.exists(
                 self.production_model.export_paths.tem_segmented_from_home_pm[year]
             ):
-                tem_production_pm = cb.DVector.load(
+                tem_production_pm = cbase.DVector.load(
                     self.production_model.export_paths.tem_segmented_from_home_pm[year]
                 )
             if (
@@ -334,7 +334,7 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
                 tem_return_home_attr = tem_return_home_attr.rename_segment(
                     {"p_return": "p", "tp_return": "tp"}
                 )
-                tem_return_home_prod = cb.DVector.load(
+                tem_return_home_prod = cbase.DVector.load(
                     self.production_model.export_paths.tem_segmented_return_home[year]
                 )
                 agg_seg = [
@@ -346,8 +346,8 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
                     self.model_zoning
                 )
                 targets = [
-                    cb.data_structures.IpfTarget(data=attr_targ),
-                    cb.data_structures.IpfTarget(
+                    cbase.data_structures.IpfTarget(data=attr_targ),
+                    cbase.data_structures.IpfTarget(
                         data=tem_return_home_prod.remove_zoning()
                     ),
                 ]
@@ -368,7 +368,7 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
                 LOG.info(
                     f"Applying post me adjustment factors saved here: {self.params.postme_adj_fr}"
                 )
-                postme_adj_fr_factor= cb.DVector.load(self.params.postme_adj_fr)
+                postme_adj_fr_factor= cbase.DVector.load(self.params.postme_adj_fr)
                 if "direction_od" in postme_adj_fr_factor.segmentation:
                     if self.model.trip_origin == "hb":
                         postme_adj_fr_factor = postme_adj_fr_factor.filter_segment_value(
@@ -398,7 +398,7 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
                 LOG.info(
                     f"Applying post me adjustment factors saved here: {self.params.postme_adj_to}"
                 )
-                postme_adj_to_factor = cb.DVector.load(self.params.postme_adj_to)
+                postme_adj_to_factor = cbase.DVector.load(self.params.postme_adj_to)
                 if "direction_od" in postme_adj_to_factor.segmentation:
                     if self.model.trip_origin == "hb":
                         postme_adj_to_factor = postme_adj_to_factor.filter_segment_value(
@@ -420,7 +420,7 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
                 # check that the adjusted prod to home matches prod from home zonal totals
                 LOG.info(f"Total after adjustment: {tem_return_home_attr_pm_adj.total:,.2f} (should match total from DVector: {balanced_dvec.total:,.2f})")
 
-                tem_return_home_prod_pm = cb.DVector.load(
+                tem_return_home_prod_pm = cbase.DVector.load(
                     self.production_model.export_paths.tem_segmented_return_home_pm[year]
                 )
                 agg_seg = [
@@ -432,8 +432,8 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
                     self.model_zoning
                 )
                 targets = [
-                    cb.data_structures.IpfTarget(data=attr_targ),
-                    cb.data_structures.IpfTarget(data=tem_return_home_prod_pm.remove_zoning()),
+                    cbase.data_structures.IpfTarget(data=attr_targ),
+                    cbase.data_structures.IpfTarget(data=tem_return_home_prod_pm.remove_zoning()),
                 ]
                 LOG.info(
                     "Matching return home attractions pm to from home attractions pm and "
@@ -449,7 +449,7 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
                         export_paths.tem_segmented_return_home_pm[year]
                     )
 
-    def _read_trip_rate(self, p: int) -> cb.DVector:
+    def _read_trip_rate(self, p: int) -> cbase.DVector:
         """
         Read one purpose-specific trip rates DVector from the path given in the constructor.
 
@@ -460,7 +460,7 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
 
         Returns
         -------
-        cb.DVector
+        cbase.DVector
             Loaded trip rate vector.
         """
         # Each trip rate file is explicitly defined in the input dictionary by purpose HB Attraction Model, similar assumption for NHB
@@ -469,35 +469,35 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
             trip_rate = pd.read_csv(self.trip_rates_paths[p], index_col=0).squeeze()
             trip_rate.index.name = self.agg_zoning.column_name
         else:
-            trip_rate = cb.DVector.load(self.trip_rates_paths[p])
+            trip_rate = cbase.DVector.load(self.trip_rates_paths[p])
 
         return trip_rate
 
-    def _read_adj_factors(self) -> dict[str, cb.DVector | None]:
+    def _read_adj_factors(self) -> dict[str, cbase.DVector | None]:
         """
         Read trip-rate and MTS adjustment factors.
 
         Returns
         -------
-        dict[str, cb.DVector]
+        dict[str, cbase.DVector]
             Dictionary with keys 'tr' and 'mts' for adjustment factors.
         """
-        adj_factors_dict: dict[str, cb.DVector | None] = {"tr": None, "mts": None}
+        adj_factors_dict: dict[str, cbase.DVector | None] = {"tr": None, "mts": None}
         if self.params.tr_adj is not None:
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", category=UserWarning)
-                tr = cb.DVector.load(self.params.tr_adj)
+                tr = cbase.DVector.load(self.params.tr_adj)
             # Ensure zoning system of mts matches the TEM Model zoning system
             tr.fill(0, 1)
             tr.fillna(1)
             adj_factors_dict["tr"] = tr
         if self.params.mts_adj is not None:
-            mts = cb.DVector.load(self.params.mts_adj)
+            mts = cbase.DVector.load(self.params.mts_adj)
             # Ensure zoning system of mts matches the TEM Model zoning system
             mts.fill(0, 1)
             mts.fillna(1)
             mts = mts.add_segments(
-                [cb.segmentation.SegmentsSuper("total").get_segment()]
+                [cbase.segmentation.SegmentsSuper("total").get_segment()]
             )
             adj_factors_dict["mts"] = mts
 
@@ -505,25 +505,25 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
 
     def _adjust_mts_attraction_return_home(
         self,
-        mts_production: cb.DVector,
-        adj_factors: cb.DVector,
-        geo_constraint: cb.ZoningSystem | None = None,
-    ) -> cb.DVector:
+        mts_production: cbase.DVector,
+        adj_factors: cbase.DVector,
+        geo_constraint: cbase.ZoningSystem | None = None,
+    ) -> cbase.DVector:
         """
         Apply adjustment factors to MTS return-home attractions, optionally constrained by geography.
 
         Parameters
         ----------
-        mts_production : cb.DVector
+        mts_production : cbase.DVector
             MTS production vector.
-        adj_factors : cb.DVector
+        adj_factors : cbase.DVector
             Adjustment factors.
-        geo_constraint : cb.ZoningSystem, optional
+        geo_constraint : cbase.ZoningSystem, optional
             Zoning system to constrain adjustment.
 
         Returns
         -------
-        cb.DVector
+        cbase.DVector
             Adjusted MTS production vector.
         """
         if adj_factors is None:
@@ -550,8 +550,8 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
         return mts_production_adj
 
     def _create_attr_dict(
-        self, landuses: dict[str, cb.DVector], trip_rates: dict[int, cb.DVector]
-    ) -> dict[int, cb.DVector]:
+        self, landuses: dict[str, cbase.DVector], trip_rates: dict[int, cbase.DVector]
+    ) -> dict[int, cbase.DVector]:
         """
         Create the dictionary of pure attractions by purpose.
 
@@ -560,19 +560,19 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
 
         Parameters
         ----------
-        landuses : dict[str, cb.DVector | dict]
+        landuses : dict[str, cbase.DVector | dict]
             Land use DVectors for employment and households.
-        trip_rates : dict[int, cb.DVector]
+        trip_rates : dict[int, cbase.DVector]
             Trip rate DVectors by purpose.
 
         Returns
         -------
-        dict[int, cb.DVector]
+        dict[int, cbase.DVector]
             Attractions by purpose.
         """
         LOG.info("Creating pure attractions.")
         # Create an empty dict to store attraction by purpose
-        attr_dict: dict[int, cb.DVector] = {}
+        attr_dict: dict[int, cbase.DVector] = {}
         # For each purpose...
         for p, trip_rate in trip_rates.items():
             # Access the landuse dvec (employment or household) with respect to travel purpose
@@ -586,10 +586,10 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
                 attr = landuse * trip_rate
             # Add the purpose segmentation to the DVector segmentation
             attr = attr.add_segments(
-                [cb.segmentation.SegmentsSuper("p").get_segment(subset=[p])]
+                [cbase.segmentation.SegmentsSuper("p").get_segment(subset=[p])]
             )
             # Aggregate the attraction DVector to p and soc if soc is in the trip rate segmentation, p segmentation otherwise
-            if isinstance(trip_rate, cb.DVector):
+            if isinstance(trip_rate, cbase.DVector):
                 if "soc" in trip_rate.segmentation.names:
                     attr = attr.aggregate(["total", "p", "soc"])
                 else:
@@ -600,24 +600,24 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
 
         return attr_dict
 
-    def _adjust_attraction_dict(self, attr_dict, adj_factors: cb.DVector | None):
+    def _adjust_attraction_dict(self, attr_dict, adj_factors: cbase.DVector | None):
         """
         Apply trip-rate adjustment factors to the attraction dictionary.
 
         Parameters
         ----------
-        attr_dict : dict[int, cb.DVector]
+        attr_dict : dict[int, cbase.DVector]
             Dictionary of attractions by purpose.
-        adj_factors : cb.DVector
+        adj_factors : cbase.DVector
             Adjustment factors.
 
         Returns
         -------
-        dict[int, cb.DVector]
+        dict[int, cbase.DVector]
             Adjusted attractions by purpose.
         """
         LOG.info("Adjusting pure attractions.")
-        attr_dict_adj: dict[int, cb.DVector] = {}
+        attr_dict_adj: dict[int, cbase.DVector] = {}
         if adj_factors is not None:
             for p in attr_dict.keys():
                 attr_dict_adj[p] = attr_dict[p] * adj_factors.filter_segment_value(
@@ -629,14 +629,14 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
         return attr_dict_adj
 
     def _export_pure_attractions(
-        self, attr_dict: dict[int, cb.DVector], year: int, adj: bool = False
+        self, attr_dict: dict[int, cbase.DVector], year: int, adj: bool = False
     ) -> None:
         """
         Concatenate the DVectors stored in the Pure Attractions dictionary and save.
 
         Parameters
         ----------
-        attr_dict : dict[int, cb.DVector]
+        attr_dict : dict[int, cbase.DVector]
             Attractions by purpose.
         year : int
             Year key.
@@ -650,9 +650,9 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
         # Concatenate the (optionally balanced) Pure Attraction by purpose
         if self.model.export_paths is None:
             raise ValueError("This shouldn't be possible.")
-        output_pure: cb.DVector | None = None
+        output_pure: cbase.DVector | None = None
         for p in attr_dict.keys():
-            if isinstance(output_pure, cb.DVector):
+            if isinstance(output_pure, cbase.DVector):
                 output_pure = output_pure.concat(attr_dict[p].aggregate(["p"]))
             else:
                 output_pure = attr_dict[p].aggregate(
@@ -662,35 +662,35 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
         out_path = self.model.export_paths.pure_demand[year]
         if adj:
             out_path = self.model.export_paths.pure_demand_adj[year]
-        assert isinstance(output_pure, cb.DVector)
+        assert isinstance(output_pure, cbase.DVector)
         LOG.info(f"Saving pure attractions to {out_path}")
         output_pure.save(out_path)
 
     def _create_mts_dict(
         self,
-        attr_dict: dict[int, cb.DVector],
-        mts: cb.DVector,
-        mts_uni: cb.DVector | None = None,
-    ) -> dict[int, cb.DVector]:
+        attr_dict: dict[int, cbase.DVector],
+        mts: cbase.DVector,
+        mts_uni: cbase.DVector | None = None,
+    ) -> dict[int, cbase.DVector]:
         """
         Multiply the attraction DVector with the MTS DVector.
 
         Parameters
         ----------
-        attr_dict : dict[int, cb.DVector]
+        attr_dict : dict[int, cbase.DVector]
             Attractions by purpose.
-        mts : cb.DVector
+        mts : cbase.DVector
             Mode-time split vector.
-        mts_uni : cb.DVector or None, optional
+        mts_uni : cbase.DVector or None, optional
             University-specific MTS vector.
 
         Returns
         -------
-        dict[int, cb.DVector]
+        dict[int, cbase.DVector]
             MTS-attributed attractions by purpose.
         """
         LOG.info("Applying mode time splits to pure attractions.")
-        mts_dict: dict[int, cb.DVector] = {}
+        mts_dict: dict[int, cbase.DVector] = {}
         for p, trips in attr_dict.items():
             if mts_uni is None:
                 mts_dict[p] = trips * mts
@@ -706,16 +706,16 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
         return mts_dict
 
     def _check_mts_dict(
-        self, attr_dict: dict[int, cb.DVector], mts_dict: dict[int, cb.DVector]
+        self, attr_dict: dict[int, cbase.DVector], mts_dict: dict[int, cbase.DVector]
     ) -> None:
         """
         Check that sum of all purpose-specific DVectors match after applying MTS.
 
         Parameters
         ----------
-        attr_dict : dict[int, cb.DVector]
+        attr_dict : dict[int, cbase.DVector]
             Attractions by purpose.
-        mts_dict : dict[int, cb.DVector]
+        mts_dict : dict[int, cbase.DVector]
             MTS-attributed attractions by purpose.
 
         Returns
@@ -731,34 +731,34 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
 
     def _adjust_mts_dict(
         self,
-        mts_dict: dict[int, cb.DVector],
-        adj_factors: cb.DVector | None,
-        geo_constraint: cb.ZoningSystem | None = None,
-    ) -> dict[int, cb.DVector]:
+        mts_dict: dict[int, cbase.DVector],
+        adj_factors: cbase.DVector | None,
+        geo_constraint: cbase.ZoningSystem | None = None,
+    ) -> dict[int, cbase.DVector]:
         """
         Apply adjustment factors to MTS-attributed attractions, optionally constrained by geography.
 
         Parameters
         ----------
-        mts_dict : dict[int, cb.DVector]
+        mts_dict : dict[int, cbase.DVector]
             MTS-attributed attractions by purpose.
-        adj_factors : cb.DVector
+        adj_factors : cbase.DVector
             Adjustment factors.
-        geo_constraint : cb.ZoningSystem or None, optional
+        geo_constraint : cbase.ZoningSystem or None, optional
             Zoning system to constrain adjustment.
 
         Returns
         -------
-        dict[int, cb.DVector]
+        dict[int, cbase.DVector]
             Adjusted MTS-attributed attractions by purpose.
         """
-        mts_dict_adj: dict[int, cb.DVector] = {}
+        mts_dict_adj: dict[int, cbase.DVector] = {}
         if adj_factors is not None:
             LOG.info("Adjusting mts attractions.")
             for p, mts in mts_dict.items():
                 if "total" not in mts.segmentation.names:
                     mts = mts.add_segments(
-                        [cb.segmentation.SegmentsSuper("total").get_segment()]
+                        [cbase.segmentation.SegmentsSuper("total").get_segment()]
                     )
                 adj_factors.fill(0, 1)
                 adj_factors.fillna(1)
@@ -777,14 +777,14 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
         return mts_dict_adj
 
     def _export_mts_attractions(
-        self, attr_dict: dict[int, cb.DVector], year: int, adj: bool = False
+        self, attr_dict: dict[int, cbase.DVector], year: int, adj: bool = False
     ) -> None:
         """
         Concatenate the DVectors stored in the MTS attractions dictionary and save.
 
         Parameters
         ----------
-        attr_dict : dict[int, cb.DVector]
+        attr_dict : dict[int, cbase.DVector]
             MTS-attributed attractions by purpose.
         year : int
             Year key.
@@ -797,7 +797,7 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
         """
         if self.model.export_paths is None:
             raise ValueError("This shouldn't be possible.")
-        output_mts: cb.DVector | None = None
+        output_mts: cbase.DVector | None = None
         for p in attr_dict.keys():
             if output_mts is not None:
                 output_mts = output_mts.concat(attr_dict[p].aggregate(["p", "m", "tp"]))
@@ -814,8 +814,8 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
         output_mts.save(out_path)
 
     def _create_seg_dict(
-        self, mts_dict: dict[int, cb.DVector], tem_production: cb.DVector
-    ) -> dict[int, cb.DVector]:
+        self, mts_dict: dict[int, cbase.DVector], tem_production: cbase.DVector
+    ) -> dict[int, cbase.DVector]:
         """
         Apply the split_by_other method to each DVector in mts_dict.
 
@@ -823,40 +823,40 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
 
         Parameters
         ----------
-        mts_dict : dict[int, cb.DVector]
+        mts_dict : dict[int, cbase.DVector]
             MTS-attributed attractions by purpose.
-        tem_production : cb.DVector
+        tem_production : cbase.DVector
             TEM segmented production vector.
 
         Returns
         -------
-        dict[int, cb.DVector]
+        dict[int, cbase.DVector]
             Segmented attractions by purpose.
         """
         LOG.info("Matching segmentation to tem_segmented_productions.")
-        seg_dict: dict[int, cb.DVector] = {}
+        seg_dict: dict[int, cbase.DVector] = {}
         for p, mts in mts_dict.items():
             agg_seg = list(self.tem_segmentation.overlap(mts.segmentation))
             agg_seg.remove("p")
             mts = mts.aggregate(agg_seg)
             seg_dict[p] = mts.split_by_other(
                 tem_production.filter_segment_value("p", [p]),
-                agg_zone=cb.ZoningSystem.get_zoning("gor"),
+                agg_zone=cbase.ZoningSystem.get_zoning("gor"),
             )
 
         return seg_dict
 
     def _check_seg_dict(
-        self, mts_dict: dict[int, cb.DVector], seg_dict: dict[int, cb.DVector]
+        self, mts_dict: dict[int, cbase.DVector], seg_dict: dict[int, cbase.DVector]
     ) -> None:
         """
         Check that the sum of all purpose-specific DVectors match after applying TEM Production Segmentation.
 
         Parameters
         ----------
-        mts_dict : dict[int, cb.DVector]
+        mts_dict : dict[int, cbase.DVector]
             MTS-attributed attractions by purpose.
-        seg_dict : dict[int, cb.DVector]
+        seg_dict : dict[int, cbase.DVector]
             Segmented attractions by purpose.
 
         Returns
@@ -870,23 +870,23 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
                     f"Expected: {mts_dict[p].sum()}\nGot: {seg_dict[p].sum()}\n"
                 )
 
-    def _create_tem_dvec(self, seg_dict: dict[int, cb.DVector]) -> cb.DVector:
+    def _create_tem_dvec(self, seg_dict: dict[int, cbase.DVector]) -> cbase.DVector:
         """
         Concatenate attraction trip-ends at TEM segmentation into a single DVector.
 
         Parameters
         ----------
-        seg_dict : dict[int, cb.DVector]
+        seg_dict : dict[int, cbase.DVector]
             Segmented attractions by purpose.
 
         Returns
         -------
-        cb.DVector
+        cbase.DVector
             Concatenated TEM-segmented attraction vector.
         """
-        tem_dvec: cb.DVector | None = None
+        tem_dvec: cbase.DVector | None = None
         for p in seg_dict.keys():
-            if isinstance(tem_dvec, cb.DVector):
+            if isinstance(tem_dvec, cbase.DVector):
                 tem_dvec = tem_dvec.concat(seg_dict[p])
             else:
                 tem_dvec = seg_dict[p]
@@ -894,21 +894,21 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
         return tem_dvec
 
     def _balance_to_production(
-        self, tem_dvec: cb.DVector, tem_production: cb.DVector
-    ) -> cb.DVector:
+        self, tem_dvec: cbase.DVector, tem_production: cbase.DVector
+    ) -> cbase.DVector:
         """
         Balance attraction to production based on arguments.
 
         Parameters
         ----------
-        tem_dvec : cb.DVector
+        tem_dvec : cbase.DVector
             TEM-segmented attraction vector.
-        tem_production : cb.DVector
+        tem_production : cbase.DVector
             TEM-segmented production vector.
 
         Returns
         -------
-        cb.DVector
+        cbase.DVector
             Balanced attraction vector.
         """
         # If balancing_zones is True
@@ -917,7 +917,7 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
             gb_factors = tem_production.remove_zoning() / tem_dvec.remove_zoning()
             balanced_dvec = tem_dvec * gb_factors
         # If zoning is specified for balancing
-        elif isinstance(self.balance_production, (cb.BalancingZones, cb.ZoningSystem)):
+        elif isinstance(self.balance_production, (cbase.BalancingZones, cbase.ZoningSystem)):
             balanced_dvec = tem_dvec.balance_by_segments(
                 tem_production, self.balance_production
             )
@@ -928,21 +928,21 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
         return balanced_dvec
 
     def _balance_to_production_pm(
-        self, tem_dvec: cb.DVector, tem_production: cb.DVector
-    ) -> cb.DVector:
+        self, tem_dvec: cbase.DVector, tem_production: cbase.DVector
+    ) -> cbase.DVector:
         """
         Balance attraction to production based on arguments.
 
         Parameters
         ----------
-        tem_dvec : cb.DVector
+        tem_dvec : cbase.DVector
             TEM-segmented attraction vector.
-        tem_production : cb.DVector
+        tem_production : cbase.DVector
             TEM-segmented production vector.
 
         Returns
         -------
-        cb.DVector
+        cbase.DVector
             Balanced attraction vector.
         """
         # If balancing_zones is True
@@ -953,7 +953,7 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
             ) / tem_dvec.remove_zoning().aggregate(["m", "tp", "p"])
             balanced_dvec = tem_dvec * gb_factors
         # If zoning is specified for balancing
-        elif isinstance(self.balance_production, (cb.BalancingZones, cb.ZoningSystem)):
+        elif isinstance(self.balance_production, (cbase.BalancingZones, cbase.ZoningSystem)):
             balanced_dvec = tem_dvec.balance_by_segments(
                 tem_production, self.balance_production
             )

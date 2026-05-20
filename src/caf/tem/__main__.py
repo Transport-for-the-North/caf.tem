@@ -17,7 +17,7 @@ from pathlib import Path
 import caf.toolkit as ctk
 
 # Local Imports
-import caf.tem as ct
+import caf.tem as ctem
 from caf.tem.inputs import MainConfig
 
 LOG = logging.getLogger(__name__)
@@ -25,9 +25,9 @@ LOG = logging.getLogger(__name__)
 
 def _run_from_params(params: MainConfig) -> None:
     """Run TEM given a validated MainConfig instance."""
-    details = ctk.ToolDetails(__package__, ct.__version__)
+    details = ctk.ToolDetails(__package__, ctem.__version__)
     with ctk.LogHelper(__package__, details, log_file=params.export_home / "tem.log"):
-        ct.run(params)
+        ctem.run(params)
 
 
 def main() -> None:
