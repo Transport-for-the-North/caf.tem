@@ -8,6 +8,7 @@ the previous implementation.
 """
 
 # Built-Ins
+import argparse
 import logging
 from pathlib import Path
 
@@ -114,6 +115,23 @@ def main(arg: MainConfig | str | Path | None = None) -> None:
         params = MainConfig.load_yaml(Path(arg))
         _run_from_params(params)
         return
+    
+    # Called as console script: parse CLI
+    parser = argparse.ArgumentParser(description="Run CAF TEM from a config file")
+    parser.add_argument(
+        "config",
+        metavar="CONFIG",
+        type=Path,
+        help="Path to the YAML configuration file",
+    )
+    parsed = parser.parse_args(sys.argv[1:])
+    try:
+        params = MainConfig.load_yaml(parsed.config)
+    except Exception as exc:  # pragma: no cover - surface configuration errors
+        LOG.exception("Failed to load configuration: %s", exc)
+        parser.error(str(exc))
+
+    _run_from_params(params)
 
 
 if __name__ == "__main__":
