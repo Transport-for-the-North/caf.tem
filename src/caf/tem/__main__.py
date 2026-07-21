@@ -11,6 +11,7 @@ the previous implementation.
 import argparse
 import logging
 from pathlib import Path
+import sys
 
 # Third Party
 import caf.toolkit as ctk
@@ -115,7 +116,7 @@ def main(arg: MainConfig | str | Path | None = None) -> None:
         params = MainConfig.load_yaml(Path(arg))
         _run_from_params(params)
         return
-    
+
     # Called as console script: parse CLI
     parser = argparse.ArgumentParser(description="Run CAF TEM from a config file")
     parser.add_argument(
