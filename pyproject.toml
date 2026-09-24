@@ -3,61 +3,52 @@ requires = ["setuptools>=64.0.0", "versioningit"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "caf.{package_name}"
-dynamic = ["version"]
-description = "Package Description"
+name = "caf.tem"
+dynamic = ["version", "dependencies", "optional-dependencies"]
+description = "Common Analytical Framework trip end model for transport planning and analysis."
 readme = "README.md"
-license = {"file"= "LICENSE"}
-requires-python = ">=3.9"
-authors = [
-    { name = "Transport for the North" },
-]
+license = { "file" = "LICENSE" }
+requires-python = ">=3.11"
+authors = [{ name = "Transport for the North" }]
 classifiers = [
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
-]
-dependencies = [
-    "numpy>=1.19.0",
-    "pandas>=1.4.0, <2.0.0" ,
-]
-
-[project.optional-dependencies]
-lint = [
-    "black>=22.6.0",
-    "mypy>=1.0.0, <2.0.0",
-    "mypy_extensions>=1.0.0, <2.0.0",
-    "pydocstyle[toml]>=6.1.1",
-    "pylint>=2.14.5",
-]
-
-test = [
-    "pytest>=7.4.0, <8.0.0",
-    "pytest-cov>=4.1.0, < 5.0.0",
-    "pytest-xdist>=3.3.1, <4.0.0",
-]
-
-edit_install = [
-    "versioningit>=2.2.0, < 3.0.0"
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
 ]
 
 [project.urls]
-"Bug Tracker" = "https://github.com/Transport-for-the-North/caf.toolkit/issues"
-Homepage = "https://github.com/Transport-for-the-North/caf.toolkit"
-Source = "https://github.com/Transport-for-the-North/caf.toolkit"
+"Bug Tracker" = "https://github.com/Transport-for-the-North/caf.tem/issues"
+Homepage = "https://github.com/Transport-for-the-North/caf.tem"
+Source = "https://github.com/Transport-for-the-North/caf.tem"
+Documentation = "http://caftem.rtfd.io/"
+
+[project.scripts]
+"caf.tem" = "caf.tem.__main__:main"
+
+[tool.setuptools.dynamic]
+dependencies = { "file" = "requirements.txt" }
+
+[tool.setuptools.dynamic.optional-dependencies]
+dev = { "file" = "requirements_dev.txt" }
+#docs = { "file" = "docs/requirements.txt" }
+
+# Dynamic versioning for editable installs
+[tool.setuptools.cmdclass]
+build_py = "versioningit.cmdclass.build_py"
+sdist = "versioningit.cmdclass.sdist"
 
 # Packaging options
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-"caf.{package_name}" = ["py.typed"]
+"caf.tem" = ["py.typed"]
 
 # Linters
 [tool.black]
 line-length = 95
-target-version = ['py39']
+target-version = ['py311']
 
 [tool.pylint.messages_control]
 disable = [
@@ -65,14 +56,29 @@ disable = [
     "too-many-lines",
     "use-dict-literal",
     "use-list-literal",
+    "wrong-import-order",  # Handled by isort
+    "logging-fstring-interpolation",
 ]
+
+[tool.isort]
+profile = "black"
+src_paths = ["src", "tests"]
+
+skip = ["__init__.py", "_version.py"]
+skip_glob = [".*"]
+
+# Section commenting
+import_heading_stdlib = "Built-Ins"
+import_heading_thirdparty = "Third Party"
+import_heading_firstparty = "Local Imports"
 
 # Pylint settings
 [tool.pylint.basic]
-good-names = ["df", "fn", "ca", "tp", "x", "i",]
+good-names = ["df", "fn", "ca", "tp", "to", "x", "x1", "x2", "i", "f", "q"]
+extension-pkg-allow-list = ["pydantic"]
 
 [tool.pylint.main]
-ignore = ["__init__.py", "_version.py"]
+ignore = ["__init__.py", "_version.py", "versioneer.py"]
 
 [tool.pylint.design]
 max-args = 10
@@ -80,8 +86,7 @@ max-attributes = 15
 max-statements = 100
 
 [tool.mypy]
-packages = ["caf.{package_name}"]
-namespace_packages = true
+packages = ["caf.tem"]
 ignore_missing_imports = true
 allow_redefinition = true
 
@@ -89,12 +94,16 @@ allow_redefinition = true
 convention = "numpy"
 match = '(?!_test)(?!test_)(?!__init__).*\.py'
 add-ignore = [
-    "D202",    # Temporary compatibility with black
+    "D202", # Temporary compatibility with black
 ]
 
+# Tests
 [tool.pytest.ini_options]
 pythonpath = ["src"]
-addopts = "--cov=caf --cov-report=xml -n auto"
+addopts = '--cov=caf --cov-report=xml --doctest-modules -n auto --ignore=examples --junitxml=junit.xml -o junit_family=legacy'
+# addopts = '--cov=caf --cov-report=xml --doctest-modules'
+doctest_optionflags = "NORMALIZE_WHITESPACE"
+markers = ["serial: marks tests to not run in parallel"]
 
 [tool.coverage.report]
 include_namespace_packages = true
@@ -106,10 +115,11 @@ match = ["v*"]
 default-tag = "0.0.1"
 
 [tool.versioningit.onbuild]
-source-file = "src/caf/toolkit/_version.py"
-build-file = "caf/toolkit/_version.py"
+source-file = "src/caf/tem/_version.py"
+build-file = "caf/tem/_version.py"
 
 [tool.versioningit.format]
 distance = "{base_version}+{distance}.{vcs}{rev}"
 dirty = "{base_version}+{distance}.{vcs}{rev}.dirty"
+
 distance-dirty = "{base_version}+{distance}.{vcs}{rev}.dirty"
