@@ -167,10 +167,6 @@ class AttractionModel(utils.SharedProdAttrMethods[AttrProto]):  # pylint:disable
                         "The TEM Segmented Productions file is not found. Run the Home Based Production Model to create this file first."
                     )
 
-        # ## CONSTANTS ## #
-        self.model.report_paths
-        self.model.export_paths
-
         # ## READ INPUTS ## #
         # Read in the trip rates DVector files for each purpose. Trip rates are not year dependent.
         trip_rates: dict[int, cbase.DVector] = {
